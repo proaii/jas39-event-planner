@@ -42,7 +42,7 @@ export function SignUpForm() {
           first_name: formData.firstName,
           last_name: formData.lastName,
         },
-        emailRedirectTo: `${location.origin}/api/auth/callback?next=/protected`,
+        emailRedirectTo: `${location.origin}/api/auth/callback?next=/dashboard`,
       },
     });
 
@@ -60,7 +60,7 @@ export function SignUpForm() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${location.origin}/api/auth/callback?next=/protected`,
+        redirectTo: `${location.origin}/api/auth/callback?next=/dashboard`,
       },
     });
     if (error) {

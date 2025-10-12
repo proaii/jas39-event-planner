@@ -18,7 +18,7 @@ export interface Task {
   id: string;
   name: string;
   description?: string;
-  assignees: string[];
+  assignees?: string[];
   dueDate?: string;
   startDate?: string;
   endDate?: string;
@@ -47,4 +47,12 @@ export interface Event {
   members: string[];
   coverImage?: string;
   color?: string;
+}
+
+export interface Activity {
+  id: string;
+  user: string;
+  action: string;
+  item: string;
+  time: string;
 }

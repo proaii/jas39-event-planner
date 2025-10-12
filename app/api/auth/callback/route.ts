@@ -12,7 +12,9 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
+      return NextResponse.redirect(`${origin}/auth/callback?next=${next}`, {
+      status: 307, // temporary redirect; Do a full reload and the browser will apply Set-Cookie before loading the new page. Resolve the timing issue where cookies are not synced.
+    });
     }
   }
 

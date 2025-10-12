@@ -9,51 +9,36 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { createClient } from "@/lib/supabase/client";
 import { Provider } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
+import { useSignIn, useSocialLogin } from "@/app/features/auth/hooks";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [supabase] = useState(() => createClient());
   const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  const { mutate: signIn, isPending } = useSignIn(); 
+  const { mutate: socialLogin, isPending: isSocialPending } = useSocialLogin();
 
-    if (error) {
-      setError(error.message);
-    } else {
-      router.push("/protected");
-    }
-    setLoading(false);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    signIn(
+      { email, password },
+      {
+        onSuccess: () => router.push("/protected"),
+        onError: (err) => setError(err.message),
+      }
+    );
   };
 
-  const handleSocialLogin = async (provider: Provider) => {
-    setLoading(true);
+  const handleSocialLogin = (provider: Provider) => {
     setError(null);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${location.origin}/api/auth/callback?next=/protected`,
-      },
+    socialLogin(provider, {
+      onError: (err) => setError(err.message),
     });
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-    } else {
-      router.push("/protected");
-    }
   };
 
   return (
@@ -76,7 +61,7 @@ export function LoginForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="bg-input-background"
                 required
-                disabled={loading}
+                disabled={isPending}
               />
             </div>
 
@@ -90,7 +75,7 @@ export function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="bg-input-background"
                 required
-                disabled={loading}
+                disabled={isPending}
               />
             </div>
 
@@ -102,9 +87,9 @@ export function LoginForm() {
               type="submit"
               className="w-full bg-primary hover:bg-primary/90"
               size="lg"
-              disabled={loading}
+              disabled={isPending}
             >
-              {loading ? "Signing In..." : "Sign In"}
+              {isPending ? "Signing In..." : "Sign In"}
             </Button>
           </form>
 
@@ -128,7 +113,7 @@ export function LoginForm() {
               className="w-full"
               size="lg"
               onClick={() => handleSocialLogin("google")}
-              disabled={loading}
+              disabled={isPending}
             >
               <svg
                 className="w-5 h-5 mr-2"
@@ -161,7 +146,7 @@ export function LoginForm() {
               className="w-full"
               size="lg"
               onClick={() => handleSocialLogin("discord")}
-              disabled={loading}
+              disabled={isPending}
             >
               <svg
                 className="w-5 h-5 mr-2"
@@ -183,7 +168,7 @@ export function LoginForm() {
               <button
                 onClick={() => router.push("/auth/sign-up")}
                 className="text-primary hover:text-primary/80 font-medium"
-                disabled={loading}
+                disabled={isPending}
               >
                 Sign Up
               </button>

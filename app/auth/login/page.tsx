@@ -12,7 +12,7 @@ export default async function Page() {
 
 
   if (user) {
-    redirect("/protected");
+    redirect("/dashboard");
   }
 
   return (

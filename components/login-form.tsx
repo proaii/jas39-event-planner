@@ -59,7 +59,7 @@ export function LoginForm() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${location.origin}/api/auth/callback?next=/protected`,
+        redirectTo: `${location.origin}/api/auth/callback?next=/dashboard`,
       },
     });
     if (error) {

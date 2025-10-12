@@ -30,6 +30,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.className} antialiased`}>
+        <TopNavigation />
         <AppProviders initialSession={session}>{children}</AppProviders>
       </body>
     </html>

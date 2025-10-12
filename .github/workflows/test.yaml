@@ -43,10 +43,6 @@ jobs:
       security-events: write
       actions: read
 
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v3
@@ -62,3 +58,6 @@ jobs:
 
       - name: Run Frontend Build
         run: pnpm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}

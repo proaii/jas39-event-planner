@@ -1,0 +1,433 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@variant dark (&:is(.dark, .dark *));
+
+:root {
+  --font-size: 16px;
+  --background: #ffffff;
+  --foreground: #4A4A4A;
+  --card: #ffffff;
+  --card-foreground: #4A4A4A;
+  --popover: #ffffff;
+  --popover-foreground: #4A4A4A;
+  --primary: #4A90E2;
+  --primary-foreground: #ffffff;
+  --secondary: #50E3C2;
+  --secondary-foreground: #ffffff;
+  --muted: #F4F4F4;
+  --muted-foreground: #9B9B9B;
+  --accent: #50E3C2;
+  --accent-foreground: #ffffff;
+  --destructive: #D0021B;
+  --destructive-foreground: #ffffff;
+  --warning: #F5A623;
+  --warning-foreground: #ffffff;
+  --border: #E5E5E5;
+  --input: transparent;
+  --input-background: #F4F4F4;
+  --switch-background: #cbced4;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: #030213;
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: #1a1a1a;
+  --foreground: #f1f1f1;
+  --card: #252525;
+  --card-foreground: #f1f1f1;
+  --popover: #2a2a2a;
+  --popover-foreground: #f1f1f1;
+  --primary: #5BA3F5;
+  --primary-foreground: #ffffff;
+  --secondary: #5AEDC8;
+  --secondary-foreground: #000000;
+  --muted: #2f2f2f;
+  --muted-foreground: #b0b0b0;
+  --accent: #2f2f2f;
+  --accent-foreground: #f1f1f1;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #000000;
+  --border: #404040;
+  --input: #2f2f2f;
+  --input-background: #2f2f2f;
+  --switch-background: #525252;
+  --ring: #5BA3F5;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: #5BA3F5;
+  --chart-2: #5AEDC8;
+  --chart-3: #f59e0b;
+  --chart-4: #ef4444;
+  --chart-5: #a78bfa;
+  --sidebar: #1f1f1f;
+  --sidebar-foreground: #f1f1f1;
+  --sidebar-primary: #5BA3F5;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #2a2a2a;
+  --sidebar-accent-foreground: #f1f1f1;
+  --sidebar-border: #404040;
+  --sidebar-ring: #5BA3F5;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: #367AFF;
+  --color-secondary-hover: rgba(74, 144, 226, 0.1);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  }
+
+  /* Dark mode specific improvements */
+  .dark {
+    color-scheme: dark;
+  }
+
+  .dark img {
+    opacity: 0.9;
+  }
+
+  .dark .shadow-sm {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  }
+
+  .dark .shadow-md {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  }
+
+  .dark .shadow-lg {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Enhanced card styling in dark mode */
+  .dark .bg-white {
+    background-color: var(--card) !important;
+    color: var(--card-foreground) !important;
+  }
+
+  /* Better contrast for text in dark mode */
+  .dark .text-muted-foreground {
+    color: #a1a1aa;
+  }
+
+  .dark .text-gray-500 {
+    color: #71717a;
+  }
+
+  .dark .text-gray-600 {
+    color: #52525b;
+  }
+
+  /* Improved hover states in dark mode */
+  .dark .hover\:bg-muted\/50:hover {
+    background-color: rgba(26, 26, 26, 0.5);
+  }
+
+  .dark .hover\:bg-muted:hover {
+    background-color: #1a1a1a;
+  }
+
+  /* Better border colors */
+  .dark .border-border {
+    border-color: #262626;
+  }
+
+  /* Enhanced button styling */
+  .dark .bg-primary {
+    background-color: #4A90E2;
+  }
+
+  .dark .bg-primary:hover {
+    background-color: #367AFF;
+  }
+
+  .dark .bg-secondary {
+    background-color: #50E3C2;
+  }
+
+  /* Better modal and dialog backgrounds */
+  .dark .bg-background {
+    background-color: #0a0a0a;
+  }
+
+  /* Enhanced input styling */
+  .dark input[type="text"],
+  .dark input[type="email"],
+  .dark input[type="password"],
+  .dark textarea {
+    background-color: #2f2f2f;
+    border-color: #404040;
+    color: #f1f1f1;
+  }
+
+  .dark input[type="text"]:focus,
+  .dark input[type="email"]:focus,
+  .dark input[type="password"]:focus,
+  .dark textarea:focus {
+    border-color: #5BA3F5;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(91, 163, 245, 0.25);
+  }
+
+  /* Better dropdown and select styling */
+  .dark [role="combobox"],
+  .dark [role="listbox"] {
+    background-color: #252525;
+    border-color: #404040;
+  }
+
+  /* Improved hover states in dark mode */
+  .dark .hover\:bg-muted\/50:hover {
+    background-color: rgba(47, 47, 47, 0.5);
+  }
+
+  .dark .hover\:bg-muted:hover {
+    background-color: #2f2f2f;
+  }
+
+  /* Better border colors */
+  .dark .border-border {
+    border-color: #404040;
+  }
+
+  /* Better modal and dialog backgrounds */
+  .dark .bg-background {
+    background-color: #1a1a1a;
+  }
+
+  /* Enhanced card styling in dark mode */
+  .dark .bg-white {
+    background-color: #252525 !important;
+    color: #f1f1f1 !important;
+  }
+
+  /* Better contrast for text in dark mode */
+  .dark .text-muted-foreground {
+    color: #b0b0b0;
+  }
+
+  .dark .text-gray-500 {
+    color: #9ca3af;
+  }
+
+  .dark .text-gray-600 {
+    color: #6b7280;
+  }
+
+  /* Scrollbar styling for dark mode */
+  .dark ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .dark ::-webkit-scrollbar-track {
+    background: #2f2f2f;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: #525252;
+    border-radius: 4px;
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: #666666;
+  }
+
+  /* Enhanced shadow styling for better depth */
+  .dark .shadow-sm {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  }
+
+  .dark .shadow-md {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
+  }
+
+  .dark .shadow-lg {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Better button styling */
+  .dark .bg-primary {
+    background-color: #5BA3F5;
+  }
+
+  .dark .bg-primary:hover {
+    background-color: #4A90E2;
+  }
+
+  .dark .bg-secondary {
+    background-color: #5AEDC8;
+  }
+
+  /* Enhanced notification and badge styling */
+  .dark .bg-blue-100 {
+    background-color: rgba(91, 163, 245, 0.2);
+  }
+
+  .dark .text-blue-800 {
+    color: #93c5fd;
+  }
+
+  .dark .bg-green-100 {
+    background-color: rgba(90, 237, 200, 0.2);
+  }
+
+  .dark .text-green-800 {
+    color: #86efac;
+  }
+
+  .dark .bg-red-100 {
+    background-color: rgba(239, 68, 68, 0.2);
+  }
+
+  .dark .text-red-800 {
+    color: #fca5a5;
+  }
+
+  .dark .bg-yellow-100 {
+    background-color: rgba(245, 158, 11, 0.2);
+  }
+
+  .dark .text-yellow-800 {
+    color: #fcd34d;
+  }
+
+  .dark .bg-gray-100 {
+    background-color: rgba(156, 163, 175, 0.2);
+  }
+
+  .dark .text-gray-800 {
+    color: #d1d5db;
+  }
+
+  /* Kanban board colors for dark mode */
+  .dark .bg-blue-50 {
+    background-color: rgba(59, 130, 246, 0.15);
+  }
+
+  .dark .bg-green-50 {
+    background-color: rgba(34, 197, 94, 0.15);
+  }
+}
+
+/**
+ * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
+ */
+@layer base {
+  :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) {
+    h1 {
+      font-size: 1.875rem;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    h2 {
+      font-size: var(--text-xl);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h3 {
+      font-size: var(--text-lg);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h4 {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    p {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+
+    label {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    button {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    input {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+  }
+}
+
+html {
+  font-size: var(--font-size);
+}

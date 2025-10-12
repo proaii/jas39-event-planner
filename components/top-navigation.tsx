@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-// import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Calendar, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
@@ -57,11 +57,11 @@ export function TopNavigation() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center space-x-3">
-                  {/* <Avatar className="w-8 h-8">
+                  <Avatar className="w-8 h-8">
                     <AvatarFallback className="bg-primary text-primary-foreground">
                       {user.email ? getInitials(user.email) : "U"}
                     </AvatarFallback>
-                  </Avatar> */}
+                  </Avatar>
                   <span className="text-sm font-medium">
                     {user.email}
                   </span>

@@ -21,11 +21,25 @@ export function LoginForm() {
   const [supabase] = useState(() => createClient());
   const router = useRouter();
 
+  React.useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event) => {
+        if (event === "SIGNED_IN") {
+          router.refresh();
+        }
+      },
+    );
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [supabase, router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -33,10 +47,10 @@ export function LoginForm() {
 
     if (error) {
       setError(error.message);
+      setLoading(false);
     } else {
-      router.push("/protected");
+      router.refresh();
     }
-    setLoading(false);
   };
 
   const handleSocialLogin = async (provider: Provider) => {
@@ -51,8 +65,6 @@ export function LoginForm() {
     if (error) {
       setError(error.message);
       setLoading(false);
-    } else {
-      router.push("/protected");
     }
   };
 

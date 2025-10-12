@@ -1,5 +1,3 @@
-import { redirect } from "next/navigation";
-
 import { createClient } from "@/lib/supabase/server";
 import { InfoIcon } from "lucide-react";
 import { FetchDataSteps } from "@/components/tutorial/fetch-data-steps";
@@ -9,7 +7,14 @@ export default async function ProtectedPage() {
 
   const { data, error } = await supabase.auth.getClaims();
   if (error || !data?.claims) {
-    redirect("/auth/login");
+    return (
+      <div className="flex-1 w-full flex flex-col gap-4 items-center justify-center">
+        <h1 className="text-2xl font-bold">401 - Unauthorized</h1>
+        <p className="text-sm text-muted-foreground">
+          You need to be logged in to view this page.
+        </p>
+      </div>
+    );
   }
 
   return (

@@ -21,7 +21,7 @@ export async function signInWithOAuth(provider: Provider) {
   const { error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo: `${location.origin}/api/auth/callback?next=/protected`,
+      redirectTo: `${location.origin}/api/auth/callback?next=/dashboard`,
     },
   });
   if (error) throw new Error(error.message);
@@ -49,7 +49,7 @@ export async function signUpWithEmail({
         first_name: firstName,
         last_name: lastName,
       },
-      emailRedirectTo: `${location.origin}/protected`,
+      emailRedirectTo: `${location.origin}/api/auth/callback?next=/dashboard`,
     },
   });
 
@@ -60,6 +60,13 @@ export async function signUpWithEmail({
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw new Error(error.message);
+}
+
+export async function updatePassword(password: string) {
+  const supabase = createClient();
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) throw new Error(error.message);
+  return true;
 }
 
 export async function getSession() {

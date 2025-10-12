@@ -62,3 +62,13 @@ export function useSignOut() {
     },
   });
 }
+
+export function useUpdatePassword() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.updatePassword,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.auth.user });
+    },
+  });
+}

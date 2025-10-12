@@ -28,7 +28,7 @@ export function LoginForm() {
     signIn(
       { email, password },
       {
-        onSuccess: () => router.push("/protected"),
+        onSuccess: () => router.push("/dashboard"),
         onError: (err) => setError(err.message),
       }
     );

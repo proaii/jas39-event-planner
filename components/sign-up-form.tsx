@@ -51,8 +51,7 @@ export function SignUpForm() {
   const handleSocialLogin = (provider: Provider) => {
     setError(null);
     socialLogin(provider, {
-      onError: (err) => setError(err.message),
-      onSuccess: () => router.push("/protected"),
+      onError: (err) => setError(err.message)
     });
   };
 

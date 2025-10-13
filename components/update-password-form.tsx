@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useUpdatePassword } from "@/app/features/auth/hooks";
+import { useUpdatePassword } from "@/lib/client/features/auth/hooks";
 
 export function UpdatePasswordForm({
   className,

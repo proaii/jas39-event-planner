@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/server/supabase/server";
 import { AppProviders } from "@/app/providers/AppProviders";
 import "./globals.css";
 import { TopNavigation } from "@/components/top-navigation";

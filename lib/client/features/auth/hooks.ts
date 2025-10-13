@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
-import * as api from './api';
+import * as api from '../../../server/features/auth/api';
 
 // Queries
 export function useSession() {

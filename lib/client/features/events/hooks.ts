@@ -8,35 +8,66 @@ import type { ApiError } from '@/lib/errors';
 type EventsPage = { items: Event[]; nextPage: number | null };
 
 // ---------- Queries ----------  
+
+/**
+* Fetch all events associated with the user (owner + member)
+* - Cache in memory
+* - No refresh if returned within 5 minutes
+* - No re-refetch when switching tabs
+* - Supports prefetch (can load in advance)
+*/
+
+export function useEventsInfinite(f: { q?: string; pageSize?: number }) {
+  const pageSize = f.pageSize ?? 10;
+
+  return useInfiniteQuery<EventsPage, ApiError, EventsPage, ReturnType<typeof queryKeys.events>, number>({
+    queryKey: queryKeys.events({ ...f, pageSize }),
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }): Promise<EventsPage> => {
+      const params = new URLSearchParams();
+      if (f.q) params.set('q', f.q);
+      params.set('page', String(pageParam ?? 1));
+      params.set('pageSize', String(pageSize));
+
+      const r = await fetch(`/api/events?${params.toString()}`, {
+        cache: 'no-store', 
+      });
+      if (!r.ok) throw (await r.json()) as ApiError;
+      return (await r.json()) as EventsPage;
+    },
+    getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,
+
+    staleTime: 1000 * 60 * 5, // 5 mins
+    gcTime: 1000 * 60 * 10, // 10 mins
+    refetchOnWindowFocus: false, // No need to refetch when changing tabs.
+    refetchOnReconnect: true, // But refetch if the internet is disconnected and comes back.
+    retry: 1, // Reduce the number of retry to avoid spam API.
+  });
+}
+
 export function useEvent(id: string) {
-  return useQuery({
+  return useQuery<Event, ApiError>({
     queryKey: queryKeys.event(id),
     queryFn: async () => {
       const r = await fetch(`/api/events/${id}`);
       if (!r.ok) throw await r.json();
       return (await r.json()) as Event;
     },
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   });
 }
 
-export function useEventsInfinite(f: { ownerId?: string; q?: string; pageSize?: number }) {
-  const pageSize = f.pageSize ?? 10;
-
-  return useInfiniteQuery<EventsPage, ApiError, EventsPage, ReturnType<typeof queryKeys.events>, number>({
-    queryKey: queryKeys.events({ ...f, pageSize }),
-    initialPageParam: 1,
-    queryFn: async ({ pageParam }: { pageParam: number }): Promise<EventsPage> => {
-      const params = new URLSearchParams();
-      if (f.ownerId) params.set('ownerId', f.ownerId);
-      if (f.q) params.set('q', f.q);
-      params.set('page', String(pageParam ?? 1));
-      params.set('pageSize', String(pageSize));
-
-      const r = await fetch(`/api/events?${params.toString()}`);
-      if (!r.ok) throw (await r.json()) as ApiError;
-      return (await r.json()) as EventsPage;
+// Use prefetch to preload events before entering the detail page.
+export async function prefetchEvent(qc: ReturnType<typeof useQueryClient>, id: string) {
+  await qc.prefetchQuery({
+    queryKey: queryKeys.event(id),
+    queryFn: async () => {
+      const r = await fetch(`/api/events/${id}`);
+      if (!r.ok) throw await r.json();
+      return (await r.json()) as Event;
     },
-    getNextPageParam: (last: EventsPage): number | undefined => last.nextPage ?? undefined,
+    staleTime: 1000 * 60 * 5,
   });
 }
 

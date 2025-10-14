@@ -4,6 +4,50 @@ import type { Event } from '@/lib/types';
 
 const TABLE = 'events';
 
+// List all Events for Owner and Members
+export async function listAllEvents(params: {
+  q?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<{ items: Event[]; nextPage: number | null }> {
+  const supabase = await createClient();
+  const page = params.page ?? 1;
+  const pageSize = params.pageSize ?? 10;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  try {
+    const { data: { user }, error: uerr } = await supabase.auth.getUser();
+    if (uerr) throw uerr;
+    if (!user) throw new Error('UNAUTHORIZED');
+
+    let q = supabase
+      .from(TABLE)
+      .select(
+        `
+          *,
+          event_members!left(member_id)
+        `,
+        { count: 'exact' }
+      )
+      .order('created_at', { ascending: false });
+
+    if (params.q) q = q.ilike('title', `%${params.q}%`);
+
+    const { data, error, count } = await q.range(from, to);
+    if (error) throw error;
+
+    const items = (data ?? []).map(map);
+    const total = count ?? 0;
+    const maxPage = Math.max(1, Math.ceil(total / pageSize));
+    return { items, nextPage: page < maxPage ? page + 1 : null };
+  } catch (e) {
+    throw toApiError(e, 'ALL_EVENTS_LIST_FAILED');
+  }
+}
+
+
+// List Events which User own
 export async function listEvents(params: {
   ownerId?: string; q?: string; page?: number; pageSize?: number;
 }): Promise<{ items: Event[]; nextPage: number|null }> {
@@ -133,21 +177,43 @@ export async function deleteEvent(id: string): Promise<void> {
   }
 }
 
-function map(r: Record<string, unknown>): Event {
+type RawEventRow = {
+  id: string;
+  owner_id: string;
+  title: string;
+  date: string;
+  end_date?: string | null;
+  time: string;
+  end_time?: string | null;
+  is_multi_day?: boolean | null;
+  location: string;
+  description?: string | null;
+  progress?: number | null;
+  cover_image?: string | null;
+  color?: string | null;
+  event_members?: { member_id: string }[] | null;
+};
+
+function map(r: RawEventRow): Event {
+  const members: string[] = Array.isArray(r.event_members)
+    ? r.event_members.map((m) => String(m.member_id))
+    : [];
+
   return {
     id: String(r.id),
+    ownerId: String(r.owner_id),
     title: String(r.title),
     date: String(r.date),
-    endDate: r.end_date ? String(r.end_date) : '',
+    endDate: r.end_date ?? '',
     time: String(r.time),
-    endTime: r.end_time ? String(r.end_time) : '',
+    endTime: r.end_time ?? '',
     isMultiDay: Boolean(r.is_multi_day),
     location: String(r.location),
-    description: r.description ? String(r.description) : '', 
+    description: r.description ?? '',
     progress: typeof r.progress === 'number' ? r.progress : 0,
     tasks: [],
-    members: [],
-    coverImage: r.cover_image ? String(r.cover_image) : '',
-    color: r.color ? String(r.color) : '',
+    members,
+    coverImage: r.cover_image ?? '',
+    color: r.color ?? '',
   };
 }

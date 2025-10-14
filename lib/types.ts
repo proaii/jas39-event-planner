@@ -34,6 +34,7 @@ export interface Task {
 
 export interface Event {
   id: string;
+  ownerId: string;
   title: string;
   date: string;
   endDate?: string;

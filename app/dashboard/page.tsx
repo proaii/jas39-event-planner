@@ -44,6 +44,7 @@ const mockEvents: Event[] = [
   {
     id: "1",
     title: "Quarterly Business Review",
+    ownerId: "1",
     date: "2025-11-10",
     time: "10:00",
     location: "Boardroom A",
@@ -56,6 +57,7 @@ const mockEvents: Event[] = [
   {
     id: "2",
     title: "New Feature Launch Party",
+    ownerId: "1",
     date: "2025-11-20",
     time: "18:00",
     location: "Main Hall",

@@ -1,5 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers"; //headers for testing API
 
 /**
  * Especially important if using Fluid compute: Don't put this client in a
@@ -8,11 +8,16 @@ import { cookies } from "next/headers";
  */
 export async function createClient() {
   const cookieStore = await cookies();
+  const headerList = await headers(); //For testing API
+  const authHeader = headerList.get("authorization"); //For testing API
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: {
+        headers: authHeader ? { Authorization: authHeader } : {}, //For testing API
+      },
       cookies: {
         getAll() {
           return cookieStore.getAll();

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import * as api from '../../../server/features/auth/api';
 
-// Queries
+// ---------- Queries ----------
 export function useSession() {
   return useQuery({
     queryKey: queryKeys.auth.session,
@@ -19,7 +19,7 @@ export function useUser() {
   });
 }
 
-// Mutations
+// ---------- Mutations ----------
 export function useSignIn() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Provider } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
-import { useSignIn, useSocialLogin } from "@/app/features/auth/hooks";
+import { useSignIn, useSocialLogin } from "@/lib/client/features/auth/hooks";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");

@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Provider } from '@supabase/supabase-js';
-import { useSignUp, useSocialLogin } from "@/app/features/auth/hooks";
+import { useSignUp, useSocialLogin } from "@/lib/client/features/auth/hooks";
 
 export function SignUpForm() {
   const [formData, setFormData] = useState({

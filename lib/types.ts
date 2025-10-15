@@ -51,11 +51,16 @@ export interface Event {
   color?: string;
 }
 
-export interface EventMembers {
+export interface EventMember {
   id: string;
   eventId: string;
   memberId: string;
   role: string;
+  joinedAt: string; 
+}
+
+export interface MembersRes {
+  items: EventMember[];
 }
 
 export interface Activity {

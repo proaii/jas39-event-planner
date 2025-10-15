@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/server/supabase/server';
 import { toApiError } from '@/lib/errors';
-import type { Event } from '@/lib/types';
+import type { Event, EventMember } from '@/lib/types';
 
 const TABLE = 'events';
 
@@ -21,13 +21,33 @@ export async function listAllEvents(params: {
     if (uerr) throw uerr;
     if (!user) throw new Error('UNAUTHORIZED');
 
+    const { data: mrows, error: merr } = await supabase
+      .from('event_members')
+      .select('event_id')
+      .eq('member_id', user.id);
+    if (merr) throw merr;
+    const memberEventIds = (mrows ?? []).map(r => String(r.event_id));
+
+    const { data: orows, error: oerr } = await supabase
+      .from(TABLE)
+      .select('id')
+      .eq('owner_id', user.id);
+    if (oerr) throw oerr;
+    const ownerEventIds = (orows ?? []).map(r => String(r.id));
+
+    const ids = Array.from(new Set([...memberEventIds, ...ownerEventIds]));
+
+    if (ids.length === 0) {
+      return { items: [], nextPage: null };
+    }
+
     let q = supabase
       .from(TABLE)
       .select(`
         *,
         event_members!left ( member_id )
       `, { count: 'exact' })
-      .or(`owner_id.eq.${user.id},event_members.member_id.eq.${user.id}`)
+      .in('id', ids)
       .order('created_at', { ascending: false });
 
     if (params.q) q = q.ilike('title', `%${params.q}%`);
@@ -141,6 +161,80 @@ export async function deleteEvent(id: string): Promise<void> {
   }
 }
 
+export async function listEventMembers(eventId: string): Promise<EventMember[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('event_members')
+    .select('id, event_id, member_id, role, joined_at') 
+    .eq('event_id', eventId)
+    .order('joined_at', { ascending: true });
+
+  if (error) throw toApiError(error, 'EVENT_MEMBERS_LIST_FAILED');
+
+  return (data ?? []).map(r => ({
+    id: String(r.id),
+    eventId: String(r.event_id),
+    memberId: String(r.member_id),
+    role: String(r.role ?? 'member'),
+    joinedAt: String(r.joined_at ?? ''),
+  }));
+}
+
+export async function addEventMember(eventId: string, memberId: string, role: string = 'member'): Promise<void> {
+  const supabase = await createClient();
+  try {
+    // Allow only the owner of the event
+    const { data: ev, error: e1 } = await supabase
+      .from('events')
+      .select('owner_id')
+      .eq('id', eventId)
+      .single();
+    if (e1) throw e1;
+
+    const { data: { user }, error: uerr } = await supabase.auth.getUser();
+    if (uerr) throw uerr;
+    if (!user) throw new Error('UNAUTHORIZED');
+    if (ev?.owner_id !== user.id) throw new Error('FORBIDDEN');
+
+    const { error } = await supabase
+      .from('event_members')
+      .upsert(
+        { event_id: eventId, member_id: memberId, role },
+        { onConflict: 'event_id,member_id', ignoreDuplicates: true }
+      );
+    if (error) throw error;
+  } catch (e) {
+    throw toApiError(e, 'EVENT_MEMBER_ADD_FAILED');
+  }
+}
+
+export async function removeEventMember(eventId: string, memberId: string): Promise<void> {
+  const supabase = await createClient();
+  try {
+    // Only allow the owner to delete members
+    const { data: ev, error: e1 } = await supabase
+      .from('events')
+      .select('owner_id')
+      .eq('id', eventId)
+      .single();
+    if (e1) throw e1;
+
+    const { data: { user }, error: uerr } = await supabase.auth.getUser();
+    if (uerr) throw uerr;
+    if (!user) throw new Error('UNAUTHORIZED');
+    if (ev?.owner_id !== user.id) throw new Error('FORBIDDEN');
+
+    const { error } = await supabase
+      .from('event_members')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('member_id', memberId);
+    if (error) throw error;
+  } catch (e) {
+    throw toApiError(e, 'EVENT_MEMBER_REMOVE_FAILED');
+  }
+}
+
 type RawEventRow = {
   id: string;
   owner_id: string;
@@ -158,6 +252,7 @@ type RawEventRow = {
   event_members?: { member_id: string }[] | null;
 };
 
+// ---------- Mappers ----------
 function map(r: RawEventRow): Event {
   const members = Array.isArray(r.event_members)
     ? Array.from(new Set(r.event_members.map(m => String(m.member_id))))

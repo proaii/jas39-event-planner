@@ -29,26 +29,29 @@ export function useTasksInfinite(f: {
   return useInfiniteQuery<TasksPage, ApiError, TasksPage, ReturnType<typeof queryKeys.tasks>, number>({
     queryKey: queryKeys.tasks({ eventId: f.eventId, status: f.status, pageSize, q: f.q }),
     initialPageParam: 1,
-    queryFn: async ({ pageParam }) => {
+    queryFn: async ({ pageParam, signal }) => {   
       const params = new URLSearchParams();
       if (f.status) params.set('status', f.status);
       if (f.q) params.set('q', f.q);
       params.set('page', String(pageParam));
       params.set('pageSize', String(pageSize));
-      const r = await fetch(`/api/events/${f.eventId}/tasks?${params.toString()}`, { cache: 'no-store' });
+
+      const r = await fetch(
+        `/api/events/${f.eventId}/tasks?${params.toString()}`,
+        { cache: 'no-store', signal }                  
+      );
       if (!r.ok) throw (await r.json()) as ApiError;
       return (await r.json()) as TasksPage;
     },
     getNextPageParam: (last) => last.nextPage ?? undefined,
-
-    staleTime: 1000 * 60 * 5,   
-    gcTime: 1000 * 60 * 10,     
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
   });
 }
 
-// List all User's Tasks (Personal + Assigned + Events owned by the user) (For the All Tasks page)
+// List all User's Tasks (Personal + Assignee) (For the All Tasks page)
 export function useAllTasksInfinite(f: {
   status?: Task['status'];
   q?: string;
@@ -59,19 +62,18 @@ export function useAllTasksInfinite(f: {
   return useInfiniteQuery<TasksPage, ApiError, TasksPage, ReturnType<typeof queryKeys.tasks>, number>({
     queryKey: queryKeys.tasks({ status: f.status, pageSize, q: f.q }),
     initialPageParam: 1,
-    queryFn: async ({ pageParam }: { pageParam: number }): Promise<TasksPage> => {
+    queryFn: async ({ pageParam, signal }): Promise<TasksPage> => {   
       const params = new URLSearchParams();
       if (f.status) params.set('status', f.status);
       if (f.q) params.set('q', f.q);
       params.set('page', String(pageParam));
       params.set('pageSize', String(pageSize));
 
-      const r = await fetch(`/api/tasks?${params.toString()}`, { cache: 'no-store' });
+      const r = await fetch(`/api/tasks?${params.toString()}`, { cache: 'no-store', signal }); 
       if (!r.ok) throw (await r.json()) as ApiError;
       return (await r.json()) as TasksPage;
     },
-    getNextPageParam: (last: TasksPage): number | undefined => last.nextPage ?? undefined,
-
+    getNextPageParam: (last) => last.nextPage ?? undefined,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
@@ -84,7 +86,11 @@ export function useCreateEventTask(eventId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Omit<Task, 'id'|'eventTitle'>) => {
-      const r = await fetch(`/api/events/${eventId}/tasks`, { method: 'POST', body: JSON.stringify(payload) });
+      const r = await fetch(`/api/events/${eventId}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
       if (!r.ok) throw await r.json();
       return (await r.json()) as Task;
     },

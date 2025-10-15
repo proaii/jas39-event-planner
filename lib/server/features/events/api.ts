@@ -23,13 +23,11 @@ export async function listAllEvents(params: {
 
     let q = supabase
       .from(TABLE)
-      .select(
-        `
-          *,
-          event_members!left(member_id)
-        `,
-        { count: 'exact' }
-      )
+      .select(`
+        *,
+        event_members!left ( member_id )
+      `, { count: 'exact' })
+      .or(`owner_id.eq.${user.id},event_members.member_id.eq.${user.id}`)
       .order('created_at', { ascending: false });
 
     if (params.q) q = q.ilike('title', `%${params.q}%`);
@@ -79,9 +77,16 @@ export async function createEvent(input: Omit<Event, 'id'|'tasks'|'members'>): P
 export async function getEvent(id: string): Promise<Event> {
   const supabase = await createClient();
   try {
-    const { data, error } = await supabase.from(TABLE).select('*').eq('id', id).single();
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select(`
+        *,
+        event_members!left ( member_id )
+      `)
+      .eq('id', id)
+      .single();
     if (error) throw error;
-    return map(data);
+    return map(data as RawEventRow);
   } catch (e) {
     throw toApiError(e, 'EVENT_GET_FAILED');
   }
@@ -154,8 +159,8 @@ type RawEventRow = {
 };
 
 function map(r: RawEventRow): Event {
-  const members: string[] = Array.isArray(r.event_members)
-    ? r.event_members.map((m) => String(m.member_id))
+  const members = Array.isArray(r.event_members)
+    ? Array.from(new Set(r.event_members.map(m => String(m.member_id))))
     : [];
 
   return {
@@ -171,7 +176,7 @@ function map(r: RawEventRow): Event {
     description: r.description ?? '',
     progress: typeof r.progress === 'number' ? r.progress : 0,
     tasks: [],
-    members,
+    members,            
     coverImage: r.cover_image ?? '',
     color: r.color ?? '',
   };

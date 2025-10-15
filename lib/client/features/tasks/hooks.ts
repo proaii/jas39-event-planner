@@ -7,6 +7,17 @@ import type { ApiError } from '@/lib/errors';
 
 type TasksPage = { items: Task[]; nextPage: number | null };
 
+// ---------- Queries ----------  
+
+/**
+* Fetch all tasks
+* - Cache in memory
+* - No refresh if returned within 5 minutes
+* - No re-refetch when switching tabs
+* - Supports prefetch (can load in advance)
+*/
+
+// List Task of a single Event (For the Event Detail page)
 export function useTasksInfinite(f: {
   eventId: string;
   status?: Task['status'];
@@ -18,6 +29,36 @@ export function useTasksInfinite(f: {
   return useInfiniteQuery<TasksPage, ApiError, TasksPage, ReturnType<typeof queryKeys.tasks>, number>({
     queryKey: queryKeys.tasks({ eventId: f.eventId, status: f.status, pageSize, q: f.q }),
     initialPageParam: 1,
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams();
+      if (f.status) params.set('status', f.status);
+      if (f.q) params.set('q', f.q);
+      params.set('page', String(pageParam));
+      params.set('pageSize', String(pageSize));
+      const r = await fetch(`/api/events/${f.eventId}/tasks?${params.toString()}`, { cache: 'no-store' });
+      if (!r.ok) throw (await r.json()) as ApiError;
+      return (await r.json()) as TasksPage;
+    },
+    getNextPageParam: (last) => last.nextPage ?? undefined,
+
+    staleTime: 1000 * 60 * 5,   
+    gcTime: 1000 * 60 * 10,     
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+  });
+}
+
+// List all User's Tasks (Personal + Assigned + Events owned by the user) (For the All Tasks page)
+export function useAllTasksInfinite(f: {
+  status?: Task['status'];
+  q?: string;
+  pageSize?: number;
+}) {
+  const pageSize = f.pageSize ?? 20;
+
+  return useInfiniteQuery<TasksPage, ApiError, TasksPage, ReturnType<typeof queryKeys.tasks>, number>({
+    queryKey: queryKeys.tasks({ status: f.status, pageSize, q: f.q }),
+    initialPageParam: 1,
     queryFn: async ({ pageParam }: { pageParam: number }): Promise<TasksPage> => {
       const params = new URLSearchParams();
       if (f.status) params.set('status', f.status);
@@ -25,16 +66,21 @@ export function useTasksInfinite(f: {
       params.set('page', String(pageParam));
       params.set('pageSize', String(pageSize));
 
-      const r = await fetch(`/api/events/${f.eventId}/tasks?${params.toString()}`);
+      const r = await fetch(`/api/tasks?${params.toString()}`, { cache: 'no-store' });
       if (!r.ok) throw (await r.json()) as ApiError;
       return (await r.json()) as TasksPage;
     },
     getNextPageParam: (last: TasksPage): number | undefined => last.nextPage ?? undefined,
+
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
   });
 }
 
-// Mutations
-export function useCreateTask(eventId: string) {
+// ---------- Mutations ----------  
+export function useCreateEventTask(eventId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Omit<Task, 'id'|'eventTitle'>) => {
@@ -45,6 +91,25 @@ export function useCreateTask(eventId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.tasks({ eventId }) });
       qc.invalidateQueries({ queryKey: queryKeys.event(eventId) });
+    },
+    retry: 0,
+  });
+}
+
+export function useCreatePersonalTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Omit<Task, 'id'|'eventId'|'eventTitle'>) => {
+      const r = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) throw await r.json();
+      return (await r.json()) as Task;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.tasks({}) });
     },
     retry: 0,
   });

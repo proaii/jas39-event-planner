@@ -4,7 +4,7 @@ import type { Event } from '@/lib/types';
 
 const TABLE = 'events';
 
-// List all Events for Owner and Members
+// List all Events which the user is associated with
 export async function listAllEvents(params: {
   q?: string;
   page?: number;
@@ -43,47 +43,6 @@ export async function listAllEvents(params: {
     return { items, nextPage: page < maxPage ? page + 1 : null };
   } catch (e) {
     throw toApiError(e, 'ALL_EVENTS_LIST_FAILED');
-  }
-}
-
-
-// List Events which User own
-export async function listEvents(params: {
-  ownerId?: string; q?: string; page?: number; pageSize?: number;
-}): Promise<{ items: Event[]; nextPage: number|null }> {
-  const supabase = await createClient();
-  const page = params.page ?? 1;
-  const pageSize = params.pageSize ?? 10;
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
-
-  try {
-    // If the caller doesn't send the ownerId, use your own (from the session)
-    let ownerId = params.ownerId;
-    if (!ownerId) {
-      const { data: { user }, error: uerr } = await supabase.auth.getUser();
-      if (uerr) throw uerr;
-      ownerId = user?.id ?? undefined;
-    }
-
-    // NOTE: If the table doesn't have created_at , change it to 'date'.
-    let q = supabase
-      .from(TABLE)
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
-
-    if (ownerId) q = q.eq('owner_id', ownerId);
-    if (params.q) q = q.ilike('title', `%${params.q}%`);
-
-    const { data, error, count } = await q.range(from, to);
-    if (error) throw error;
-
-    const items = (data ?? []).map(map);
-    const total = count ?? 0;
-    const maxPage = Math.max(1, Math.ceil(total / pageSize));
-    return { items, nextPage: page < maxPage ? page + 1 : null };
-  } catch (e) {
-    throw toApiError(e, 'EVENTS_LIST_FAILED');
   }
 }
 

@@ -13,8 +13,55 @@ export const hasEnvVars =
 export const getInitials = (name: string) => {
   return name
     .split(" ")
-    .filter((part) => part.length > 0)
     .map((part) => part[0])
     .join("")
     .toUpperCase();
+};
+
+export const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+export const formatTime = (timeString: string) => {
+  const [hours, minutes] = timeString.split(":");
+  const hour = parseInt(hours);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minutes} ${ampm}`;
+};
+
+export const formatDueDate = (dueDate?: string | null) => {
+  if (!dueDate) return null;
+
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const dueDateTime = new Date(dueDate);
+
+  // Reset hours for date comparison
+  today.setHours(0, 0, 0, 0);
+  tomorrow.setHours(0, 0, 0, 0);
+  dueDateTime.setHours(0, 0, 0, 0);
+
+  const isToday = dueDateTime.getTime() === today.getTime();
+  const isTomorrow = dueDateTime.getTime() === tomorrow.getTime();
+  const isUrgent = isToday || isTomorrow;
+
+  const formattedDate = dueDateTime.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  return {
+    text: `Due: ${formattedDate}`,
+    isUrgent,
+    isToday,
+    isTomorrow,
+  };
 };

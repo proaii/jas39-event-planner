@@ -18,7 +18,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex flex-1 w-full h-full">
+    <div className="flex flex-1 w-full h-full ">
       <Sidebar />
       <main className="flex-1 p-6 bg-muted/20 overflow-auto">{children}</main>
     </div>

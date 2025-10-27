@@ -1,5 +1,5 @@
 import { Hero } from "@/components/hero";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/server/supabase/server";
 import { redirect } from "next/navigation";
 
 export default async function Home() {

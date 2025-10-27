@@ -42,6 +42,7 @@ export const mockTasks: Task[] = [
 export const mockEvents: Event[] = [
   {
     id: "1",
+    ownerId: "1",
     title: "Quarterly Business Review",
     date: formatISO(addDays(now, 2)),
     time: "10:00",
@@ -54,6 +55,7 @@ export const mockEvents: Event[] = [
   },
   {
     id: "2",
+    ownerId: "1",
     title: "New Feature Launch Party",
     date: formatISO(addDays(now, 10)),
     time: "18:00",

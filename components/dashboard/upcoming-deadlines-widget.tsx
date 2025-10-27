@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Task } from "@/lib/types";
 import { formatDueDate } from "@/lib/utils";
-import { getEffectiveDueDate } from "@/lib/supabase/utils";
+import { getEffectiveDueDate } from "@/lib/server/supabase/utils";
 import { Clock } from "lucide-react";
 
 interface UpcomingDeadlinesWidgetProps {

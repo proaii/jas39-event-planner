@@ -16,6 +16,8 @@ export interface Attachment {
 
 export interface Task {
   id: string;
+  eventId?: string;    
+  eventTitle?: string; 
   name: string;
   description?: string;
   assignees?: string[];
@@ -29,11 +31,11 @@ export interface Task {
   subTasks?: SubTask[];
   attachments?: Attachment[];
   isPersonal?: boolean;
-  eventTitle?: string;
 }
 
 export interface Event {
   id: string;
+  ownerId: string;
   title: string;
   date: string;
   endDate?: string;
@@ -47,6 +49,18 @@ export interface Event {
   members: string[];
   coverImage?: string;
   color?: string;
+}
+
+export interface EventMember {
+  id: string;
+  eventId: string;
+  memberId: string;
+  role: string;
+  joinedAt: string; 
+}
+
+export interface MembersRes {
+  items: EventMember[];
 }
 
 export interface Activity {

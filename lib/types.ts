@@ -45,10 +45,11 @@ export interface Event {
   location: string;
   description: string;
   progress: number;
-  tasks: Task[];
+  tasks: Task[];           
   members: string[];
   coverImage?: string;
   color?: string;
+  createdAt?: string;       
 }
 
 export interface EventMember {

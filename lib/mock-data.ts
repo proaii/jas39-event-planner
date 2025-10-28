@@ -52,6 +52,11 @@ export const mockEvents: Event[] = [
     tasks: [],
     members: ["Alice", "Bob", "Charlie"],
     color: "#4A90E2",
+    createdAt: formatISO(subDays(now, 5)), 
+    endDate: undefined,
+    endTime: undefined,
+    isMultiDay: false,
+    coverImage: undefined,
   },
   {
     id: "2",
@@ -64,6 +69,12 @@ export const mockEvents: Event[] = [
     progress: 25,
     tasks: [],
     members: ["Alice", "David", "Eve"],
+    color: undefined,
+    createdAt: formatISO(subDays(now, 3)),
+    endDate: undefined,
+    endTime: undefined,
+    isMultiDay: false,
+    coverImage: undefined,
   },
 ];
 

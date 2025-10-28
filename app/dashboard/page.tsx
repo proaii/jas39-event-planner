@@ -1,7 +1,7 @@
 'use client';
 import { useState } from "react";
 import { Dashboard } from "@/components/dashboard/dashboard";
-import { AddEventModal } from "@/ui/components/AddEventModal";
+import { AddEventModal } from "@/components/events/AddEventModal";
 import { mockEvents, mockTasks } from "@/lib/mock-data";
 import { toast } from "react-hot-toast";
 import { Event, Task } from "@/lib/types"; 

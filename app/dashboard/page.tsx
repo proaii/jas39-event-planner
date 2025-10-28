@@ -59,7 +59,6 @@ export default function DashboardPage() {
         onClose={handleCloseAddEventModal}
         onCreateEvent={handleCreateEvent}
         onInviteMembers={handleInviteMembers}
-        currentUserId={currentUser}
       />
     </>
   );

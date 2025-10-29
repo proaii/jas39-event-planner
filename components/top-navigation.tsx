@@ -1,6 +1,5 @@
 'use client';
 
-import { createClient } from "@/lib/server/supabase/client";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import {
@@ -11,26 +10,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Calendar, LogOut } from "lucide-react";
-import { useEffect, useState } from "react";
-import type { User } from "@supabase/supabase-js";
-import { redirect } from "next/navigation";
+import { useUser, useSignOut } from "@/lib/client/features/auth/hooks";
+import { useRouter } from "next/navigation";
 
 export function TopNavigation() {
-  const [user, setUser] = useState<User | null>(null);
-  const supabase = createClient();
+  const { data: user } = useUser();
+  const { mutate: signOut } = useSignOut();
+  const router = useRouter();
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUser(data.user);
-    };
-    fetchUser();
-  }, [supabase.auth]);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    redirect("/");
+  const handleLogout = () => {
+    signOut(undefined, {
+      onSuccess: () => {
+        router.refresh();
+      },
+    });
   };
 
   const getInitials = (name: string) => {

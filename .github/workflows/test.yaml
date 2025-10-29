@@ -93,8 +93,17 @@ jobs:
           pnpm: true
           browser: firefox
         env:
-          CYPRESS_USERNAME: ${{ secrets.CYPRESS_USERNAME }}
-          CYPRESS_PASSWORD: ${{ secrets.CYPRESS_PASSWORD }}
-          
           NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          
+          CYPRESS_USERNAME: ${{ secrets.CYPRESS_USERNAME }}
+          CYPRESS_PASSWORD: ${{ secrets.CYPRESS_PASSWORD }}
+
+      - name: Upload Cypress Artifacts (Screenshots & Videos)
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-artifacts
+          path: |
+            cypress/screenshots
+            cypress/videos

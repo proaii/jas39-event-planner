@@ -11,19 +11,11 @@ interface DashboardProps {
   onCreateEvent: () => void;
   onCreateFromTemplate?: () => void;
   onEventClick: (eventId: string) => void;
-  onStyleGuide?: () => void;
-  onNotifications?: () => void;
-  onEditEvent?: (eventId: string) => void;
-  onDeleteEvent?: (eventId: string) => void;
-  onAddTask?: (eventId: string) => void;
-  onCreatePersonalTask?: () => void;
+  onCreatePersonalTask: () => void; 
   onStatusChange?: (taskId: string, newStatus: Task["status"]) => void;
   onSubTaskToggle?: (taskId: string, subTaskId: string) => void;
-  // Navigation handlers
   onNavigateToAllEvents?: () => void;
   onNavigateToAllTasks?: (filterContext?: "my" | "all") => void;
-  onNavigateToCalendar?: () => void;
-  onNavigateToSettings?: () => void;
 }
 
 export function Dashboard({
@@ -33,9 +25,10 @@ export function Dashboard({
   onCreateEvent,
   onCreateFromTemplate,
   onEventClick,
-  onNavigateToAllEvents,
+  onCreatePersonalTask, 
   onStatusChange,
   onSubTaskToggle,
+  onNavigateToAllEvents,
   onNavigateToAllTasks,
 }: DashboardProps) {
   return (
@@ -47,7 +40,11 @@ export function Dashboard({
           onCreateFromTemplate={onCreateFromTemplate}
         />
         <div className="space-y-8">
-          <DashboardWidgets events={events} onEventClick={onEventClick} onNavigateToAllEvents={onNavigateToAllEvents} />
+          <DashboardWidgets
+            events={events}
+            onEventClick={onEventClick}
+            onNavigateToAllEvents={onNavigateToAllEvents}
+          />
           <MyTasksSection
             events={events}
             personalTasks={personalTasks}
@@ -55,6 +52,7 @@ export function Dashboard({
             onStatusChange={onStatusChange}
             onSubTaskToggle={onSubTaskToggle}
             onNavigateToAllTasks={onNavigateToAllTasks}
+            onCreatePersonalTask={onCreatePersonalTask} 
           />
         </div>
       </div>

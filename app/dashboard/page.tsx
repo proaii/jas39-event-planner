@@ -2,63 +2,76 @@
 import { useState } from "react";
 import { Dashboard } from "@/components/dashboard/dashboard";
 import { AddEventModal } from "@/components/events/AddEventModal";
+import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { mockEvents, mockTasks } from "@/lib/mock-data";
 import { toast } from "react-hot-toast";
-import { Event, Task } from "@/lib/types"; 
+import { Event, Task } from "@/lib/types";
 
 export default function DashboardPage() {
-  const currentUser = "Bob"; 
+  const currentUser = "Bob";
   const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
+  const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
   const [events, setEvents] = useState<Event[]>(mockEvents);
+  const [personalTasks, setPersonalTasks] = useState<Task[]>(mockTasks);
 
-  // Handler to open the Add Event Modal
   const handleOpenAddEventModal = () => setIsAddEventModalOpen(true);
-
-  // Handler to close the Add Event Modal
   const handleCloseAddEventModal = () => setIsAddEventModalOpen(false);
 
-  // Handler to create a new event
   const handleCreateEvent = (eventData: Omit<Event, 'id' | 'progress' | 'tasks' | 'createdAt' | 'ownerId'>) => {
     const newEvent: Event = {
       id: `event-${Date.now()}`,
       ...eventData,
       progress: 0,
-      tasks: [] as Task[],
+      tasks: [],
       createdAt: new Date().toISOString(),
       ownerId: currentUser,
     };
-
-    // Add new event to events state
-    setEvents((prev) => [...prev, newEvent]);
-    
-    // Close modal after successful creation
+    setEvents(prev => [...prev, newEvent]);
     setIsAddEventModalOpen(false);
-    
-    // Show success notification
     toast.success(`Event "${eventData.title}" created successfully!`);
   };
 
-  // Handler to open invite members modal (to be implemented)
-  const handleInviteMembers = () => {
-    console.log("Open invite members modal");
-    toast("Invite members feature coming soon!", { icon: "ℹ️" });
+  const handleInviteMembers = () => toast("Invite members feature coming soon!", { icon: "ℹ️" });
+
+  const handleOpenAddTaskModal = () => setIsAddTaskModalOpen(true);
+  const handleCloseAddTaskModal = () => setIsAddTaskModalOpen(false);
+
+  const handleCreateTask = (taskData: Omit<Task, 'id' | 'status' | 'createdAt'>) => {
+    const newTask: Task = {
+      id: `task-${Date.now()}`,
+      ...taskData,
+      status: "To Do",
+      createdAt: new Date().toISOString(),
+    };
+    setPersonalTasks(prev => [...prev, newTask]);
+    setIsAddTaskModalOpen(false);
+    toast.success(`Task "${taskData.title}" added successfully!`);
   };
 
   return (
     <>
       <Dashboard
         events={events}
-        personalTasks={mockTasks}
+        personalTasks={personalTasks}
         currentUser={currentUser}
         onCreateEvent={handleOpenAddEventModal}
-        onEventClick={(eventId) => console.log("Event clicked:", eventId)}
+        onEventClick={(id) => console.log("Event clicked:", id)}
+        onCreatePersonalTask={handleOpenAddTaskModal} 
       />
-      
+
       <AddEventModal
         isOpen={isAddEventModalOpen}
         onClose={handleCloseAddEventModal}
         onCreateEvent={handleCreateEvent}
         onInviteMembers={handleInviteMembers}
+      />
+
+      <AddTaskModal
+        isOpen={isAddTaskModalOpen}
+        onClose={handleCloseAddTaskModal}
+        onCreateTask={handleCreateTask}
+        currentUser={currentUser}
+        isPersonal={true}
       />
     </>
   );

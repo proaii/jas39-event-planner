@@ -60,7 +60,7 @@ export function TaskCard({ task, onStatusChange, onSubTaskToggle }: TaskCardProp
       <div className="flex-1 min-w-0">
         <div className="flex items-center space-x-2 mb-1">
           <p className={`font-medium ${task.status === 'Done' ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-            {task.name}
+            {task.title}
           </p>
           {task.attachments && task.attachments.length > 0 && (
             <Popover>

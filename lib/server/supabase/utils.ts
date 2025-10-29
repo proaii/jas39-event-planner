@@ -37,7 +37,7 @@ export const filterTasks = (
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch =
-        task.name.toLowerCase().includes(searchLower) ||
+        task.title.toLowerCase().includes(searchLower) ||
         (task.description &&
           task.description.toLowerCase().includes(searchLower)) ||
         (task.assignees &&

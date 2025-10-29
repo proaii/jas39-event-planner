@@ -16,7 +16,7 @@ interface MyTasksSectionProps {
   onStatusChange?: (taskId: string, newStatus: Task["status"]) => void;
   onSubTaskToggle?: (taskId: string, subTaskId: string) => void;
   onNavigateToAllTasks?: (filterContext?: "my" | "all") => void;
-  onCreatePersonalTask?: () => void;
+  onCreatePersonalTask: () => void;
 }
 
 export function MyTasksSection({
@@ -30,11 +30,11 @@ export function MyTasksSection({
 }: MyTasksSectionProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<FilterOptions>({
-    status: [] as ("To Do" | "In Progress" | "Done")[],
-    priority: [] as ("Urgent" | "High" | "Normal" | "Low")[],
-    assignees: [] as string[],
-    dateRange: { from: null as Date | null, to: null as Date | null },
-    eventTypes: [] as string[],
+    status: [],
+    priority: [],
+    assignees: [],
+    dateRange: { from: null, to: null },
+    eventTypes: [],
     showCompleted: true,
     showPersonalTasks: true,
   });
@@ -43,18 +43,16 @@ export function MyTasksSection({
   const userTasks = useMemo(() => {
     const eventTasks = events.flatMap((event) =>
       event.tasks
-        .filter((task) => task.assignees && task.assignees.includes(currentUser))
+        .filter((task) => task.assignees?.includes(currentUser))
         .map((task) => ({ ...task, eventTitle: event.title }))
     );
     const personalUserTasks = personalTasks
-      .filter((task) => task.assignees && task.assignees.includes(currentUser))
+      .filter((task) => task.assignees?.includes(currentUser))
       .map((task) => ({ ...task, eventTitle: undefined }));
     return [...eventTasks, ...personalUserTasks];
   }, [events, personalTasks, currentUser]);
 
-  const availableAssignees = useMemo(() => {
-    return getAllAssignees(userTasks, events);
-  }, [userTasks, events]);
+  const availableAssignees = useMemo(() => getAllAssignees(userTasks, events), [userTasks, events]);
 
   const filteredAndSortedTasks = useMemo(() => {
     const filtered = filterTasks(userTasks, searchTerm, filters);
@@ -66,18 +64,14 @@ export function MyTasksSection({
         return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
       } else if (taskSortBy === "priority") {
         const priorityOrder = { Urgent: 0, High: 1, Normal: 2, Low: 3 };
-        return (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2);
+        return (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2);
       } else {
         return b.id.localeCompare(a.id);
       }
     });
   }, [userTasks, searchTerm, filters, taskSortBy]);
 
-
-
-  const handleFiltersChange = (newFilters: FilterOptions) => {
-    setFilters(newFilters);
-  };
+  const handleFiltersChange = (newFilters: FilterOptions) => setFilters(newFilters);
 
   return (
     <section className="space-y-4">
@@ -103,12 +97,10 @@ export function MyTasksSection({
             </span>
           </div>
         </div>
-        <div className="flex items-center space-x-3">
-          <Button size="sm" onClick={onCreatePersonalTask} className="bg-primary hover:bg-primary/90">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Personal Task
-          </Button>
-        </div>
+        <Button size="sm" onClick={onCreatePersonalTask} className="bg-primary hover:bg-primary/90">
+          <Plus className="w-4 h-4 mr-2" />
+          Add Personal Task
+        </Button>
       </div>
 
       <SearchAndFilter
@@ -117,12 +109,12 @@ export function MyTasksSection({
         filters={filters}
         onFiltersChange={handleFiltersChange}
         availableAssignees={availableAssignees}
-        showTaskFilters={true}
+        showTaskFilters
         placeholder="Search your tasks..."
         currentUser={currentUser}
         sortBy={taskSortBy}
         onSortChange={setTaskSortBy}
-        showSort={true}
+        showSort
       />
 
       {filteredAndSortedTasks.length === 0 ? (
@@ -132,19 +124,12 @@ export function MyTasksSection({
             <div>
               <h3 className="font-semibold text-foreground mb-2">No tasks found</h3>
               <p className="text-muted-foreground mb-4">
-                {searchTerm ||
-                (filters.priority && filters.priority.length > 0) ||
-                (filters.assignees && filters.assignees.length > 0) ||
-                filters.dateRange?.from
+                {(searchTerm || (filters.priority?.length ?? 0) > 0 || (filters.assignees?.length ?? 0) > 0 || filters.dateRange?.from)
                   ? "Try adjusting your filters to see more tasks."
                   : "Event tasks and personal tasks will appear here"}
               </p>
               <div className="flex items-center justify-center gap-2">
-                {(searchTerm ||
-                  (filters.status && filters.status.length > 0) ||
-                  (filters.priority && filters.priority.length > 0) ||
-                  (filters.assignees && filters.assignees.length > 0) ||
-                  filters.dateRange?.from) && (
+                {(searchTerm || (filters.status?.length ?? 0) > 0 || (filters.priority?.length ?? 0) > 0 || (filters.assignees?.length ?? 0) > 0 || filters.dateRange?.from) && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -175,32 +160,20 @@ export function MyTasksSection({
       ) : (
         <Card>
           <CardContent className="p-6">
-            <div>
-                {filteredAndSortedTasks.slice(0, 8).map((task, index) => (
-                <div key={task.id}>
-                  <TaskCard
-                  task={task}
-                  onStatusChange={onStatusChange}
-                  onSubTaskToggle={onSubTaskToggle}
-                  />
-                  {index < filteredAndSortedTasks.slice(0, 8).length - 1 && (
-                  <div className="border-b border-border my-2" />
-                  )}
-                </div>
-                ))}
+            {filteredAndSortedTasks.slice(0, 8).map((task, index) => (
+              <div key={task.id}>
+                <TaskCard task={task} onStatusChange={onStatusChange} onSubTaskToggle={onSubTaskToggle} />
+                {index < filteredAndSortedTasks.slice(0, 8).length - 1 && <div className="border-b border-border my-2" />}
+              </div>
+            ))}
 
-              {filteredAndSortedTasks.length > 8 && (
-                <div className="pt-4 border-t border-border">
-                  <Button
-                    variant="ghost"
-                    className="w-full text-primary"
-                    onClick={() => onNavigateToAllTasks?.("my")}
-                  >
-                    View {filteredAndSortedTasks.length - 8} more tasks
-                  </Button>
-                </div>
-              )}
-            </div>
+            {filteredAndSortedTasks.length > 8 && (
+              <div className="pt-4 border-t border-border">
+                <Button variant="ghost" className="w-full text-primary" onClick={() => onNavigateToAllTasks?.("my")}>
+                  View {filteredAndSortedTasks.length - 8} more tasks
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

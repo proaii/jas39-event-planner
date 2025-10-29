@@ -18,7 +18,7 @@ export interface Task {
   id: string;
   eventId?: string;    
   eventTitle?: string; 
-  name: string;
+  title: string;
   description?: string;
   assignees?: string[];
   dueDate?: string;
@@ -31,6 +31,7 @@ export interface Task {
   subTasks?: SubTask[];
   attachments?: Attachment[];
   isPersonal?: boolean;
+  createdAt: string;
 }
 
 export interface Event {

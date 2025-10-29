@@ -7,37 +7,42 @@ const now = new Date();
 export const mockTasks: Task[] = [
   {
     id: "1",
-    name: "Design the new landing page",
+    title: "Design the new landing page",
     status: "In Progress",
     priority: "High",
     dueDate: formatISO(addDays(now, 5)),
     assignees: ["Bob"],
+    createdAt: formatISO(subDays(now, 1)), // added createdAt
   },
   {
     id: "2",
-    name: "Develop the API for the new feature",
+    title: "Develop the API for the new feature",
     status: "To Do",
     priority: "Urgent",
     dueDate: formatISO(addDays(now, 2)),
     assignees: ["Bob"],
+    createdAt: formatISO(subDays(now, 2)),
   },
   {
     id: "3",
-    name: "Write the documentation for the API",
+    title: "Write the documentation for the API",
     status: "To Do",
     priority: "Normal",
     dueDate: formatISO(addDays(now, 10)),
     assignees: ["Bob"],
+    createdAt: formatISO(subDays(now, 3)),
   },
   {
     id: "4",
-    name: "Test the new feature",
+    title: "Test the new feature",
     status: "Done",
     priority: "High",
     dueDate: formatISO(subDays(now, 2)),
     assignees: ["Bob"],
+    createdAt: formatISO(subDays(now, 5)),
   },
 ];
+
 
 export const mockEvents: Event[] = [
   {
@@ -52,7 +57,7 @@ export const mockEvents: Event[] = [
     tasks: [],
     members: ["Alice", "Bob", "Charlie"],
     color: "#4A90E2",
-    createdAt: formatISO(subDays(now, 5)), 
+    createdAt: formatISO(subDays(now, 5)),
     endDate: undefined,
     endTime: undefined,
     isMultiDay: false,

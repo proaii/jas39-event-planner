@@ -47,7 +47,7 @@ export function UpcomingDeadlinesWidget({ tasks }: UpcomingDeadlinesWidgetProps)
                   task.priority === 'Normal' ? 'bg-blue-500' : 'bg-gray-500'
                 }`} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{task.name}</p>
+                  <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
                   <p className="text-xs text-muted-foreground">{task.eventTitle || 'Personal'}</p>
                 </div>
                 <div className="text-right">

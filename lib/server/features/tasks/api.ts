@@ -162,7 +162,7 @@ export async function updateTask(taskId: string, patch: Partial<Task>): Promise<
   try {
     const row: Record<string, unknown> = {};
 
-    if (patch.name !== undefined) row.name = patch.name;
+    if (patch.title !== undefined) row.name = patch.title;
     if (patch.description !== undefined) row.description = patch.description;
     if (patch.assignees !== undefined) row.assignees = patch.assignees;
     if (patch.dueDate !== undefined) row.due_date = patch.dueDate;
@@ -216,6 +216,7 @@ type RawTaskRow = {
   attachments?: RawAttachmentRow[] | null;
   is_personal?: boolean | null;
   events?: { title: string } | null;
+  created_at?: string | null;
 };
 
 type RawAttachmentRow = {
@@ -235,7 +236,7 @@ type RawSubTaskRow = {
 function map(r: RawTaskRow): Task {
   return {
     id: String(r.id),
-    name: r.name,
+    title: r.name,
     eventId: r.event_id ?? undefined,
     eventTitle: r.events?.title ?? undefined,
     description: r.description ?? '',
@@ -250,8 +251,10 @@ function map(r: RawTaskRow): Task {
     subTasks: (r.sub_tasks ?? []).map(mapSubTask),
     attachments: (r.attachments ?? []).map(mapAttachment),
     isPersonal: Boolean(r.is_personal),
+    createdAt: r.created_at ? String(r.created_at) : new Date().toISOString(), // added createdAt
   };
 }
+
 
 function mapAttachment(a: RawAttachmentRow): Attachment {
   return {
@@ -273,7 +276,7 @@ function mapSubTask(s: RawSubTaskRow): SubTask {
 // ---------- Helpers ----------
 function toRpcTaskPayload(task: Task): Record<string, unknown> {
   return {
-    name: task.name,
+    name: task.title,
     description: task.description,
     assignees: task.assignees,
     due_date: task.dueDate,

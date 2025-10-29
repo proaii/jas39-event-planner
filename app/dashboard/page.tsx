@@ -70,6 +70,7 @@ export default function DashboardPage() {
         isOpen={isAddTaskModalOpen}
         onClose={handleCloseAddTaskModal}
         onCreateTask={handleCreateTask}
+        eventMembers={[currentUser]}
         currentUser={currentUser}
         isPersonal={true}
       />

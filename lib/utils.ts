@@ -1,11 +1,11 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { Task } from "@/lib/types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// This check can be removed, it is just for tutorial purposes
 export const hasEnvVars =
   process.env.NEXT_PUBLIC_SUPABASE_URL &&
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -43,7 +43,6 @@ export const formatDueDate = (dueDate?: string | null) => {
   tomorrow.setDate(tomorrow.getDate() + 1);
   const dueDateTime = new Date(dueDate);
 
-  // Reset hours for date comparison
   today.setHours(0, 0, 0, 0);
   tomorrow.setHours(0, 0, 0, 0);
   dueDateTime.setHours(0, 0, 0, 0);
@@ -64,4 +63,10 @@ export const formatDueDate = (dueDate?: string | null) => {
     isToday,
     isTomorrow,
   };
+};
+
+export const getEffectiveDueDate = (task: Task): string | undefined => {
+  if (task.startDate && task.endDate) return task.endDate;
+  if (task.dueDate) return task.dueDate;
+  return undefined;
 };

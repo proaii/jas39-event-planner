@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Event } from "@/lib/types";
-import { formatDate } from "@/lib/utils";
+import { formatDate, cn } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
 
 interface UpcomingEventsWidgetProps {
@@ -36,9 +36,8 @@ export function UpcomingEventsWidget({ events, onEventClick, onNavigateToAllEven
               onClick={() => onEventClick(event.id)}
             >
               <div
-                className="w-8 h-8 rounded-md flex-shrink-0"
+                className={cn("w-8 h-8 rounded-md flex-shrink-0", event.color ? event.color : "bg-primary")}
                 style={{
-                  backgroundColor: event.color || "#4A90E2",
                   backgroundImage: event.coverImage ? `url(${event.coverImage})` : undefined,
                   backgroundSize: "cover",
                   backgroundPosition: "center",

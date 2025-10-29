@@ -4,7 +4,7 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
@@ -42,7 +42,7 @@
     "date-fns": "^4.1.0",
     "embla-carousel-react": "8.6.0",
     "input-otp": "1.4.2",
-    "lucide-react": "0.487.0",
+    "lucide-react": "^0.487.0",
     "next": "latest",
     "next-themes": "0.4.6",
     "radix-ui": "^1.4.3",
@@ -51,6 +51,7 @@
     "react-day-picker": "^9.11.1",
     "react-dom": "^19.0.0",
     "react-hook-form": "7.55.0",
+    "react-hot-toast": "^2.6.0",
     "react-resizable-panels": "2.1.7",
     "recharts": "2.15.2",
     "sonner": "2.0.3",

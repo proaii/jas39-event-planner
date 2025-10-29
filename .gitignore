@@ -43,3 +43,10 @@ next-env.d.ts
 
 #cypress
 cypress.env.json
+cypress/videos/
+cypress/screenshots/
+cypress/reports/
+cypress/results/ # If using cypress-multi-reporters or similar
+cypress/fixtures/credentials.json # Example for sensitive data
+.nyc_output/ # Coverage reports if instrumenting code
+coverage/ # Coverage reports

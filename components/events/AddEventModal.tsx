@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +56,7 @@ interface AddEventModalProps {
     event: Omit<Event, "id" | "progress" | "tasks" | "createdAt" | "ownerId">
   ) => void;
   onInviteMembers?: () => void;
+  prefillData?: Omit<Event, "id" | "progress" | "tasks" | "createdAt" | "ownerId">;
 }
 
 export function AddEventModal({
@@ -64,24 +65,34 @@ export function AddEventModal({
   onClose,
   onCreateEvent,
   onInviteMembers,
+  prefillData,
 }: AddEventModalProps) {
-  const form = useForm<EventFormData>({
-    resolver: zodResolver(eventSchema),
-    mode: "onChange",
-    defaultValues: {
-      title: "",
-      date: "",
-      endDate: "",
-      time: "",
-      endTime: "",
-      isMultiDay: false,
-      location: "",
-      description: "",
-      members: [],
-      coverImage: "",
-      color: "bg-chart-1",
-    },
-  });
+    const form = useForm<EventFormData>({
+      resolver: zodResolver(eventSchema),
+      mode: "onChange",
+      defaultValues: prefillData || {
+        title: "",
+        date: "",
+        endDate: "",
+        time: "",
+        endTime: "",
+        isMultiDay: false,
+        location: "",
+        description: "",
+        members: [],
+        coverImage: "",
+        color: "bg-chart-1",
+      },
+    });
+
+  const { reset } = form;
+
+  useEffect(() => {
+    if (prefillData) {
+      reset(prefillData);
+    }
+  }, [prefillData, reset]);
+
 
   const {
     register,
@@ -89,7 +100,6 @@ export function AddEventModal({
     setValue,
     watch,
     formState: { errors, isSubmitting, isValid },
-    reset,
   } = form;
 
   const formData = watch();
@@ -138,9 +148,10 @@ export function AddEventModal({
       color: data.color,
     };
 
+
     onCreateEvent(newEvent);
     toast.success(`Event "${data.title}" created successfully!`);
-    reset();
+    reset(prefillData || undefined); 
     handleClose();
   };
 

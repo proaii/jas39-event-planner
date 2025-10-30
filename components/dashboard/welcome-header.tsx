@@ -1,5 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ChevronDown, FileText, Layout, Plus } from "lucide-react";
 
 interface WelcomeHeaderProps {
@@ -7,7 +12,6 @@ interface WelcomeHeaderProps {
   onCreateEvent: () => void;
   onCreateFromTemplate?: () => void;
   onOpenCustomizeDashboard?: () => void;
-
 }
 
 export function WelcomeHeader({
@@ -25,18 +29,16 @@ export function WelcomeHeader({
       </div>
 
       <div className="flex items-center space-x-3">
-        {/* ปุ่ม Customize Dashboard */}
         <Button
           variant="outline"
           size="sm"
-          onClick={onOpenCustomizeDashboard} // เรียกจาก parent
+          onClick={onOpenCustomizeDashboard}
           className="border-primary text-primary hover:bg-primary hover:text-white"
         >
           <Layout className="w-4 h-4 mr-2" />
           Customize Dashboard
         </Button>
 
-        {/* Split Button for Create Event */}
         <div className="flex items-center shadow-lg rounded-lg overflow-hidden">
           <Button
             onClick={onCreateEvent}

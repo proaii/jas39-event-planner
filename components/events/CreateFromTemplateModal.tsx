@@ -1,25 +1,47 @@
-import React from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
-import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
-import { Calendar, MapPin, Users } from 'lucide-react';
+"use client";
 
-interface EventTemplate {
-  id: string;
-  name: string;
-  description: string;
-  eventData: {
-    title: string;
-    location: string;
-    description: string;
-    tasks: { name: string }[];
-    coverImage?: string;
-    color?: string;
-  };
-  createdBy: string;
-  createdAt: string;
-}
+import React from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, MapPin, Users } from "lucide-react";
+import { z } from "zod";
+
+// Define schema for template validation (same structure as AddEventModal form)
+export const eventTemplateSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1, "Template name is required"),
+  description: z.string().optional(),
+  eventData: z.object({
+    title: z.string().min(1, "Title is required"),
+    location: z.string().min(1, "Location is required"),
+    description: z.string().optional(),
+    tasks: z.array(
+      z.object({
+        name: z.string(),
+      })
+    ),
+    coverImage: z.string().optional(),
+    color: z.string().optional(),
+  }),
+  createdBy: z.string(),
+  createdAt: z.string(),
+});
+
+export type EventTemplate = z.infer<typeof eventTemplateSchema>;
 
 interface CreateFromTemplateModalProps {
   isOpen: boolean;
@@ -34,8 +56,14 @@ export function CreateFromTemplateModal({
   onClose,
   onUseTemplate,
 }: CreateFromTemplateModalProps) {
-  const handleUseTemplate = (template: EventTemplate) => {
-    onUseTemplate(template.eventData);
+  const handleSelectTemplate = (template: EventTemplate) => {
+    const parsed = eventTemplateSchema.safeParse(template);
+    if (!parsed.success) {
+      console.error("Invalid template data:", parsed.error.format());
+      return;
+    }
+
+    onUseTemplate(parsed.data.eventData);
     onClose();
   };
 
@@ -59,21 +87,31 @@ export function CreateFromTemplateModal({
             </div>
           ) : (
             templates.map((template) => (
-              <Card key={template.id} className="cursor-pointer hover:shadow-md transition-shadow">
+              <Card
+                key={template.id}
+                className="cursor-pointer hover:shadow-md transition-shadow"
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <CardTitle className="text-lg">{template.name}</CardTitle>
-                      <CardDescription className="mt-1">{template.description}</CardDescription>
+                      <CardDescription className="mt-1">
+                        {template.description}
+                      </CardDescription>
                     </div>
-                    <Button onClick={() => handleUseTemplate(template)} size="sm">
+                    <Button
+                      onClick={() => handleSelectTemplate(template)}
+                      size="sm"
+                    >
                       Use Template
                     </Button>
                   </div>
                 </CardHeader>
 
                 <CardContent className="pt-0">
+                  {/* Template Preview */}
                   <div className="space-y-3">
+                    {/* Event Details */}
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
@@ -86,12 +124,15 @@ export function CreateFromTemplateModal({
                       </div>
                     </div>
 
+                    {/* Task Preview */}
                     {template.eventData.tasks.length > 0 && (
                       <div>
-                        <div className="text-sm font-medium mb-2">Included Tasks:</div>
+                        <div className="text-sm font-medium mb-2">
+                          Included Tasks:
+                        </div>
                         <div className="flex flex-wrap gap-2">
-                          {template.eventData.tasks.slice(0, 3).map((task, index) => (
-                            <Badge key={index} variant="secondary" className="text-xs">
+                          {template.eventData.tasks.slice(0, 3).map((task, i) => (
+                            <Badge key={i} variant="secondary" className="text-xs">
                               {task.name}
                             </Badge>
                           ))}
@@ -104,6 +145,7 @@ export function CreateFromTemplateModal({
                       </div>
                     )}
 
+                    {/* Template Meta */}
                     <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border">
                       <span>Created by {template.createdBy}</span>
                       <div className="flex items-center gap-1">

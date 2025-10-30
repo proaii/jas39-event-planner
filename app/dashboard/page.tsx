@@ -7,6 +7,7 @@ import { Dashboard } from "@/components/dashboard/dashboard";
 import { AddEventModal } from "@/components/events/AddEventModal";
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { CustomizeDashboardModal } from "@/components/dashboard/CustomizeDashboardModal";
+import { CreateFromTemplateModal, EventTemplate } from "@/components/events/CreateFromTemplateModal";
 import { useState } from "react";
 import { Event, Task } from "@/lib/types";
 
@@ -31,7 +32,14 @@ export default function DashboardPage() {
   const [events, setEvents] = useState<Event[]>(mockEvents);
   const [personalTasks, setPersonalTasks] = useState<Task[]>(mockTasks);
 
-  const handleCreateEvent = (eventData: Omit<Event, "id" | "progress" | "tasks" | "createdAt" | "ownerId">) => {
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [prefillData, setPrefillData] = useState<
+    Omit<Event, "id" | "progress" | "tasks" | "createdAt" | "ownerId"> | null
+  >(null);
+
+  const handleCreateEvent = (
+    eventData: Omit<Event, "id" | "progress" | "tasks" | "createdAt" | "ownerId">
+  ) => {
     const newEvent: Event = {
       id: `event-${Date.now()}`,
       ...eventData,
@@ -63,6 +71,20 @@ export default function DashboardPage() {
     toast.success("Dashboard updated!");
   };
 
+  const handleUseTemplate = (data: EventTemplate["eventData"]) => {
+    setPrefillData({
+      title: data.title,
+      location: data.location,
+      description: data.description || "",
+      coverImage: data.coverImage,
+      color: data.color || "bg-chart-1",
+      date: "",
+      time: "",
+      members: [],
+    });
+    openAddEventModal();
+  };
+
   return (
     <>
       <Dashboard
@@ -74,13 +96,17 @@ export default function DashboardPage() {
         onCreatePersonalTask={openAddTaskModal}
         onCustomize={openCustomizeModal}
         visibleWidgets={visibleWidgets}
+        onCreateFromTemplate={() => setIsTemplateModalOpen(true)}
       />
 
       <AddEventModal
         isOpen={isAddEventModalOpen}
         onClose={closeAddEventModal}
         onCreateEvent={handleCreateEvent}
-        onInviteMembers={() => toast("Invite members feature coming soon!", { icon: "ℹ️" })}
+        prefillData={prefillData ?? undefined}
+        onInviteMembers={() =>
+          toast("Invite members feature coming soon!", { icon: "ℹ️" })
+        }
       />
 
       <AddTaskModal
@@ -98,6 +124,27 @@ export default function DashboardPage() {
         selectedWidgets={visibleWidgets}
         onSave={handleSaveWidgets}
         onResetDefault={resetWidgets}
+      />
+
+      <CreateFromTemplateModal
+        isOpen={isTemplateModalOpen}
+        templates={mockEvents.map((e) => ({
+          id: e.id,
+          name: e.title,
+          description: e.description,
+          createdBy: e.ownerId,
+          createdAt: e.createdAt ?? new Date().toISOString(),
+          eventData: {
+            title: e.title,
+            location: e.location,
+            description: e.description,
+            tasks: e.tasks.map((t) => ({ name: t.title })),
+            coverImage: e.coverImage,
+            color: e.color,
+          },
+        }))}
+        onClose={() => setIsTemplateModalOpen(false)}
+        onUseTemplate={handleUseTemplate}
       />
     </>
   );

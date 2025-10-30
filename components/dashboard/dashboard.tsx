@@ -1,4 +1,5 @@
 "use client";
+
 import { WelcomeHeader } from "./welcome-header";
 import { DashboardWidgets } from "./dashboard-widgets";
 import { MyTasksSection } from "./my-tasks-section";
@@ -12,10 +13,12 @@ interface DashboardProps {
   onCreateFromTemplate?: () => void;
   onEventClick: (eventId: string) => void;
   onCreatePersonalTask: () => void; 
+  visibleWidgets?: string[]; 
   onStatusChange?: (taskId: string, newStatus: Task["status"]) => void;
   onSubTaskToggle?: (taskId: string, subTaskId: string) => void;
   onNavigateToAllEvents?: () => void;
   onNavigateToAllTasks?: (filterContext?: "my" | "all") => void;
+  onCustomize?: () => void; 
 }
 
 export function Dashboard({
@@ -26,10 +29,12 @@ export function Dashboard({
   onCreateFromTemplate,
   onEventClick,
   onCreatePersonalTask, 
+  visibleWidgets = ["upcomingEvents","recentActivity","upcomingDeadlines","progressOverview"],
   onStatusChange,
   onSubTaskToggle,
   onNavigateToAllEvents,
   onNavigateToAllTasks,
+  onCustomize,
 }: DashboardProps) {
   return (
     <main className="flex-1 p-8 bg-muted/20 overflow-hidden">
@@ -38,12 +43,14 @@ export function Dashboard({
           currentUser={currentUser}
           onCreateEvent={onCreateEvent}
           onCreateFromTemplate={onCreateFromTemplate}
+          onOpenCustomizeDashboard={onCustomize} 
         />
         <div className="space-y-8">
           <DashboardWidgets
             events={events}
             onEventClick={onEventClick}
             onNavigateToAllEvents={onNavigateToAllEvents}
+            visibleWidgets={visibleWidgets} 
           />
           <MyTasksSection
             events={events}

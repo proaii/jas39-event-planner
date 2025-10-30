@@ -6,12 +6,15 @@ interface WelcomeHeaderProps {
   currentUser: string;
   onCreateEvent: () => void;
   onCreateFromTemplate?: () => void;
+  onOpenCustomizeDashboard?: () => void;
+
 }
 
 export function WelcomeHeader({
   currentUser,
   onCreateEvent,
   onCreateFromTemplate,
+  onOpenCustomizeDashboard,
 }: WelcomeHeaderProps) {
   return (
     <div className="flex items-center justify-between mb-8">
@@ -22,10 +25,11 @@ export function WelcomeHeader({
       </div>
 
       <div className="flex items-center space-x-3">
+        {/* ปุ่ม Customize Dashboard */}
         <Button
           variant="outline"
           size="sm"
-          onClick={() => {}}
+          onClick={onOpenCustomizeDashboard} // เรียกจาก parent
           className="border-primary text-primary hover:bg-primary hover:text-white"
         >
           <Layout className="w-4 h-4 mr-2" />
@@ -51,7 +55,10 @@ export function WelcomeHeader({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={onCreateFromTemplate} className="cursor-pointer">
+              <DropdownMenuItem
+                onClick={onCreateFromTemplate}
+                className="cursor-pointer"
+              >
                 <FileText className="w-4 h-4 mr-2" />
                 Create from Template...
               </DropdownMenuItem>

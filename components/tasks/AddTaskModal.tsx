@@ -109,11 +109,11 @@ export function AddTaskModal({
       title: taskData.title,
       description: taskData.description || undefined,
       assignees: taskData.assignees,
-      dueDate: taskData.dueDate || undefined,
-      startDate: taskData.startDate || undefined,
-      endDate: taskData.endDate || undefined,
-      startTime: taskData.startTime || undefined,
-      endTime: taskData.endTime || undefined,
+      dueDate: !hasTimePeriod ? taskData.dueDate || undefined : undefined,
+      startDate: hasTimePeriod ? taskData.startDate || undefined : undefined,
+      endDate: hasTimePeriod ? taskData.endDate || undefined : undefined,
+      startTime: hasTimePeriod ? taskData.startTime || undefined : undefined,
+      endTime: hasTimePeriod ? taskData.endTime || undefined : undefined,
       status: taskData.status,
       priority: taskData.priority,
       subTasks: taskData.subTasks.length ? taskData.subTasks : undefined,
@@ -124,6 +124,7 @@ export function AddTaskModal({
     if (isPersonal) onCreateTask?.(finalTask);
     else onAddTask?.(finalTask);
 
+    // Reset form
     setTaskData({
       title: '',
       description: '',
@@ -143,102 +144,57 @@ export function AddTaskModal({
     onClose();
   };
 
-  const addSubTask = () => {
-    const newSubTask: SubTask = { id: `st_${Date.now()}`, name: '', completed: false };
-    setTaskData(prev => ({ ...prev, subTasks: [...prev.subTasks, newSubTask] }));
-  };
+  // Sub-tasks
+  const addSubTask = () => setTaskData(prev => ({ ...prev, subTasks: [...prev.subTasks, { id: `st_${Date.now()}`, name: '', completed: false }] }));
+  const updateSubTask = (index: number, name: string) => setTaskData(prev => ({ ...prev, subTasks: prev.subTasks.map((st, i) => i === index ? { ...st, name } : st) }));
+  const removeSubTask = (index: number) => setTaskData(prev => ({ ...prev, subTasks: prev.subTasks.filter((_, i) => i !== index) }));
 
-  const updateSubTask = (index: number, name: string) => {
-    setTaskData(prev => ({ ...prev, subTasks: prev.subTasks.map((st, i) => i === index ? { ...st, name } : st) }));
-  };
-
-  const removeSubTask = (index: number) => {
-    setTaskData(prev => ({ ...prev, subTasks: prev.subTasks.filter((_, i) => i !== index) }));
-  };
-
-    const handleAssigneeToggle = (member: string) => {
+  // Assignees
+  const handleAssigneeToggle = (member: string) => {
     setTaskData(prev => {
-        const isAlreadyAssigned = prev.assignees.includes(member);
-
-        if (isPersonal && member === currentUser && isAlreadyAssigned && prev.assignees.length === 1) {
-        return prev;
-        }
-
-        return {
-        ...prev,
-        assignees: isAlreadyAssigned
-            ? prev.assignees.filter(a => a !== member)
-            : [...prev.assignees, member],
-        };
+      const isAlreadyAssigned = prev.assignees.includes(member);
+      if (isPersonal && member === currentUser && isAlreadyAssigned && prev.assignees.length === 1) return prev;
+      return { ...prev, assignees: isAlreadyAssigned ? prev.assignees.filter(a => a !== member) : [...prev.assignees, member] };
     });
-    };
+  };
+  const removeAssignee = (member: string) => {
+    setTaskData(prev => (isPersonal && member === currentUser ? prev : { ...prev, assignees: prev.assignees.filter(a => a !== member) }));
+  };
 
-
-    const removeAssignee = (member: string) => {
-    setTaskData(prev => {
-        
-        if (isPersonal && member === currentUser) return prev;
-        return { ...prev, assignees: prev.assignees.filter(a => a !== member) };
-    });
-    };
-
+  // Attachments
   const addAttachment = () => {
-    if (newAttachmentUrl.trim()) {
-      const newAttachment: Attachment = {
-        id: `att_${Date.now()}`,
-        url: newAttachmentUrl.trim(),
-        title: extractTitleFromUrl(newAttachmentUrl.trim()),
-        favicon: getFaviconFromUrl(newAttachmentUrl.trim())
-      };
-      setTaskData(prev => ({
-        ...prev,
-        attachments: [...prev.attachments, newAttachment]
-      }));
-      setNewAttachmentUrl('');
-    }
+    if (!newAttachmentUrl.trim()) return;
+    const newAttachment: Attachment = {
+      id: `att_${Date.now()}`,
+      url: newAttachmentUrl.trim(),
+      title: extractTitleFromUrl(newAttachmentUrl.trim()),
+      favicon: getFaviconFromUrl(newAttachmentUrl.trim()),
+    };
+    setTaskData(prev => ({ ...prev, attachments: [...prev.attachments, newAttachment] }));
+    setNewAttachmentUrl('');
   };
+  const removeAttachment = (id: string) => setTaskData(prev => ({ ...prev, attachments: prev.attachments.filter(att => att.id !== id) }));
 
-  const removeAttachment = (attachmentId: string) => {
-    setTaskData(prev => ({
-      ...prev,
-      attachments: prev.attachments.filter(att => att.id !== attachmentId)
-    }));
-  };
-
-  const extractTitleFromUrl = (url: string): string => {
+  const extractTitleFromUrl = (url: string) => {
     try {
-      const urlObj = new URL(url);
-      if (urlObj.hostname.includes('docs.google.com')) return 'Google Doc';
-      if (urlObj.hostname.includes('figma.com')) return 'Figma Design';
-      if (urlObj.hostname.includes('github.com')) return 'GitHub Repository';
-      if (urlObj.hostname.includes('drive.google.com')) return 'Google Drive File';
-      return urlObj.hostname.replace('www.', '');
-    } catch {
-      return 'Link';
-    }
+      const u = new URL(url);
+      if (u.hostname.includes('docs.google.com')) return 'Google Doc';
+      if (u.hostname.includes('figma.com')) return 'Figma Design';
+      if (u.hostname.includes('github.com')) return 'GitHub Repository';
+      if (u.hostname.includes('drive.google.com')) return 'Google Drive File';
+      return u.hostname.replace('www.', '');
+    } catch { return 'Link'; }
   };
 
-  const getFaviconFromUrl = (url: string): string => {
+  const getFaviconFromUrl = (url: string) => {
     try {
-      const urlObj = new URL(url);
-      if (urlObj.hostname.includes('docs.google.com')) return '📄';
-      if (urlObj.hostname.includes('figma.com')) return '🎨';
-      if (urlObj.hostname.includes('github.com')) return '💻';
-      if (urlObj.hostname.includes('drive.google.com')) return '📂';
+      const u = new URL(url);
+      if (u.hostname.includes('docs.google.com')) return '📄';
+      if (u.hostname.includes('figma.com')) return '🎨';
+      if (u.hostname.includes('github.com')) return '💻';
+      if (u.hostname.includes('drive.google.com')) return '📂';
       return '🔗';
-    } catch {
-      return '🔗';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'Urgent': return 'text-red-600 bg-red-50 border-red-200';
-      case 'High': return 'text-orange-600 bg-orange-50 border-orange-200';
-      case 'Normal': return 'text-blue-600 bg-blue-50 border-blue-200';
-      case 'Low': return 'text-gray-600 bg-gray-50 border-gray-200';
-      default: return 'text-blue-600 bg-blue-50 border-blue-200';
-    }
+    } catch { return '🔗'; }
   };
 
   return (
@@ -246,175 +202,66 @@ export function AddTaskModal({
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Task</DialogTitle>
-          <DialogDescription>
-            Create a new task and assign it to a team member.
-          </DialogDescription>
+          <DialogDescription>Create a new task and assign it to a team member.</DialogDescription>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Task Name */}
           <div className="space-y-2">
             <Label htmlFor="taskName">Task Name *</Label>
-            <Input
-              id="taskName"
-              value={taskData.title}
-              onChange={(e) => setTaskData(prev => ({ ...prev, title: e.target.value }))}
-              placeholder="Enter task name"
-              required
-            />
+            <Input id="taskName" value={taskData.title} onChange={(e) => setTaskData(prev => ({ ...prev, title: e.target.value }))} placeholder="Enter task name" required />
           </div>
 
           {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={taskData.description}
-              onChange={(e) => setTaskData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Enter task description (optional)"
-              rows={3}
-            />
+            <Textarea id="description" value={taskData.description} onChange={(e) => setTaskData(prev => ({ ...prev, description: e.target.value }))} rows={3} placeholder="Enter task description (optional)" />
           </div>
 
-          {/* Time Period Configuration */}
+          {/* Time Period / Due Date */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="hasTimePeriod"
-                checked={hasTimePeriod}
-                onChange={(e) => {
-                  const hasPeriod = e.target.checked;
-                  setHasTimePeriod(hasPeriod);
-                  if (!hasPeriod) {
-                    setTaskData(prev => ({ 
-                      ...prev, 
-                      startDate: '',
-                      endDate: '',
-                      startTime: '',
-                      endTime: ''
-                    }));
-                  }
-                }}
-                className="w-4 h-4 text-primary border-border rounded focus:ring-primary"
-              />
+              <input type="checkbox" id="hasTimePeriod" checked={hasTimePeriod} onChange={e => { const checked = e.target.checked; setHasTimePeriod(checked); if (!checked) setTaskData(prev => ({ ...prev, startDate:'', endDate:'', startTime:'', endTime:'' })); }} className="w-4 h-4 text-primary border-border rounded focus:ring-primary" />
               <Label htmlFor="hasTimePeriod" className="text-sm">Schedule task with specific time period</Label>
             </div>
-
             {hasTimePeriod ? (
               <>
-                {/* Start and End Dates */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="startDate" className="flex items-center space-x-2">
-                      <Calendar className="w-4 h-4" />
-                      <span>Start Date *</span>
-                    </Label>
-                    <Input
-                      id="startDate"
-                      type="date"
-                      value={taskData.startDate}
-                      onChange={(e) => setTaskData(prev => ({ ...prev, startDate: e.target.value }))}
-                      required={hasTimePeriod}
-                    />
+                    <Label htmlFor="startDate" className="flex items-center space-x-2"><Calendar className="w-4 h-4"/><span>Start Date *</span></Label>
+                    <Input id="startDate" type="date" value={taskData.startDate} onChange={e => setTaskData(prev => ({ ...prev, startDate: e.target.value }))} required />
                   </div>
-                  
                   <div className="space-y-2">
-                    <Label htmlFor="endDate" className="flex items-center space-x-2">
-                      <Calendar className="w-4 h-4" />
-                      <span>End Date</span>
-                    </Label>
-                    <Input
-                      id="endDate"
-                      type="date"
-                      value={taskData.endDate}
-                      onChange={(e) => setTaskData(prev => ({ ...prev, endDate: e.target.value }))}
-                      min={taskData.startDate}
-                    />
+                    <Label htmlFor="endDate" className="flex items-center space-x-2"><Calendar className="w-4 h-4"/><span>End Date</span></Label>
+                    <Input id="endDate" type="date" value={taskData.endDate} min={taskData.startDate} onChange={e => setTaskData(prev => ({ ...prev, endDate: e.target.value }))} />
                   </div>
                 </div>
-
-                {/* Start and End Times */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="startTime" className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4" />
-                      <span>Start Time</span>
-                    </Label>
-                    <Input
-                      id="startTime"
-                      type="time"
-                      value={taskData.startTime}
-                      onChange={(e) => setTaskData(prev => ({ ...prev, startTime: e.target.value }))}
-                    />
+                    <Label htmlFor="startTime" className="flex items-center space-x-2"><Clock className="w-4 h-4"/><span>Start Time</span></Label>
+                    <Input id="startTime" type="time" value={taskData.startTime} onChange={e => setTaskData(prev => ({ ...prev, startTime: e.target.value }))} />
                   </div>
-                  
                   <div className="space-y-2">
-                    <Label htmlFor="endTime" className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4" />
-                      <span>End Time</span>
-                    </Label>
-                    <Input
-                      id="endTime"
-                      type="time"
-                      value={taskData.endTime}
-                      onChange={(e) => setTaskData(prev => ({ ...prev, endTime: e.target.value }))}
-                    />
+                    <Label htmlFor="endTime" className="flex items-center space-x-2"><Clock className="w-4 h-4"/><span>End Time</span></Label>
+                    <Input id="endTime" type="time" value={taskData.endTime} onChange={e => setTaskData(prev => ({ ...prev, endTime: e.target.value }))} />
                   </div>
                 </div>
               </>
             ) : (
-              /* Fallback to simple due date */
               <div className="space-y-2">
-                <Label htmlFor="dueDate" className="flex items-center space-x-2">
-                  <Calendar className="w-4 h-4" />
-                  <span>Due Date</span>
-                </Label>
-                <Input
-                  id="dueDate"
-                  type="date"
-                  value={taskData.dueDate}
-                  onChange={(e) => setTaskData(prev => ({ ...prev, dueDate: e.target.value }))}
-                />
+                <Label htmlFor="dueDate" className="flex items-center space-x-2"><Calendar className="w-4 h-4"/><span>Due Date</span></Label>
+                <Input id="dueDate" type="date" value={taskData.dueDate} onChange={e => setTaskData(prev => ({ ...prev, dueDate: e.target.value }))} />
               </div>
             )}
           </div>
 
           {/* Priority */}
           <div className="space-y-2">
-            <Label className="flex items-center space-x-2">
-              <Flag className="w-4 h-4" />
-              <span>Priority</span>
-            </Label>
+            <Label className="flex items-center space-x-2"><Flag className="w-4 h-4"/><span>Priority</span></Label>
             <Select value={taskData.priority} onValueChange={(value: Task['priority']) => setTaskData(prev => ({ ...prev, priority: value }))}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="Urgent">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                    <span>Urgent</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="High">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-                    <span>High</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="Normal">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                    <span>Normal</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="Low">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 rounded-full bg-gray-500"></div>
-                    <span>Low</span>
-                  </div>
-                </SelectItem>
+                {['Urgent','High','Normal','Low'].map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -423,13 +270,9 @@ export function AddTaskModal({
           <div className="space-y-2">
             <Label>Status</Label>
             <Select value={taskData.status} onValueChange={(value: Task['status']) => setTaskData(prev => ({ ...prev, status: value }))}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="To Do">To Do</SelectItem>
-                <SelectItem value="In Progress">In Progress</SelectItem>
-                <SelectItem value="Done">Done</SelectItem>
+                {['To Do','In Progress','Done'].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -438,30 +281,14 @@ export function AddTaskModal({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Sub-tasks</Label>
-              <Button type="button" variant="outline" size="sm" onClick={addSubTask}>
-                <Plus className="w-4 h-4 mr-1" />
-                Add sub-task
-              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={addSubTask}><Plus className="w-4 h-4 mr-1"/>Add sub-task</Button>
             </div>
             {taskData.subTasks.length > 0 && (
               <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
-                {taskData.subTasks.map((subTask, index) => (
+                {taskData.subTasks.map((subTask,index)=>(
                   <div key={subTask.id} className="flex items-center space-x-2">
-                    <Input
-                      value={subTask.name}
-                      onChange={(e) => updateSubTask(index, e.target.value)}
-                      placeholder="Enter sub-task name"
-                      className="flex-1"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeSubTask(index)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <Input value={subTask.name} onChange={e=>updateSubTask(index,e.target.value)} placeholder="Enter sub-task name" className="flex-1"/>
+                    <Button type="button" variant="ghost" size="sm" onClick={()=>removeSubTask(index)} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4"/></Button>
                   </div>
                 ))}
               </div>
@@ -470,139 +297,57 @@ export function AddTaskModal({
 
           {/* Attachments */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="flex items-center space-x-2">
-                <Paperclip className="w-4 h-4" />
-                <span>Attachments</span>
-              </Label>
-            </div>
-            
-            {/* Add Attachment */}
+            <Label className="flex items-center space-x-2"><Paperclip className="w-4 h-4"/><span>Attachments</span></Label>
             <div className="flex space-x-2">
-              <Input
-                value={newAttachmentUrl}
-                onChange={(e) => setNewAttachmentUrl(e.target.value)}
-                placeholder="Paste a link here..."
-                className="flex-1"
-              />
-              <Button 
-                type="button" 
-                variant="outline" 
-                size="sm" 
-                onClick={addAttachment}
-                disabled={!newAttachmentUrl.trim()}
-              >
-                Add Link
-              </Button>
+              <Input value={newAttachmentUrl} onChange={e=>setNewAttachmentUrl(e.target.value)} placeholder="Paste a link here..." className="flex-1"/>
+              <Button type="button" variant="outline" size="sm" onClick={addAttachment} disabled={!newAttachmentUrl.trim()}>Add Link</Button>
             </div>
-
-            {/* Attached Links */}
             {taskData.attachments.length > 0 && (
-            <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
-                {taskData.attachments.map((attachment) => (
-                <div
-                    key={attachment.id}
-                    className="flex items-center justify-between p-2 rounded-md border bg-background/60 dark:bg-muted/40"
-                >
+              <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
+                {taskData.attachments.map(att=>(
+                  <div key={att.id} className="flex items-center justify-between p-2 rounded-md border bg-background/60 dark:bg-muted/40">
                     <div className="flex items-center space-x-2 flex-1 min-w-0">
-                    <span className="text-lg">{attachment.favicon}</span>
-                    <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate text-foreground">
-                        {attachment.title}
-                        </div>
-                        <div className="text-xs text-muted-foreground truncate">
-                        {attachment.url}
-                        </div>
+                      <span className="text-lg">{att.favicon}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate text-foreground">{att.title}</div>
+                        <div className="text-xs text-muted-foreground truncate">{att.url}</div>
+                      </div>
+                      <Button type="button" variant="ghost" size="sm" onClick={()=>window.open(att.url,"_blank")} className="shrink-0"><ExternalLink className="w-3 h-3"/></Button>
                     </div>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => window.open(attachment.url, "_blank")}
-                        className="shrink-0"
-                    >
-                        <ExternalLink className="w-3 h-3" />
-                    </Button>
-                    </div>
-                    <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeAttachment(attachment.id)}
-                    className="text-destructive hover:text-destructive shrink-0 ml-2"
-                    >
-                    <X className="w-4 h-4" />
-                    </Button>
-                </div>
+                    <Button type="button" variant="ghost" size="sm" onClick={()=>removeAttachment(att.id)} className="text-destructive hover:text-destructive shrink-0 ml-2"><X className="w-4 h-4"/></Button>
+                  </div>
                 ))}
-            </div>
+              </div>
             )}
-
           </div>
 
           {/* Assignees */}
           <div className="space-y-2">
-            <Label className="flex items-center space-x-2">
-              <Users className="w-4 h-4" />
-              <span>Assignees *</span>
-            </Label>
-            
-            {/* Selected Assignees */}
-            {taskData.assignees.length > 0 && (
+            <Label className="flex items-center space-x-2"><Users className="w-4 h-4"/><span>Assignees *</span></Label>
+            {taskData.assignees.length>0 && (
               <div className="flex flex-wrap gap-2 p-3 bg-muted/30 rounded-lg">
-                {taskData.assignees.map((assignee) => (
-                  <Badge key={assignee} variant="secondary" className="flex items-center space-x-1">
-                    <span>{assignee}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeAssignee(assignee)}
-                      className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
+                {taskData.assignees.map(a=>(
+                  <Badge key={a} variant="secondary" className="flex items-center space-x-1">
+                    <span>{a}</span>
+                    <button type="button" onClick={()=>removeAssignee(a)} className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"><X className="w-3 h-3"/></button>
                   </Badge>
                 ))}
               </div>
             )}
-
-            {/* Available Members */}
             <div className="space-y-2">
               <Label className="text-sm text-muted-foreground">Available Team Members:</Label>
               <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto">
-                {eventMembers && eventMembers.length > 0 ? eventMembers.map((member) => (
-                  <button
-                    key={member}
-                    type="button"
-                    onClick={() => handleAssigneeToggle(member)}
-                    disabled={false}
-                    className={`text-left p-2 rounded-md border transition-colors ${
-                        taskData.assignees.includes(member) || (isPersonal && member === currentUser)
-                        ? 'bg-primary/10 border-primary text-primary'
-                        : 'bg-white border-border hover:bg-muted/50'
-                    }`}
-                    >
-                    {member}
-                </button>
-
-                )) : (
-                  <p className="text-sm text-muted-foreground p-2">No team members available</p>
-                )}
+                {eventMembers.length>0 ? eventMembers.map(m=>(
+                  <button key={m} type="button" onClick={()=>handleAssigneeToggle(m)} className={`text-left p-2 rounded-md border transition-colors ${taskData.assignees.includes(m)||(isPersonal&&m===currentUser)?'bg-primary/10 border-primary text-primary':'bg-white border-border hover:bg-muted/50'}`}>{m}</button>
+                )):<p className="text-sm text-muted-foreground p-2">No team members available</p>}
               </div>
             </div>
           </div>
 
           {/* Actions */}
           <div className="flex justify-end space-x-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button 
-              type="submit" 
-              className="bg-primary hover:bg-primary/90"
-              disabled={!taskData.title || taskData.assignees.length === 0}
-            >
-              Add Task
-            </Button>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={!isFormValid()}>Add Task</Button>
           </div>
         </form>
       </DialogContent>

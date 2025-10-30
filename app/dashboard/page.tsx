@@ -1,39 +1,37 @@
-'use client';
-import { useState } from "react";
+"use client";
+
+import { useUiStore } from "@/stores/ui-store";
+import { toast } from "react-hot-toast";
+import { mockEvents, mockTasks } from "@/lib/mock-data";
 import { Dashboard } from "@/components/dashboard/dashboard";
 import { AddEventModal } from "@/components/events/AddEventModal";
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { CustomizeDashboardModal } from "@/components/dashboard/CustomizeDashboardModal";
-import { mockEvents, mockTasks } from "@/lib/mock-data";
-import { toast } from "react-hot-toast";
+import { useState } from "react";
 import { Event, Task } from "@/lib/types";
 
 export default function DashboardPage() {
   const currentUser = "Bob";
-  const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
-  const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
-  const [isCustomizeModalOpen, setIsCustomizeModalOpen] = useState(false);
+
+  const {
+    isAddEventModalOpen,
+    isAddTaskModalOpen,
+    isCustomizeModalOpen,
+    openAddEventModal,
+    closeAddEventModal,
+    openAddTaskModal,
+    closeAddTaskModal,
+    openCustomizeModal,
+    closeCustomizeModal,
+    visibleWidgets,
+    setVisibleWidgets,
+    resetWidgets,
+  } = useUiStore();
 
   const [events, setEvents] = useState<Event[]>(mockEvents);
   const [personalTasks, setPersonalTasks] = useState<Task[]>(mockTasks);
 
-
-  const defaultWidgets = [
-    "upcomingEvents",
-    "recentActivity",
-    "upcomingDeadlines",
-    "progressOverview",
-  ];
-
-  const [visibleWidgets, setVisibleWidgets] = useState<string[]>(defaultWidgets);
-
-  // --- Event handlers ---
-  const handleOpenAddEventModal = () => setIsAddEventModalOpen(true);
-  const handleCloseAddEventModal = () => setIsAddEventModalOpen(false);
-
-  const handleCreateEvent = (
-    eventData: Omit<Event, "id" | "progress" | "tasks" | "createdAt" | "ownerId">
-  ) => {
+  const handleCreateEvent = (eventData: Omit<Event, "id" | "progress" | "tasks" | "createdAt" | "ownerId">) => {
     const newEvent: Event = {
       id: `event-${Date.now()}`,
       ...eventData,
@@ -43,19 +41,11 @@ export default function DashboardPage() {
       ownerId: currentUser,
     };
     setEvents((prev) => [...prev, newEvent]);
-    setIsAddEventModalOpen(false);
+    closeAddEventModal();
     toast.success(`Event "${eventData.title}" created successfully!`);
   };
 
-  const handleInviteMembers = () =>
-    toast("Invite members feature coming soon!", { icon: "ℹ️" });
-
-  const handleOpenAddTaskModal = () => setIsAddTaskModalOpen(true);
-  const handleCloseAddTaskModal = () => setIsAddTaskModalOpen(false);
-
-  const handleCreateTask = (
-    taskData: Omit<Task, "id" | "status" | "createdAt">
-  ) => {
+  const handleCreateTask = (taskData: Omit<Task, "id" | "status" | "createdAt">) => {
     const newTask: Task = {
       id: `task-${Date.now()}`,
       ...taskData,
@@ -63,23 +53,14 @@ export default function DashboardPage() {
       createdAt: new Date().toISOString(),
     };
     setPersonalTasks((prev) => [...prev, newTask]);
-    setIsAddTaskModalOpen(false);
+    closeAddTaskModal();
     toast.success(`Task "${taskData.title}" added successfully!`);
   };
 
-  // --- Customize dashboard handlers ---
-  const handleOpenCustomizeModal = () => setIsCustomizeModalOpen(true);
-  const handleCloseCustomizeModal = () => setIsCustomizeModalOpen(false);
-
   const handleSaveWidgets = (selected: string[]) => {
     setVisibleWidgets(selected);
-    setIsCustomizeModalOpen(false);
+    closeCustomizeModal();
     toast.success("Dashboard updated!");
-  };
-
-  const handleResetWidgets = () => {
-    setVisibleWidgets(defaultWidgets);
-    toast.success("Dashboard reset to default!");
   };
 
   return (
@@ -88,23 +69,23 @@ export default function DashboardPage() {
         events={events}
         personalTasks={personalTasks}
         currentUser={currentUser}
-        onCreateEvent={handleOpenAddEventModal}
+        onCreateEvent={openAddEventModal}
         onEventClick={(id) => console.log("Event clicked:", id)}
-        onCreatePersonalTask={handleOpenAddTaskModal}
-        onCustomize={handleOpenCustomizeModal} 
-        visibleWidgets={visibleWidgets} 
+        onCreatePersonalTask={openAddTaskModal}
+        onCustomize={openCustomizeModal}
+        visibleWidgets={visibleWidgets}
       />
 
       <AddEventModal
         isOpen={isAddEventModalOpen}
-        onClose={handleCloseAddEventModal}
+        onClose={closeAddEventModal}
         onCreateEvent={handleCreateEvent}
-        onInviteMembers={handleInviteMembers}
+        onInviteMembers={() => toast("Invite members feature coming soon!", { icon: "ℹ️" })}
       />
 
       <AddTaskModal
         isOpen={isAddTaskModalOpen}
-        onClose={handleCloseAddTaskModal}
+        onClose={closeAddTaskModal}
         onCreateTask={handleCreateTask}
         eventMembers={[currentUser]}
         currentUser={currentUser}
@@ -113,10 +94,10 @@ export default function DashboardPage() {
 
       <CustomizeDashboardModal
         isOpen={isCustomizeModalOpen}
-        onClose={handleCloseCustomizeModal}
+        onClose={closeCustomizeModal}
         selectedWidgets={visibleWidgets}
         onSave={handleSaveWidgets}
-        onResetDefault={handleResetWidgets} 
+        onResetDefault={resetWidgets}
       />
     </>
   );

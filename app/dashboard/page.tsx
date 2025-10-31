@@ -1,19 +1,20 @@
 "use client";
 
-import { useUiStore } from "@/stores/ui-store";
+import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
+import { useUiStore } from "@/stores/ui-store";
 import { mockEvents, mockTasks } from "@/lib/mock-data";
 import { Dashboard } from "@/components/dashboard/dashboard";
 import { AddEventModal } from "@/components/events/AddEventModal";
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { CustomizeDashboardModal } from "@/components/dashboard/CustomizeDashboardModal";
 import { CreateFromTemplateModal, EventTemplate } from "@/components/events/CreateFromTemplateModal";
-import { useState } from "react";
 import { Event, Task } from "@/lib/types";
 
 export default function DashboardPage() {
   const currentUser = "Bob";
 
+  // ----- UI State Store -----
   const {
     isAddEventModalOpen,
     isAddTaskModalOpen,
@@ -29,14 +30,16 @@ export default function DashboardPage() {
     resetWidgets,
   } = useUiStore();
 
+  // ----- Local State -----
   const [events, setEvents] = useState<Event[]>(mockEvents);
   const [personalTasks, setPersonalTasks] = useState<Task[]>(mockTasks);
-
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+
   const [prefillData, setPrefillData] = useState<
     Omit<Event, "id" | "progress" | "tasks" | "createdAt" | "ownerId"> | null
   >(null);
 
+  // ----- Handlers -----
   const handleCreateEvent = (
     eventData: Omit<Event, "id" | "progress" | "tasks" | "createdAt" | "ownerId">
   ) => {
@@ -82,9 +85,18 @@ export default function DashboardPage() {
       time: "",
       members: [],
     });
+
     openAddEventModal();
   };
 
+  // ----- Effect -----
+  useEffect(() => {
+    if (!isAddEventModalOpen) {
+      setPrefillData(null);
+    }
+  }, [isAddEventModalOpen]);
+
+  // ----- Render -----
   return (
     <>
       <Dashboard
@@ -99,6 +111,7 @@ export default function DashboardPage() {
         onCreateFromTemplate={() => setIsTemplateModalOpen(true)}
       />
 
+      {/* Modal: Add Event */}
       <AddEventModal
         isOpen={isAddEventModalOpen}
         onClose={closeAddEventModal}
@@ -109,6 +122,7 @@ export default function DashboardPage() {
         }
       />
 
+      {/* Modal: Add Task */}
       <AddTaskModal
         isOpen={isAddTaskModalOpen}
         onClose={closeAddTaskModal}
@@ -118,6 +132,7 @@ export default function DashboardPage() {
         isPersonal={true}
       />
 
+      {/* Modal: Customize Dashboard */}
       <CustomizeDashboardModal
         isOpen={isCustomizeModalOpen}
         onClose={closeCustomizeModal}
@@ -126,6 +141,7 @@ export default function DashboardPage() {
         onResetDefault={resetWidgets}
       />
 
+      {/* Modal: Create from Template */}
       <CreateFromTemplateModal
         isOpen={isTemplateModalOpen}
         templates={mockEvents.map((e) => ({

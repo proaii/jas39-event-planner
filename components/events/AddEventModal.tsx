@@ -124,6 +124,19 @@ export function AddEventModal({
   };
 
   const handleClose = () => {
+    reset({
+      title: "",
+      date: "",
+      endDate: "",
+      time: "",
+      endTime: "",
+      isMultiDay: false,
+      location: "",
+      description: "",
+      members: [],
+      coverImage: "",
+      color: "bg-chart-1",
+    }); 
     onClose?.();
     onOpenChange?.(false);
   };

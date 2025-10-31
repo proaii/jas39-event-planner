@@ -22,7 +22,7 @@ interface SaveTemplateModalProps {
   templateDesc: string;
   onNameChange: (name: string) => void;
   onDescChange: (desc: string) => void;
-  onSave: () => void;
+  onSave: (data: { name: string; description: string }) => void;
 }
 
 export function SaveTemplateModal({
@@ -37,7 +37,10 @@ export function SaveTemplateModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave();
+    onSave({
+      name: templateName,
+      description: templateDesc,
+    });
   };
 
   return (

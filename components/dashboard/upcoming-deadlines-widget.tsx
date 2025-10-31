@@ -1,8 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Task } from "@/lib/types";
-import { formatDueDate } from "@/lib/utils";
+import { formatDate, getEffectiveDueDate } from "@/lib/utils";
 import { Clock } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface UpcomingDeadlinesWidgetProps {
   tasks: Task[];
@@ -10,16 +9,24 @@ interface UpcomingDeadlinesWidgetProps {
 }
 
 export function UpcomingDeadlinesWidget({ tasks, onTaskClick }: UpcomingDeadlinesWidgetProps) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   const upcomingTasks = tasks
-    .map(task => ({
-      ...task,
-      effectiveDueDate:
-        task.startDate && task.endDate
-          ? task.endDate
-          : task.dueDate || undefined,
-    }))
-    .filter(task => task.effectiveDueDate && task.status !== "Done")
-    .sort((a, b) => new Date(a.effectiveDueDate!).getTime() - new Date(b.effectiveDueDate!).getTime())
+    .filter((task) => {
+      const effectiveDue = getEffectiveDueDate(task);
+      if (!effectiveDue) return false;
+
+      const dueDate = new Date(effectiveDue);
+      dueDate.setHours(0, 0, 0, 0);
+
+      return dueDate >= today;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(getEffectiveDueDate(a) ?? 0).getTime();
+      const dateB = new Date(getEffectiveDueDate(b) ?? 0).getTime();
+      return dateA - dateB;
+    })
     .slice(0, 3);
 
   return (
@@ -31,63 +38,25 @@ export function UpcomingDeadlinesWidget({ tasks, onTaskClick }: UpcomingDeadline
         </div>
 
         <div className="space-y-3">
-          {upcomingTasks.map(task => {
-            const dueInfo = formatDueDate(task.effectiveDueDate);
-            const assignees = task.assignees || [];
-
-            return (
+          {upcomingTasks.length > 0 ? (
+            upcomingTasks.map((task) => (
               <div
                 key={task.id}
-                className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                onClick={() => onTaskClick?.(task.id!)}
+                className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                onClick={() => onTaskClick?.(task.id)}
               >
-                <div
-                  className={cn(
-                    "w-2 h-2 rounded-full flex-shrink-0",
-                    task.priority === "Urgent"
-                      ? "bg-red-500"
-                      : task.priority === "High"
-                      ? "bg-orange-500"
-                      : task.priority === "Normal"
-                      ? "bg-blue-500"
-                      : "bg-gray-500"
-                  )}
-                />
-
+                <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center text-primary font-semibold">
+                  {task.priority?.[0] ?? "•"}
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {task.isPersonal
-                      ? "Personal"
-                      : assignees.length
-                      ? assignees.join(", ")
-                      : "Unassigned"}
-                  </p>
-                </div>
-
-                <div className="text-right flex-shrink-0">
-                  <p
-                    className={`text-xs font-medium ${
-                      dueInfo?.isUrgent ? "text-warning" : "text-muted-foreground"
-                    }`}
-                  >
-                    {dueInfo?.isToday
-                      ? "Today"
-                      : dueInfo?.isTomorrow
-                      ? "Tomorrow"
-                      : task.effectiveDueDate
-                      ? new Date(task.effectiveDueDate).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        })
-                      : "-"}
+                  <p className="text-xs text-muted-foreground">
+                    Due: {formatDate(getEffectiveDueDate(task) || "")}
                   </p>
                 </div>
               </div>
-            );
-          })}
-
-          {upcomingTasks.length === 0 && (
+            ))
+          ) : (
             <div className="text-center py-4 text-muted-foreground text-sm">
               No upcoming deadlines
             </div>

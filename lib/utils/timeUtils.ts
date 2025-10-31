@@ -1,29 +1,7 @@
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+// /lib/utils/timeUtils.ts
 import { Task } from "@/lib/types";
 
-// Combine Tailwind class names safely
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-
-// Check if Supabase environment variables exist
-export const hasEnvVars = Boolean(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
-
-// Get initials from a name string
-export const getInitials = (name: string) => {
-  if (!name) return "";
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-};
-
-// Format date as "MMM dd, yyyy"
+// Format a date string as "MMM dd, yyyy"
 export const formatDate = (dateString: string) => {
   if (!dateString) return "";
   const date = new Date(dateString);
@@ -34,7 +12,7 @@ export const formatDate = (dateString: string) => {
   });
 };
 
-// Format time string "HH:mm" to "h:mm AM/PM"
+// Format a time string "HH:mm" to "h:mm AM/PM"
 export const formatTime = (timeString: string) => {
   if (!timeString) return "";
   const [hours, minutes] = timeString.split(":");
@@ -76,9 +54,38 @@ export const formatDueDate = (dueDate?: string | null) => {
   };
 };
 
-// Get effective due date for a task
+// Get the effective due date for a task
 export const getEffectiveDueDate = (task: Task): string | undefined => {
-  // Prefer endDate over dueDate if both exist
   if (task.endDate) return task.endDate;
   return task.dueDate || undefined;
+};
+
+// Check if current date is within startDate and endDate
+export const isCurrentlyActive = (startDate?: string, endDate?: string) => {
+  if (!startDate || !endDate) return false;
+  const now = new Date();
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  return now >= start && now <= end;
+};
+
+// Calculate duration between two dates in days
+export const calculateDuration = (startDate: string, endDate: string) => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const diffTime = Math.abs(end.getTime() - start.getTime());
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
+// Format an event date range nicely
+export const formatEventDateRange = (startDate: string, endDate: string) => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" };
+
+  if (start.toDateString() === end.toDateString()) {
+    return start.toLocaleDateString("en-US", options);
+  }
+
+  return `${start.toLocaleDateString("en-US", options)} - ${end.toLocaleDateString("en-US", options)}`;
 };

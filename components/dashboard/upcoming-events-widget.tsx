@@ -1,3 +1,6 @@
+"use client";
+
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Event } from "@/lib/types";
@@ -10,8 +13,16 @@ interface UpcomingEventsWidgetProps {
   onNavigateToAllEvents?: () => void;
 }
 
-export function UpcomingEventsWidget({ events, onEventClick, onNavigateToAllEvents }: UpcomingEventsWidgetProps) {
-  const sortedEvents = [...events].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+export function UpcomingEventsWidget({ events, onEventClick }: UpcomingEventsWidgetProps) {
+  const router = useRouter();
+
+  const sortedEvents = [...events].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
+  const handleNavigateToAllEvents = () => {
+    router.push("/events");
+  };
 
   return (
     <Card className="lg:col-span-1">
@@ -22,7 +33,7 @@ export function UpcomingEventsWidget({ events, onEventClick, onNavigateToAllEven
             variant="ghost"
             size="sm"
             className="text-primary"
-            onClick={onNavigateToAllEvents}
+            onClick={handleNavigateToAllEvents}
           >
             <ChevronRight className="w-4 h-4" />
           </Button>
@@ -36,15 +47,22 @@ export function UpcomingEventsWidget({ events, onEventClick, onNavigateToAllEven
               onClick={() => onEventClick(event.id)}
             >
               <div
-                className={cn("w-8 h-8 rounded-md flex-shrink-0", event.color ? event.color : "bg-primary")}
+                className={cn(
+                  "w-8 h-8 rounded-md flex-shrink-0",
+                  event.color ? event.color : "bg-primary"
+                )}
                 style={{
-                  backgroundImage: event.coverImage ? `url(${event.coverImage})` : undefined,
+                  backgroundImage: event.coverImage
+                    ? `url(${event.coverImage})`
+                    : undefined,
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                 }}
               />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{event.title}</p>
+                <p className="text-sm font-medium text-foreground truncate">
+                  {event.title}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {formatDate(event.date)}
                 </p>

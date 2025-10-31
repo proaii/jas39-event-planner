@@ -26,7 +26,7 @@ import { useUiStore } from "@/stores/ui-store";
 import { toast } from "react-hot-toast";
 import { AddEventModal } from "@/components/events/AddEventModal";
 import { CreateFromTemplateModal, EventTemplate } from "@/components/events/CreateFromTemplateModal";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@radix-ui/react-dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 export default function AllEventsPage() {
   const currentUser = "Bob";

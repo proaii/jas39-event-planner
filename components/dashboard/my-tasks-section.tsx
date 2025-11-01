@@ -1,4 +1,5 @@
-"use client";
+'use client';
+
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,17 +12,27 @@ import { TaskCard } from "@/components/task-card";
 
 interface MyTasksSectionProps {
   events: Event[];
-  personalTasks: Task[];
+  tasks: Task[];
   currentUser: string;
-  onStatusChange?: (taskId: string, newStatus: Task["status"]) => void;
-  onSubTaskToggle?: (taskId: string, subTaskId: string) => void;
+  onStatusChange?: (taskId: string, newStatus: Task["taskStatus"]) => void;
+  onSubTaskToggle?: (taskId:string, subTaskId: string) => void;
   onNavigateToAllTasks?: (filterContext?: "my" | "all") => void;
   onCreatePersonalTask: () => void;
 }
 
+type Dateish = { startDate?: string; endDate?: string; dueDate?: string };
+function effectiveDueDateOf(t: Task): string | undefined {
+  const dateish: Dateish = {
+    startDate: t.startAt ?? undefined,
+    endDate: t.endAt ?? undefined,
+    dueDate: t.endAt ?? undefined,
+  };
+  return getEffectiveDueDate(dateish) ?? undefined;
+}
+
 export function MyTasksSection({
   events,
-  personalTasks,
+  tasks,
   currentUser,
   onStatusChange,
   onSubTaskToggle,
@@ -40,17 +51,20 @@ export function MyTasksSection({
   });
   const [taskSortBy, setTaskSortBy] = useState<"dueDate" | "priority" | "recent">("dueDate");
 
+  const isAssignedToCurrentUser = (t: Task) =>
+    t.assignees?.some(
+      a => a?.username === currentUser || a?.userId === currentUser || a?.email === currentUser
+    ) ?? false;
+
   const userTasks = useMemo(() => {
-    const eventTasks = events.flatMap((event) =>
-      event.tasks
-        .filter((task) => task.assignees?.includes(currentUser))
-        .map((task) => ({ ...task, eventTitle: event.title }))
-    );
-    const personalUserTasks = personalTasks
-      .filter((task) => task.assignees?.includes(currentUser))
-      .map((task) => ({ ...task, eventTitle: undefined }));
-    return [...eventTasks, ...personalUserTasks];
-  }, [events, personalTasks, currentUser]);
+    const eventMap = new Map(events.map(e => [e.eventId, e.title]));
+    return tasks
+      .filter(isAssignedToCurrentUser)
+      .map(t => ({
+        ...t,
+        eventTitle: t.eventId ? eventMap.get(t.eventId) : undefined,
+      }));
+  }, [tasks, events, currentUser]);
 
   const availableAssignees = useMemo(() => getAllAssignees(userTasks, events), [userTasks, events]);
 
@@ -58,20 +72,35 @@ export function MyTasksSection({
     const filtered = filterTasks(userTasks, searchTerm, filters);
     return [...filtered].sort((a, b) => {
       if (taskSortBy === "dueDate") {
-        if (!a.dueDate && !b.dueDate) return 0;
-        if (!a.dueDate) return 1;
-        if (!b.dueDate) return -1;
-        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        const aDue = effectiveDueDateOf(a);
+        const bDue = effectiveDueDateOf(b);
+        if (!aDue && !bDue) return 0;
+        if (!aDue) return 1;
+        if (!bDue) return -1;
+        return new Date(aDue).getTime() - new Date(bDue).getTime();
       } else if (taskSortBy === "priority") {
-        const priorityOrder = { Urgent: 0, High: 1, Normal: 2, Low: 3 };
-        return (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2);
+        const order = { Urgent: 0, High: 1, Normal: 2, Low: 3 } as const;
+        const ap = (a.taskPriority && order[a.taskPriority as keyof typeof order]) ?? 2;
+        const bp = (b.taskPriority && order[b.taskPriority as keyof typeof order]) ?? 2;
+        return ap - bp;
       } else {
-        return b.id.localeCompare(a.id);
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
     });
   }, [userTasks, searchTerm, filters, taskSortBy]);
 
   const handleFiltersChange = (newFilters: FilterOptions) => setFilters(newFilters);
+
+  const totalCompleted = userTasks.filter((t) => t.taskStatus === "Done").length;
+  const totalOverdue = userTasks.filter((t) => {
+    const effectiveDueDate = effectiveDueDateOf(t);
+    if (!effectiveDueDate) return false;
+    const dueDate = new Date(effectiveDueDate);
+    const today = new Date();
+    dueDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    return dueDate < today && t.taskStatus !== "Done";
+  }).length;
 
   return (
     <section className="space-y-4">
@@ -81,20 +110,9 @@ export function MyTasksSection({
           <div className="flex items-center space-x-2 mt-1 text-sm text-muted-foreground">
             <span>{userTasks.length} total</span>
             <span>•</span>
-            <span>{userTasks.filter((task) => task.status === "Done").length} completed</span>
+            <span>{totalCompleted} completed</span>
             <span>•</span>
-            <span className="text-warning">
-              {userTasks.filter((task) => {
-                const effectiveDueDate = getEffectiveDueDate(task);
-                if (!effectiveDueDate) return false;
-                const dueDate = new Date(effectiveDueDate);
-                const today = new Date();
-                dueDate.setHours(0, 0, 0, 0);
-                today.setHours(0, 0, 0, 0);
-                return dueDate < today && task.status !== "Done";
-              }).length}{" "}
-              overdue
-            </span>
+            <span className="text-warning">{totalOverdue} overdue</span>
           </div>
         </div>
         <Button size="sm" onClick={onCreatePersonalTask} className="bg-primary hover:bg-primary/90">
@@ -112,7 +130,7 @@ export function MyTasksSection({
         showTaskFilters
         placeholder="Search your tasks..."
         currentUser={currentUser}
-        sortBy={taskSortBy}
+        sortBy={taskSortby}
         onSortChange={setTaskSortBy}
         showSort
       />
@@ -160,12 +178,19 @@ export function MyTasksSection({
       ) : (
         <Card>
           <CardContent className="p-6">
-            {filteredAndSortedTasks.slice(0, 8).map((task, index) => (
-              <div key={task.id}>
-                <TaskCard task={task} onStatusChange={onStatusChange} onSubTaskToggle={onSubTaskToggle} />
-                {index < filteredAndSortedTasks.slice(0, 8).length - 1 && <div className="border-b border-border my-2" />}
-              </div>
-            ))}
+            <div>
+              {filteredAndSortedTasks.slice(0, 8).map((task, index) => (
+                <div key={task.taskId}>
+                  <TaskCard
+                    task={task}
+                    onStatusChange={onStatusChange}
+                    onSubTaskToggle={onSubTaskToggle}
+                  />
+                  {index < filteredAndSortedTasks.slice(0, 8).length - 1 && (
+                    <div className="border-b border-border my-2" />
+                  )}
+                </div>
+              ))}
 
             {filteredAndSortedTasks.length > 8 && (
               <div className="pt-4 border-t border-border">
@@ -174,6 +199,7 @@ export function MyTasksSection({
                 </Button>
               </div>
             )}
+            </div>
           </CardContent>
         </Card>
       )}

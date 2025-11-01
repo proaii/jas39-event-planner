@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { WelcomeHeader } from "./welcome-header";
 import { DashboardWidgets } from "./dashboard-widgets";
@@ -7,28 +7,35 @@ import { Event, Task } from "@/lib/types";
 
 interface DashboardProps {
   events: Event[];
+  tasks: Task[];
   personalTasks: Task[];
   currentUser: string;
   onCreateEvent: () => void;
   onCreateFromTemplate?: () => void;
   onEventClick: (eventId: string) => void;
-  onCreatePersonalTask: () => void; 
-  visibleWidgets?: string[]; 
-  onStatusChange?: (taskId: string, newStatus: Task["status"]) => void;
+  onCreatePersonalTask?: () => void;
+  visibleWidgets?: string[];
+  onStatusChange?: (taskId: string, newStatus: Task["taskStatus"]) => void;
   onSubTaskToggle?: (taskId: string, subTaskId: string) => void;
   onNavigateToAllEvents?: () => void;
   onNavigateToAllTasks?: (filterContext?: "my" | "all") => void;
-  onCustomize?: () => void; 
+  onCustomize?: () => void;
+  onStyleGuide?: () => void;
+  onNotifications?: () => void;
+  onEditEvent?: (eventId: string) => void;
+  onDeleteEvent?: (eventId: string) => void;
+  onAddTask?: (eventId: string) => void;
 }
 
 export function Dashboard({
   events,
+  tasks,
   personalTasks,
   currentUser,
   onCreateEvent,
   onCreateFromTemplate,
   onEventClick,
-  onCreatePersonalTask, 
+  onCreatePersonalTask,
   visibleWidgets = ["upcomingEvents","recentActivity","upcomingDeadlines","progressOverview"],
   onStatusChange,
   onSubTaskToggle,
@@ -43,23 +50,24 @@ export function Dashboard({
           currentUser={currentUser}
           onCreateEvent={onCreateEvent}
           onCreateFromTemplate={onCreateFromTemplate}
-          onOpenCustomizeDashboard={onCustomize} 
+          onOpenCustomizeDashboard={onCustomize}
         />
         <div className="space-y-8">
           <DashboardWidgets
             events={events}
+            tasks={tasks}
             onEventClick={onEventClick}
             onNavigateToAllEvents={onNavigateToAllEvents}
-            visibleWidgets={visibleWidgets} 
+            visibleWidgets={visibleWidgets}
           />
           <MyTasksSection
             events={events}
-            personalTasks={personalTasks}
+            tasks={tasks}
             currentUser={currentUser}
             onStatusChange={onStatusChange}
             onSubTaskToggle={onSubTaskToggle}
             onNavigateToAllTasks={onNavigateToAllTasks}
-            onCreatePersonalTask={onCreatePersonalTask} 
+            onCreatePersonalTask={onCreatePersonalTask}
           />
         </div>
       </div>

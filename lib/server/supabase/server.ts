@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies, headers } from "next/headers"; //headers for testing API
 
+export const SCHEMA = 'public';
+
 /**
  * Especially important if using Fluid compute: Don't put this client in a
  * global variable. Always create a new client within each function when using
@@ -36,4 +38,9 @@ export async function createClient() {
       },
     },
   );
+}
+
+export async function createDb() {
+  const root = await createClient();
+  return root.schema(SCHEMA);
 }

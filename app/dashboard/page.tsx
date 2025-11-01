@@ -8,7 +8,7 @@ import { Dashboard } from "@/components/dashboard/dashboard";
 import { AddEventModal } from "@/components/events/AddEventModal";
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { CustomizeDashboardModal } from "@/components/dashboard/CustomizeDashboardModal";
-import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal"; 
+import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
 import type { TemplateData } from "@/components/events/SaveTemplateModal";
 import { Event, Task } from "@/lib/types";
 
@@ -35,35 +35,38 @@ export default function DashboardPage() {
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
 
   const [prefillData, setPrefillData] = useState<
-    Omit<Event, "id" | "progress" | "tasks" | "createdAt" | "ownerId"> | null
+    Omit<Event, "eventId" | "ownerId" | "createdAt" | "members"> | null
   >(null);
 
   const handleCreateEvent = (
-    eventData: Omit<Event, "id" | "progress" | "tasks" | "createdAt" | "ownerId">
+    eventData: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members">
   ) => {
     const newEvent: Event = {
-      id: `event-${Date.now()}`,
-      ...eventData,
-      progress: 0,
-      tasks: [],
-      createdAt: new Date().toISOString(),
+      eventId: `event-${Date.now()}`,
       ownerId: currentUser,
+      createdAt: new Date().toISOString(),
+      members: [],
+      ...eventData,
     };
     setEvents((prev) => [...prev, newEvent]);
     closeAddEventModal();
     toast.success(`Event "${eventData.title}" created successfully!`);
   };
 
-  const handleCreateTask = (taskData: Omit<Task, "id" | "status" | "createdAt">) => {
+  const handleCreateTask = (taskData: Omit<Task, "taskId" | "createdAt">) => {
     const newTask: Task = {
-      id: `task-${Date.now()}`,
+      taskId: `task-${Date.now()}`,
       ...taskData,
-      status: "To Do",
       createdAt: new Date().toISOString(),
     };
     setPersonalTasks((prev) => [...prev, newTask]);
     closeAddTaskModal();
     toast.success(`Task "${taskData.title}" added successfully!`);
+  };
+
+  const handleInviteMembers = () => {
+    console.log("Open invite members modal");
+    toast("Invite members feature coming soon!", { icon: "ℹ️" });
   };
 
   const handleSaveWidgets = (selected: string[]) => {
@@ -73,21 +76,23 @@ export default function DashboardPage() {
   };
 
   const handleUseTemplate = (data: TemplateData) => {
+    // This part needs to be adjusted to the new Event type.
+    // The TemplateData type from HEAD might be incompatible.
+    // For now, I will keep it as is, but it might need further adjustments.
     setPrefillData({
       title: data.title,
       location: data.location || "",
       description: data.eventDescription || "",
-      coverImage: data.coverImage,
-      color: data.color || "bg-chart-1",
-      date: data.date,
-      time: data.time,
-      members: data.members,
+      coverImageUri: data.coverImage,
+      color: 0, // color is a number in the new type
+      startAt: data.date,
+      endAt: data.endDate,
     });
 
     openAddEventModal();
   };
 
-  useEffect(() => {
+useEffect(() => {
     if (!isAddEventModalOpen) {
       setPrefillData(null);
     }
@@ -112,9 +117,7 @@ export default function DashboardPage() {
         onClose={closeAddEventModal}
         onCreateEvent={handleCreateEvent}
         prefillData={prefillData ?? undefined}
-        onInviteMembers={() =>
-          toast("Invite members feature coming soon!", { icon: "ℹ️" })
-        }
+        onInviteMembers={handleInviteMembers}
       />
 
       <AddTaskModal
@@ -146,13 +149,8 @@ export default function DashboardPage() {
           endTime: undefined,
           location: e.location,
           eventDescription: e.description,
-          tasks: e.tasks.map((t) => ({
-            title: t.title,
-            status: "To Do",
-            priority: "Normal",
-            dueDate: undefined,
-          })),
-          members: [e.ownerId],
+          tasks: [], // tasks are not part of the event anymore
+          members: [], // members are strings
         }))}
         onClose={() => setIsTemplateModalOpen(false)}
         onUseTemplate={handleUseTemplate}

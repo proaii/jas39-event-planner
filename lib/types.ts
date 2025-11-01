@@ -1,74 +1,84 @@
+// ----- Enums -----
 export type TaskStatus = 'To Do' | 'In Progress' | 'Done';
 export type TaskPriority = 'Urgent' | 'High' | 'Normal' | 'Low';
+export type SubtaskStatus = 'To Do' | 'In Progress' | 'Done';
 
-export interface SubTask {
-  id: string;
-  name: string;
-  completed: boolean;
+// ----- Shared -----
+export interface UserLite {
+  userId: string;
+  username: string;
+  email: string;
+  avatarUrl?: string | null;
 }
 
-export interface Attachment {
-  id: string;
-  url: string;
-  title: string;
-  favicon?: string;
-}
-
-export interface Task {
-  id: string;
-  eventId?: string;    
-  eventTitle?: string; 
-  title: string;
-  description?: string;
-  assignees?: string[];
-  dueDate?: string;
-  startDate?: string;
-  endDate?: string;
-  startTime?: string;
-  endTime?: string;
-  status: TaskStatus;
-  priority: TaskPriority;
-  subTasks?: SubTask[];
-  attachments?: Attachment[];
-  isPersonal?: boolean;
-  createdAt: string;
-}
-
+// ----- Events -----
 export interface Event {
-  id: string;
+  eventId: string;
   ownerId: string;
   title: string;
-  date: string;
-  endDate?: string;
-  time: string;
-  endTime?: string;
-  isMultiDay?: boolean;
-  location: string;
-  description: string;
-  progress: number;
-  tasks: Task[];           
-  members: string[];
-  coverImage?: string;
-  color?: string;
-  createdAt?: string;       
+  location?: string;
+  description?: string;
+  coverImageUri?: string;
+  color: number;
+  createdAt: string;
+  startAt?: string | null;
+  endAt?: string | null;   
+  members: string[];       
 }
 
 export interface EventMember {
-  id: string;
+  eventMemberId: string;
   eventId: string;
-  memberId: string;
-  role: string;
-  joinedAt: string; 
+  userId: string;
+  joinedAt: string;
+}
+
+// ----- Tasks -----
+export interface Attachment {
+  attachmentId: string;
+  taskId: string;
+  attachmentUrl: string;
+}
+
+export interface Subtask {
+  subtaskId: string;
+  taskId: string;
+  title: string;
+  subtaskStatus: SubtaskStatus;
+}
+
+export interface Task {
+  taskId: string;
+  eventId: string | null;
+  eventTitle?: string;
+  title: string;
+  description?: string;
+  taskStatus: TaskStatus;
+  taskPriority: TaskPriority;
+  startAt?: string | null; 
+  endAt?: string | null;  
+  createdAt: string;
+  assignees?: UserLite[]; 
+  subtasks?: Subtask[];
+  attachments?: Attachment[];
+}
+
+// ----- User -----
+export interface UserLite {
+  userId: string;
+  username: string;
+  email: string;
+  avatarUrl?: string | null;
+}
+
+export interface EventMember {
+  eventMemberId: string;   
+  eventId: string;     
+  userId: string;       
+  joinedAt: string;  
+  role?: string;           // optional 
 }
 
 export interface MembersRes {
   items: EventMember[];
-}
-
-export interface Activity {
-  id: string;
-  user: string;
-  action: string;
-  item: string;
-  time: string;
 }

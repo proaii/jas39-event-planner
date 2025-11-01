@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React, { useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { EventColorSelector } from "./EventColorSelector";
 import {
   Calendar,
@@ -24,53 +23,125 @@ import {
   UserPlus,
   Loader2,
 } from "lucide-react";
-import NextImage from "next/image";
-import { toast } from "react-hot-toast";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { unsplash_tool } from "@/lib/client/unsplash";
-import { Event } from "@/lib/types";
-
-const eventSchema = z.object({
-  title: z.string().min(1, "Event title is required"),
-  date: z.string().min(1, "Start date is required"),
-  endDate: z.string().optional(),
-  time: z.string().min(1, "Start time is required"),
-  endTime: z.string().optional(),
-  isMultiDay: z.boolean(),
-  location: z.string().min(1, "Location is required"),
-  description: z.string().optional(),
-  members: z.array(z.string()).optional(),
-  coverImage: z.string().optional(),
-  color: z.string(),
-});
-
-type EventFormData = z.infer<typeof eventSchema>;
+import { toast } from "react-hot-toast";
+import NextImage from "next/image";
+import type { Event } from "@/lib/types";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface AddEventModalProps {
   isOpen: boolean;
-  onOpenChange?: (open: boolean) => void; 
-  onClose?: () => void; 
+  onClose: () => void;
   onCreateEvent: (
-    event: Omit<Event, "id" | "progress" | "tasks" | "createdAt" | "ownerId">
+    event: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members">
   ) => void;
   onInviteMembers?: () => void;
-  prefillData?: Omit<Event, "id" | "progress" | "tasks" | "createdAt" | "ownerId">;
+  prefillData?: Partial<Event>;
 }
 
 export function AddEventModal({
   isOpen,
-  onOpenChange,
   onClose,
   onCreateEvent,
   onInviteMembers,
   prefillData,
 }: AddEventModalProps) {
-    const form = useForm<EventFormData>({
-      resolver: zodResolver(eventSchema),
-      mode: "onChange",
-      defaultValues: prefillData || {
+  const [formData, setFormData] = useState({
+    title: "",
+    date: "",
+    endDate: "",
+    time: "",
+    endTime: "",
+    isMultiDay: false,
+    location: "",
+    description: "",
+    members: [] as string[],
+    coverImage: "",
+    color: "bg-chart-1",
+  });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && prefillData) {
+      setFormData({
+        title: prefillData.title || "",
+        date: prefillData.startAt ? prefillData.startAt.split("T")[0] : "",
+        endDate: prefillData.endAt ? prefillData.endAt.split("T")[0] : "",
+        time: prefillData.startAt ? prefillData.startAt.split("T")[1].substring(0, 5) : "",
+        endTime: prefillData.endAt ? prefillData.endAt.split("T")[1].substring(0, 5) : "",
+        isMultiDay: !!prefillData.endAt && prefillData.startAt?.split("T")[0] !== prefillData.endAt?.split("T")[0],
+        location: prefillData.location || "",
+        description: prefillData.description || "",
+        members: [],
+        coverImage: prefillData.coverImageUri || "",
+        color: `bg-chart-${(prefillData.color || 0) + 1}`,
+      });
+    }
+  }, [isOpen, prefillData]);
+
+  function colorTokenToIndex(token: string): number {
+    const m = token.match(/bg-chart-(\d+)/);
+    if (m && m[1]) {
+      const idx = parseInt(m[1], 10);
+      return Math.max(0, idx - 1);
+    }
+    return 0;
+  }
+
+  function toIso(date: string, time: string): string | undefined {
+    if (!date) return undefined;
+    const t = time && time.trim().length > 0 ? time : "00:00";
+    const iso = new Date(`${date}T${t}:00`).toISOString();
+    return iso;
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!formData.title.trim()) {
+      toast.error("Please enter an event title.");
+      return;
+    }
+    if (!formData.date) {
+      toast.error("Please select a start date.");
+      return;
+    }
+    if (!formData.time) {
+      toast.error("Please select a start time.");
+      return;
+    }
+    if (
+      formData.isMultiDay &&
+      formData.endDate &&
+      formData.endDate < formData.date
+    ) {
+      toast.error("End date cannot be earlier than start date.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const startAt = toIso(formData.date, formData.time);
+      const endAt = formData.isMultiDay
+        ? toIso(formData.endDate, formData.endTime)
+        : toIso(formData.date, formData.endTime || formData.time);
+
+      const payload: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members"> = {
+        title: formData.title.trim(),
+        location: formData.location.trim(),
+        description: formData.description.trim(),
+        coverImageUri: formData.coverImage || undefined,
+        color: colorTokenToIndex(formData.color),
+        startAt: startAt ?? null,
+        endAt: endAt ?? null,
+      };
+
+      onCreateEvent(payload);
+      onClose();
+
+      setFormData({
         title: "",
         date: "",
         endDate: "",
@@ -82,39 +153,30 @@ export function AddEventModal({
         members: [],
         coverImage: "",
         color: "bg-chart-1",
-      },
-    });
-
-  const { reset } = form;
-
-  useEffect(() => {
-    if (prefillData) {
-      reset(prefillData);
+      });
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to create event.");
+    } finally {
+      setIsSubmitting(false);
     }
-  }, [prefillData, reset]);
-
-
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors, isSubmitting, isValid },
-  } = form;
-
-  const formData = watch();
-  const [isGeneratingImage, setIsGeneratingImage] = React.useState(false);
+  };
 
   const generateCoverImage = async () => {
-    const title = formData.title.trim();
-    if (!title) return toast.error("Please enter a title before generating an image.");
+    if (!formData.title.trim()) {
+      toast.error("Please enter a title before generating an image.");
+      return;
+    }
+
     setIsGeneratingImage(true);
     try {
-      const imageUrl = await unsplash_tool(title);
+      const imageUrl = await unsplash_tool(formData.title);
       if (imageUrl) {
-        setValue("coverImage", imageUrl);
+        setFormData((prev) => ({ ...prev, coverImage: imageUrl }));
         toast.success("Cover image generated successfully!");
-      } else toast.error("Failed to fetch image.");
+      } else {
+        toast.error("Failed to fetch image.");
+      }
     } catch (error) {
       console.error(error);
       toast.error("Failed to generate image.");
@@ -123,53 +185,13 @@ export function AddEventModal({
     }
   };
 
-  const handleClose = () => {
-    reset({
-      title: "",
-      date: "",
-      endDate: "",
-      time: "",
-      endTime: "",
-      isMultiDay: false,
-      location: "",
-      description: "",
-      members: [],
-      coverImage: "",
-      color: "bg-chart-1",
-    }); 
-    onClose?.();
-    onOpenChange?.(false);
-  };
-
-  const onSubmit = async (data: EventFormData) => {
-    if (data.isMultiDay && data.endDate && data.endDate < data.date) {
-      toast.error("End date cannot be earlier than start date.");
-      return;
-    }
-
-    const newEvent: Omit<Event, "id" | "progress" | "tasks" | "createdAt" | "ownerId"> = {
-      title: data.title,
-      date: data.date,
-      endDate: data.endDate,
-      time: data.time,
-      endTime: data.endTime,
-      isMultiDay: data.isMultiDay,
-      location: data.location,
-      description: data.description || "",
-      members: data.members || [],
-      coverImage: data.coverImage,
-      color: data.color,
-    };
-
-
-    onCreateEvent(newEvent);
-    toast.success(`Event "${data.title}" created successfully!`);
-    reset(prefillData || undefined); 
-    handleClose();
-  };
-
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
@@ -181,8 +203,7 @@ export function AddEventModal({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Cover Image */}
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <Label className="flex items-center space-x-2">
               <ImageIcon className="w-4 h-4" />
@@ -197,74 +218,179 @@ export function AddEventModal({
                   width={1080}
                   height={1080}
                 />
-                <Button type="button" variant="outline" size="sm" className="absolute top-2 right-2" onClick={() => setValue("coverImage", "")}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="absolute top-2 right-2"
+                  onClick={() =>
+                    setFormData((prev) => ({ ...prev, coverImage: "" }))
+                  }
+                >
                   <X className="w-4 h-4" />
                 </Button>
               </div>
             )}
             <div className="flex space-x-2">
-              <Input placeholder="Enter image URL or generate from title" {...register("coverImage")} />
-              <Button type="button" variant="outline" onClick={generateCoverImage} disabled={isGeneratingImage || !formData.title.trim()}>
-                {isGeneratingImage ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Generating...</> : "Generate"}
+              <Input
+                placeholder="Enter image URL or generate from title"
+                value={formData.coverImage}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    coverImage: e.target.value,
+                  }))
+                }
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={generateCoverImage}
+                disabled={isGeneratingImage || !formData.title.trim()}
+              >
+                {isGeneratingImage ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Generating...
+                  </>
+                ) : (
+                  "Generate"
+                )}
               </Button>
             </div>
           </div>
 
-          {/* Event Color */}
-          <EventColorSelector selectedColor={formData.color} onColorSelect={(color) => setValue("color", color)} />
+          <EventColorSelector
+            selectedColor={formData.color}
+            onColorSelect={(color) => setFormData((prev) => ({ ...prev, color }))}
+          />
 
-          {/* Title */}
           <div className="space-y-2">
             <Label htmlFor="title">Event Title</Label>
-            <Input id="title" {...register("title")} />
-            {errors.title && <p className="text-xs text-red-500">{errors.title.message}</p>}
+            <Input
+              id="title"
+              value={formData.title}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, title: e.target.value }))
+              }
+              required
+            />
           </div>
 
-          {/* Date/Time */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <Checkbox id="isMultiDay" checked={formData.isMultiDay} onCheckedChange={(checked) => setValue("isMultiDay", !!checked)} />
-              <Label htmlFor="isMultiDay" className="text-sm">Multi-day event</Label>
+              <Checkbox
+                id="isMultiDay"
+                checked={formData.isMultiDay}
+                onCheckedChange={(checked) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    isMultiDay: !!checked,
+                    endDate: checked ? prev.endDate : "",
+                    endTime: checked ? prev.endTime : "",
+                  }))
+                }
+              />
+              <Label htmlFor="isMultiDay" className="text-sm">
+                Multi-day event
+              </Label>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="flex items-center space-x-2"><Calendar className="w-4 h-4" /><span>Start Date</span></Label>
-                <Input type="date" {...register("date")} />
+                <Label className="flex items-center space-x-2">
+                  <Calendar className="w-4 h-4" />
+                  <span>Start Date</span>
+                </Label>
+                <Input
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, date: e.target.value }))
+                  }
+                  required
+                />
               </div>
               {formData.isMultiDay && (
                 <div className="space-y-2">
-                  <Label className="flex items-center space-x-2"><Calendar className="w-4 h-4" /><span>End Date</span></Label>
-                  <Input type="date" {...register("endDate")} />
+                  <Label className="flex items-center space-x-2">
+                    <Calendar className="w-4 h-4" />
+                    <span>End Date</span>
+                  </Label>
+                  <Input
+                    type="date"
+                    value={formData.endDate}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        endDate: e.target.value,
+                      }))
+                    }
+                    min={formData.date}
+                    required
+                  />
                 </div>
               )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="flex items-center space-x-2"><Clock className="w-4 h-4" /><span>Start Time</span></Label>
-                <Input type="time" {...register("time")} />
+                <Label className="flex items-center space-x-2">
+                  <Clock className="w-4 h-4" />
+                  <span>Start Time</span>
+                </Label>
+                <Input
+                  type="time"
+                  value={formData.time}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, time: e.target.value }))
+                  }
+                  required
+                />
               </div>
               <div className="space-y-2">
-                <Label className="flex items-center space-x-2"><Clock className="w-4 h-4" /><span>End Time</span></Label>
-                <Input type="time" {...register("endTime")} />
+                <Label className="flex items-center space-x-2">
+                  <Clock className="w-4 h-4" />
+                  <span>
+                    End Time {formData.isMultiDay ? "(on last day)" : ""}
+                  </span>
+                </Label>
+                <Input
+                  type="time"
+                  value={formData.endTime}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      endTime: e.target.value,
+                    }))
+                  }
+                  required={!formData.isMultiDay}
+                />
               </div>
             </div>
           </div>
 
-          {/* Location */}
           <div className="space-y-2">
             <Label className="flex items-center space-x-2"><MapPin className="w-4 h-4" /><span>Location</span></Label>
-            <Input {...register("location")} />
+            <Input
+              value={formData.location}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, location: e.target.value }))
+              }
+            />
           </div>
 
-          {/* Description */}
           <div className="space-y-2">
             <Label>Description</Label>
-            <Textarea {...register("description")} className="min-h-[100px]" />
+            <Textarea
+              value={formData.description}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, description: e.target.value }))
+              }
+              className="min-h-[100px]"
+            />
           </div>
 
-          {/* Members */}
           <div className="space-y-4">
             <Label className="flex items-center space-x-2"><Users className="w-4 h-4" /><span>Team Members</span></Label>
             <div className="text-center py-6 border-2 border-dashed border-muted rounded-lg">
@@ -277,10 +403,9 @@ export function AddEventModal({
             </Button>
           </div>
 
-          {/* Actions */}
           <div className="flex justify-end space-x-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSubmitting || !isValid}>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSubmitting}>
               {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Creating...</> : "Create Event"}
             </Button>
           </div>

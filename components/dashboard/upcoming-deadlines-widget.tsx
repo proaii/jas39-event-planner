@@ -1,31 +1,40 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Task } from "@/lib/types";
-import { formatDate, getEffectiveDueDate } from "@/lib/utils";
+import type { Task } from "@/lib/types";
+import { formatDueDate } from "@/lib/utils";
+import { getEffectiveDueDate } from "@/lib/server/supabase/utils";
 import { Clock } from "lucide-react";
 
 interface UpcomingDeadlinesWidgetProps {
   tasks: Task[];
-  onTaskClick?: (taskId: string) => void;
 }
 
-export function UpcomingDeadlinesWidget({ tasks, onTaskClick }: UpcomingDeadlinesWidgetProps) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+// map Task -> shape ที่ getEffectiveDueDate ต้องการ
+type Dateish = { startDate?: string; endDate?: string; dueDate?: string };
+function effectiveDueDateOf(t: Task): string | undefined {
+  const dateish: Dateish = {
+    startDate: t.startAt ?? undefined,
+    endDate: t.endAt ?? undefined,
+    dueDate: t.endAt ?? undefined, // ใช้ endAt เป็น due date ตามสมมติฐานปัจจุบัน
+  };
+  return getEffectiveDueDate(dateish) ?? undefined;
+}
 
+export function UpcomingDeadlinesWidget({ tasks }: UpcomingDeadlinesWidgetProps) {
   const upcomingTasks = tasks
-    .filter((task) => {
-      const effectiveDue = getEffectiveDueDate(task);
-      if (!effectiveDue) return false;
+    .filter(task => {
+      const effectiveDueDate = effectiveDueDateOf(task);
+      if (!effectiveDueDate || task.taskStatus === "Done") return false;
 
-      const dueDate = new Date(effectiveDue);
+      const dueDate = new Date(effectiveDueDate);
+      const today = new Date();
+      const nextWeek = new Date();
+      nextWeek.setDate(today.getDate() + 7);
+
       dueDate.setHours(0, 0, 0, 0);
+      today.setHours(0, 0, 0, 0);
+      nextWeek.setHours(23, 59, 59, 999);
 
-      return dueDate >= today;
-    })
-    .sort((a, b) => {
-      const dateA = new Date(getEffectiveDueDate(a) ?? 0).getTime();
-      const dateB = new Date(getEffectiveDueDate(b) ?? 0).getTime();
-      return dateA - dateB;
+      return dueDate >= today && dueDate <= nextWeek;
     })
     .slice(0, 3);
 
@@ -38,28 +47,50 @@ export function UpcomingDeadlinesWidget({ tasks, onTaskClick }: UpcomingDeadline
         </div>
 
         <div className="space-y-3">
-          {upcomingTasks.length > 0 ? (
-            upcomingTasks.map((task) => (
+          {upcomingTasks.map(task => {
+            const due = effectiveDueDateOf(task)!;
+            const dueInfo = formatDueDate(due);
+            return (
               <div
-                key={task.id}
+                key={task.taskId}
                 className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                onClick={() => onTaskClick?.(task.id)}
               >
-                <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                  {task.priority?.[0] ?? "•"}
-                </div>
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    task.taskPriority === "Urgent"
+                      ? "bg-red-500"
+                      : task.taskPriority === "High"
+                      ? "bg-orange-500"
+                      : task.taskPriority === "Normal"
+                      ? "bg-blue-500"
+                      : "bg-gray-500"
+                  }`}
+                />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    Due: {formatDate(getEffectiveDueDate(task) || "")}
+                    {("eventTitle" in task && (task as any).eventTitle) // เผื่อกรณีถูกเติมมา
+                      ? (task as any).eventTitle
+                      : task.eventId
+                      ? "Event"
+                      : "Personal"}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className={`text-xs ${dueInfo?.isUrgent ? "text-warning font-medium" : "text-muted-foreground"}`}>
+                    {dueInfo?.isToday
+                      ? "Today"
+                      : dueInfo?.isTomorrow
+                      ? "Tomorrow"
+                      : new Date(due).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                   </p>
                 </div>
               </div>
-            ))
-          ) : (
-            <div className="text-center py-4 text-muted-foreground text-sm">
-              No upcoming deadlines
-            </div>
+            );
+          })}
+
+          {upcomingTasks.length === 0 && (
+            <div className="text-center py-4 text-muted-foreground text-sm">No upcoming deadlines</div>
           )}
         </div>
       </CardContent>

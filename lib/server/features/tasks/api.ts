@@ -1,44 +1,50 @@
-import { createClient } from '@/lib/server/supabase/server';
+import { createClient, createDb } from '@/lib/server/supabase/server';
 import { toApiError } from '@/lib/errors';
-import type { Task, SubTask, Attachment, TaskStatus, TaskPriority } from '@/lib/types';
+import type { Task, Subtask, Attachment, TaskStatus, TaskPriority, UserLite } from '@/lib/types';
 
 const TABLE = 'tasks';
 
 // List Task of a single Event (For the Event Detail page)
 export async function listEventTasks(params: {
   eventId: string;
-  status?: Task['status'];
+  status?: Task['taskStatus'];
   q?: string;
   page?: number;
   pageSize?: number;
 }): Promise<{ items: Task[]; nextPage: number | null }> {
-  const supabase = await createClient();
+  const db = await createDb();
+
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? 10;
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
   try {
-    let qy = supabase
+    let qy = db
       .from(TABLE)
       .select(
         `
-        *,
-        attachments(*),
-        sub_tasks(*)
+        task_id, event_id, title, description, task_status, task_priority, start_at, end_at, created_at,
+        subtasks:subtasks ( subtask_id, title, subtask_status ),
+        attachments:attachments ( attachment_id, attachment_url ),
+        assignees:task_assignees (
+          assigned_at,
+          user:users!task_assignees_user_id_fkey ( user_id, username, email, avatar_url )
+        )
       `,
         { count: 'exact' }
       )
       .eq('event_id', params.eventId)
       .order('created_at', { ascending: false });
 
-    if (params.status) qy = qy.eq('status', params.status);
-    if (params.q) qy = qy.ilike('name', `%${params.q}%`);
+    if (params.status) qy = qy.eq('task_status', params.status);
+    if (params.q) qy = qy.ilike('title', `%${params.q}%`);
 
     const { data, error, count } = await qy.range(from, to);
     if (error) throw error;
 
-    const items = (data ?? []).map(map);
+    const rows = (data ?? []) as unknown as RawTaskRow[];
+    const items = rows.map(map);
     const total = count ?? 0;
     const maxPage = Math.max(1, Math.ceil(total / pageSize));
     return { items, nextPage: page < maxPage ? page + 1 : null };
@@ -47,247 +53,424 @@ export async function listEventTasks(params: {
   }
 }
 
-// List all User's Tasks (Personal + Assignee) (For the All Tasks page)
+// List all User's Tasks (Owner of Event + Assignee)
 export async function listAllUserTasks(params: {
   q?: string;
-  status?: Task['status'];
+  status?: Task['taskStatus'];
   page?: number;
   pageSize?: number;
 }): Promise<{ items: Task[]; nextPage: number | null }> {
-  const supabase = await createClient();
+  const root = await createClient();
+  const db = await createDb();
+
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? 10;
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
 
-  try {
-    const { data: { user }, error: uerr } = await supabase.auth.getUser();
-    if (uerr) throw uerr;
-    if (!user) throw new Error('UNAUTHORIZED');
+  const {
+    data: { user },
+    error: uerr,
+  } = await root.auth.getUser();
+  if (uerr) throw uerr;
+  if (!user) throw new Error('UNAUTHORIZED');
 
-    let qy = supabase
-      .from(TABLE)
-      .select(`
-        *,
-        attachments(*),
-        sub_tasks(*),
-        event:events!tasks_event_id_fkey(id, owner_id, title)
-      `, { count: 'exact' })
-      .contains('assignees', [String(user.id)]) // Only the tasks where user is assignee
-      .not('event.owner_id', 'eq', user.id) // Exclude the tasks where event.owner_id is user
-      .order('created_at', { ascending: false });
+  const SEL_WITH_USER =
+    `
+    task_id, event_id, title, description, task_status, task_priority, start_at, end_at, created_at,
+    attachments:attachments ( attachment_id, attachment_url ),
+    subtasks:subtasks ( subtask_id, title, subtask_status ),
+    assignees:task_assignees (
+      assigned_at,
+      user:users!task_assignees_user_id_fkey ( user_id, username, email, avatar_url )
+    ),
+    event:events!tasks_event_id_fkey ( event_id, owner_id, title )
+    ` as const;
 
-    if (params.status) qy = qy.eq('status', params.status);
-    if (params.q) qy = qy.ilike('name', `%${params.q}%`);
+  // 1) All tasks in the event that we own (not necessarily inner assignees)
+  let ownerQ = db
+    .from(TABLE)
+    .select(SEL_WITH_USER)
+    .eq('event.owner_id', user.id)
+    .order('created_at', { ascending: false });
+  if (params.status) ownerQ = ownerQ.eq('task_status', params.status);
+  if (params.q) ownerQ = ownerQ.ilike('title', `%${params.q}%`);
 
-    const { data, error, count } = await qy.range(from, to);
-    if (error) throw error;
+  // 2) The tasks we are assignee of
+  const SEL_ASSIGNEE_INNER = SEL_WITH_USER.replace(
+    'assignees:task_assignees (',
+    'assignees:task_assignees!inner ('
+  ) as typeof SEL_WITH_USER;
 
-    const items = (data ?? []).map(map);
-    const total = count ?? 0;
-    const maxPage = Math.max(1, Math.ceil(total / pageSize));
-    return { items, nextPage: page < maxPage ? page + 1 : null };
-  } catch (e) {
-    throw toApiError(e, 'ALL_TASKS_LIST_FAILED');
+  let assigneeQ = db
+    .from(TABLE)
+    .select(SEL_ASSIGNEE_INNER)
+    .eq('assignees.user_id', user.id)
+    .order('created_at', { ascending: false });
+  if (params.status) assigneeQ = assigneeQ.eq('task_status', params.status);
+  if (params.q) assigneeQ = assigneeQ.ilike('title', `%${params.q}%`);
+
+  const [{ data: dOwner, error: eOwner }, { data: dAssign, error: eAssign }] = await Promise.all([
+    ownerQ,
+    assigneeQ,
+  ]);
+  if (eOwner) throw eOwner;
+  if (eAssign) throw eAssign;
+
+  // Merge + dedupe by task_id
+  const merged = [...(dOwner ?? []), ...(dAssign ?? [])] as unknown as RawTaskRow[];
+  const byId = new Map<string, RawTaskRow>();
+  for (const r of merged) {
+    const k = String(r.task_id);
+    if (!byId.has(k)) byId.set(k, r);
   }
+
+  // Sort by created_at then paginate
+  const all = Array.from(byId.values()).sort((a, b) =>
+    String(b.created_at).localeCompare(String(a.created_at))
+  );
+  const start = (page - 1) * pageSize;
+  const end = start + pageSize;
+
+  return {
+    items: all.slice(start, end).map(map),
+    nextPage: end < all.length ? page + 1 : null,
+  };
 }
 
-// Create new Event Task with attachments/subTasks (For Event Detail page)
+// Create new Event Task with attachments/subtasks/assignees
 export async function createEventTask(eventId: string, input: Task): Promise<Task> {
-  const supabase = await createClient();
+  const db = await createDb();
+
   try {
-    const { data: newId, error: rpcErr } = await supabase.rpc<string, {
-      p_event_id: string | null;
-      p_task: Record<string, unknown>;
-    }>('create_task_with_children', {
-      p_event_id: eventId,
-      p_task: toRpcTaskPayload(input),
-    });
-    if (rpcErr) throw rpcErr;
-
-    const { data, error } = await supabase
+    // 1) create task
+    const { data: trow, error: e1 } = await db
       .from(TABLE)
-      .select(`*, attachments(*), sub_tasks(*), event:events!tasks_event_id_fkey(title)`)
-      .eq('id', newId)
-      .single<RawTaskRow>();
+      .insert({
+        event_id: eventId ?? null,
+        title: input.title,
+        description: input.description ?? null,
+        task_status: input.taskStatus,
+        task_priority: input.taskPriority,
+        start_at: input.startAt ?? null,
+        end_at: input.endAt ?? null,
+      })
+      .select('task_id')
+      .single();
+    if (e1) throw e1;
 
+    const taskId = String(trow.task_id);
+
+    // 2) assignees (pivot)
+    if (input.assignees?.length) {
+      const rows = input.assignees.map((uid) => ({
+        task_id: taskId,
+        user_id: uid,
+        assigned_at: new Date().toISOString(),
+      }));
+      const { error } = await db.from('task_assignees').insert(rows);
+      if (error) throw error;
+    }
+
+    // 3) subtasks
+    if (input.subtasks?.length) {
+      const rows = input.subtasks.map((s) => ({
+        task_id: taskId,
+        title: s.title,
+        subtask_status: s.subtaskStatus,
+      }));
+      const { error } = await db.from('subtasks').insert(rows);
+      if (error) throw error;
+    }
+
+    // 4) attachments
+    if (input.attachments?.length) {
+      const rows = input.attachments.map((a) => ({
+        task_id: taskId,
+        attachment_url: a.attachmentUrl,
+      }));
+      const { error } = await db.from('attachments').insert(rows);
+      if (error) throw error;
+    }
+
+    // 5) fetch full
+    const { data, error } = await db
+      .from(TABLE)
+      .select(
+        `
+        task_id, event_id, title, description, task_status, task_priority, start_at, end_at, created_at,
+        attachments:attachments ( attachment_id, attachment_url ),
+        subtasks:subtasks ( subtask_id, title, subtask_status ),
+        assignees:task_assignees (
+          assigned_at,
+          user:users!task_assignees_user_id_fkey ( user_id, username, email, avatar_url )
+        ),
+        event:events!tasks_event_id_fkey ( title )
+      `
+      )
+      .eq('task_id', taskId)
+      .single();
     if (error) throw error;
-    return map(data);
+
+    const row = data as unknown as RawTaskRow;
+    return map(row);
   } catch (e) {
     throw toApiError(e, 'TASK_CREATE_FAILED');
   }
 }
 
-// Create new Personal Task with attachments/subTasks (For Tasks page)  
+// Create new Personal Task (no event)
 export async function createPersonalTask(
-  input: Omit<Task, 'id' | 'eventId' | 'eventTitle'>
+  input: Omit<Task, 'taskId' | 'eventId' | 'eventTitle'>
 ): Promise<Task> {
-  const supabase = await createClient();
+  const root = await createClient();
+  const db = await createDb();
+
   try {
-    const { data: { user }, error: uerr } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: uerr,
+    } = await root.auth.getUser();
     if (uerr) throw uerr;
     if (!user) throw new Error('UNAUTHORIZED');
 
-    const myId = String(user.id);
+    // ensure creator is in assignees
     const given = Array.isArray(input.assignees) ? input.assignees.map(String) : [];
-    const assignees = Array.from(new Set([...given, myId]));
+    const assignees = Array.from(new Set([...given, String(user.id)]));
 
-    const payload = toRpcTaskPayload({ ...input, assignees, isPersonal: true } as Task);
-
-    const { data: newId, error: rpcErr } = await supabase.rpc<string, {
-      p_event_id: string | null;
-      p_task: Record<string, unknown>;
-    }>('create_task_with_children', {
-      p_event_id: null,
-      p_task: payload,
-    });
-    if (rpcErr) throw rpcErr;
-
-    const { data, error } = await supabase
+    // 1) create task (no event)
+    const { data: trow, error: e1 } = await db
       .from(TABLE)
-      .select(`*, attachments(*), sub_tasks(*)`)
-      .eq('id', newId)
-      .single<RawTaskRow>();
+      .insert({
+        event_id: null,
+        title: input.title,
+        description: input.description ?? null,
+        task_status: input.taskStatus,
+        task_priority: input.taskPriority,
+        start_at: input.startAt ?? null,
+        end_at: input.endAt ?? null,
+      })
+      .select('task_id')
+      .single();
+    if (e1) throw e1;
+
+    const taskId = String(trow.task_id);
+
+    // 2) assignees
+    if (assignees.length) {
+      const rows = assignees.map((uid) => ({
+        task_id: taskId,
+        user_id: uid,
+        assigned_at: new Date().toISOString(),
+      }));
+      const { error } = await db.from('task_assignees').insert(rows);
+      if (error) throw error;
+    }
+
+    // 3) subtasks
+    if (input.subtasks?.length) {
+      const rows = input.subtasks.map((s) => ({
+        task_id: taskId,
+        title: s.title,
+        subtask_status: s.subtaskStatus,
+      }));
+      const { error } = await db.from('subtasks').insert(rows);
+      if (error) throw error;
+    }
+
+    // 4) attachments
+    if (input.attachments?.length) {
+      const rows = input.attachments.map((a) => ({
+        task_id: taskId,
+        attachment_url: a.attachmentUrl,
+      }));
+      const { error } = await db.from('attachments').insert(rows);
+      if (error) throw error;
+    }
+
+    // 5) fetch full
+    const { data, error } = await db
+      .from(TABLE)
+      .select(
+        `
+        task_id, event_id, title, description, task_status, task_priority, start_at, end_at, created_at,
+        attachments:attachments ( attachment_id, attachment_url ),
+        subtasks:subtasks ( subtask_id, title, subtask_status ),
+        assignees:task_assignees (
+          assigned_at,
+          user:users!task_assignees_user_id_fkey ( user_id, username, email, avatar_url )
+        )
+      `
+      )
+      .eq('task_id', taskId)
+      .single();
     if (error) throw error;
 
-    return map(data);
+    const row = data as unknown as RawTaskRow;
+    return map(row);
   } catch (e) {
     throw toApiError(e, 'TASK_CREATE_FAILED');
   }
 }
 
-// Update Task (excluding subTasks / attachments)
-export async function updateTask(taskId: string, patch: Partial<Task>): Promise<Task> {
-  const supabase = await createClient();
+// Update Task (+ optional replace assignees)
+export async function updateTask(
+  taskId: string,
+  patch: Partial<Task> & { assigneesReplace?: string[] }
+): Promise<Task> {
+  const db = await createDb();
+
   try {
-    const row: Record<string, unknown> = {};
+    const updateRow: Record<string, unknown> = {};
+    if (patch.title !== undefined) updateRow.title = patch.title;
+    if (patch.description !== undefined) updateRow.description = patch.description;
+    if (patch.taskStatus !== undefined) updateRow.task_status = patch.taskStatus;
+    if (patch.taskPriority !== undefined) updateRow.task_priority = patch.taskPriority;
+    if (patch.startAt !== undefined) updateRow.start_at = patch.startAt;
+    if (patch.endAt !== undefined) updateRow.end_at = patch.endAt;
 
-    if (patch.title !== undefined) row.name = patch.title;
-    if (patch.description !== undefined) row.description = patch.description;
-    if (patch.assignees !== undefined) row.assignees = patch.assignees;
-    if (patch.dueDate !== undefined) row.due_date = patch.dueDate;
-    if (patch.startDate !== undefined) row.start_date = patch.startDate;
-    if (patch.endDate !== undefined) row.end_date = patch.endDate;
-    if (patch.startTime !== undefined) row.start_time = patch.startTime;
-    if (patch.endTime !== undefined) row.end_time = patch.endTime;
-    if (patch.status !== undefined) row.status = patch.status;
-    if (patch.priority !== undefined) row.priority = patch.priority;
-    if (patch.isPersonal !== undefined) row.is_personal = patch.isPersonal;
+    if (Object.keys(updateRow).length) {
+      const { error } = await db.from(TABLE).update(updateRow).eq('task_id', taskId);
+      if (error) throw error;
+    }
 
-    const { data, error } = await supabase
+    if (patch.assigneesReplace) {
+      const { error: dErr } = await db.from('task_assignees').delete().eq('task_id', taskId);
+      if (dErr) throw dErr;
+
+      if (patch.assigneesReplace.length) {
+        const rows = patch.assigneesReplace.map((uid) => ({
+          task_id: taskId,
+          user_id: uid,
+          assigned_at: new Date().toISOString(),
+        }));
+        const { error: iErr } = await db.from('task_assignees').insert(rows);
+        if (iErr) throw iErr;
+      }
+    }
+
+    const { data, error } = await db
       .from(TABLE)
-      .update(row)
-      .eq('id', taskId)
-      .select('*')
+      .select(
+        `
+        task_id, event_id, title, description, task_status, task_priority, start_at, end_at, created_at,
+        attachments:attachments ( attachment_id, attachment_url ),
+        subtasks:subtasks ( subtask_id, title, subtask_status ),
+        assignees:task_assignees (
+          assigned_at,
+          user:users!task_assignees_user_id_fkey ( user_id, username, email, avatar_url )
+        ),
+        event:events!tasks_event_id_fkey ( title )
+      `
+      )
+      .eq('task_id', taskId)
       .single();
-
     if (error) throw error;
-    return map(data);
+
+    const fetchedRow = data as unknown as RawTaskRow;
+    return map(fetchedRow);
   } catch (e) {
     throw toApiError(e, 'TASK_UPDATE_FAILED');
   }
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
-  const supabase = await createClient();
+  const db = await createDb();
   try {
-    const { error } = await supabase.from(TABLE).delete().eq('id', taskId);
+    const { error } = await db.from(TABLE).delete().eq('task_id', taskId);
     if (error) throw error;
   } catch (e) {
     throw toApiError(e, 'TASK_DELETE_FAILED');
   }
 }
 
-// ---------- Raw type from Supabase ----------
-type RawTaskRow = {
-  id: string;
-  event_id?: string | null;
-  name: string;
-  description?: string | null;
-  assignees?: string[] | null;
-  due_date?: string | null;
-  start_date?: string | null;
-  end_date?: string | null;
-  start_time?: string | null;
-  end_time?: string | null;
-  status: TaskStatus;
-  priority: TaskPriority;
-  sub_tasks?: RawSubTaskRow[] | null;
-  attachments?: RawAttachmentRow[] | null;
-  is_personal?: boolean | null;
-  events?: { title: string } | null;
-  created_at?: string | null;
+// ---------- Raw types ----------
+type RawUserRow = {
+  user_id: string;
+  username: string | null;
+  email: string | null;
+  avatar_url: string | null;
+};
+
+type RawAssigneeRow = {
+  assigned_at: string;
+  // Supabase relation can return an object or an array (if configured) — handle both
+  user: RawUserRow | RawUserRow[] | null;
 };
 
 type RawAttachmentRow = {
-  id: string;
-  url: string;
-  title?: string | null;
-  favicon?: string | null;
+  attachment_id: string;
+  attachment_url: string;
 };
 
-type RawSubTaskRow = {
-  id: string;
-  name: string;
-  completed?: boolean | null;
+type RawSubtaskRow = {
+  subtask_id: string;
+  title: string;
+  // กำหนดให้เป็นชนิดเดียวกับ Subtask['subtaskStatus'] เพื่อตัด cast any
+  subtask_status: Subtask['subtaskStatus'];
 };
 
-// ---------- Mappers ----------
+type RawTaskRow = {
+  task_id: string;
+  event_id?: string | null;
+  title: string;
+  description?: string | null;
+  task_status: TaskStatus;
+  task_priority: TaskPriority;
+  start_at?: string | null;
+  end_at?: string | null;
+  created_at: string;
+  attachments?: RawAttachmentRow[] | null;
+  subtasks?: RawSubtaskRow[] | null;
+  assignees?: RawAssigneeRow[] | null;
+  event?: { event_id: string; owner_id: string; title: string } | null;
+};
+
+// ---------- Mapper ----------
 function map(r: RawTaskRow): Task {
+  const assignees = (r.assignees ?? [])
+    .map((a): UserLite | null => {
+      const u = a.user;
+      const userObj: RawUserRow | null = Array.isArray(u) ? (u[0] ?? null) : u;
+      return userObj
+        ? {
+            userId: String(userObj.user_id),
+            username: String(userObj.username ?? ''),
+            email: String(userObj.email ?? ''),
+            avatarUrl: userObj.avatar_url ?? null,
+          }
+        : null;
+    })
+    .filter((v): v is UserLite => v !== null);
+
   return {
-    id: String(r.id),
-    title: r.name,
-    eventId: r.event_id ?? undefined,
-    eventTitle: r.events?.title ?? undefined,
+    taskId: String(r.task_id),
+    eventId: r.event_id ?? null,
+    eventTitle: r.event?.title ?? undefined,
+    title: r.title,
     description: r.description ?? '',
-    assignees: r.assignees ?? [],
-    dueDate: r.due_date ?? '',
-    startDate: r.start_date ?? '',
-    endDate: r.end_date ?? '',
-    startTime: r.start_time ?? '',
-    endTime: r.end_time ?? '',
-    status: r.status,
-    priority: r.priority,
-    subTasks: (r.sub_tasks ?? []).map(mapSubTask),
+    taskStatus: r.task_status,
+    taskPriority: r.task_priority,
+    startAt: r.start_at ?? null,
+    endAt: r.end_at ?? null,
+    createdAt: r.created_at,
     attachments: (r.attachments ?? []).map(mapAttachment),
-    isPersonal: Boolean(r.is_personal),
-    createdAt: r.created_at ? String(r.created_at) : new Date().toISOString(), // added createdAt
+    subtasks: (r.subtasks ?? []).map(mapSubtask),
+    assignees,
   };
 }
-
 
 function mapAttachment(a: RawAttachmentRow): Attachment {
   return {
-    id: String(a.id),
-    url: String(a.url),
-    title: a.title ?? '',
-    favicon: a.favicon ?? '',
+    attachmentId: String(a.attachment_id),
+    taskId: '',
+    attachmentUrl: String(a.attachment_url),
   };
 }
 
-function mapSubTask(s: RawSubTaskRow): SubTask {
+function mapSubtask(s: RawSubtaskRow): Subtask {
   return {
-    id: String(s.id),
-    name: s.name,
-    completed: Boolean(s.completed),
-  };
-}
-
-// ---------- Helpers ----------
-function toRpcTaskPayload(task: Task): Record<string, unknown> {
-  return {
-    name: task.title,
-    description: task.description,
-    assignees: task.assignees,
-    due_date: task.dueDate,
-    start_date: task.startDate,
-    end_date: task.endDate,
-    start_time: task.startTime,
-    end_time: task.endTime,
-    status: task.status,
-    priority: task.priority,
-    is_personal: task.isPersonal ?? false,
-    sub_tasks: task.subTasks ?? [],
-    attachments: task.attachments ?? [],
+    subtaskId: String(s.subtask_id),
+    taskId: '',
+    title: s.title,
+    subtaskStatus: s.subtask_status,
   };
 }

@@ -1,7 +1,5 @@
 import { createClient } from '@/lib/server/supabase/client';
-import { Provider } from "@supabase/supabase-js";
-
-const supabase = createClient();
+import { Provider, type PostgrestError } from '@supabase/supabase-js';
 
 export async function signInWithEmail({
   email,
@@ -26,7 +24,6 @@ export async function signInWithOAuth(provider: Provider) {
   });
   if (error) throw new Error(error.message);
 }
-
 
 export async function signUpWithEmail({
   email,
@@ -54,10 +51,38 @@ export async function signUpWithEmail({
   });
 
   if (error) throw new Error(error.message);
+
+  const authUser = data.user;
+  if (!authUser) throw new Error('SIGNUP_FAILED_NO_USER');
+
+  const baseUsername = makeBaseUsername(firstName, lastName, email);
+  let finalUsername = baseUsername;
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { error: insertErr } = await supabase.from('users').insert({
+      user_id: authUser.id,     // FK → auth.users(id)
+      email: authUser.email,    // UNIQUE
+      username: finalUsername,  // UNIQUE
+      avatar_url: null,
+    });
+
+    if (!insertErr) break;
+
+    if (!hasPgCode(insertErr) || insertErr.code !== '23505') {
+      throw new Error(insertErr.message);
+    }
+
+    finalUsername = `${baseUsername}-${Math.floor(Math.random() * 1e4)}`;
+    if (attempt === 2) {
+      throw new Error('Failed to create profile due to duplicate username/email.');
+    }
+  }
+
   return data;
 }
 
 export async function signOut() {
+  const supabase = createClient();
   const { error } = await supabase.auth.signOut();
   if (error) throw new Error(error.message);
 }
@@ -70,13 +95,40 @@ export async function updatePassword(password: string) {
 }
 
 export async function getSession() {
+  const supabase = createClient();
   const { data, error } = await supabase.auth.getSession();
   if (error) throw new Error(error.message);
   return data.session;
 }
 
 export async function getUser() {
+  const supabase = createClient();
   const { data, error } = await supabase.auth.getUser();
   if (error) throw new Error(error.message);
   return data.user;
+}
+
+// ---------- helpers ----------
+function makeBaseUsername(firstName?: string, lastName?: string, email?: string) {
+  const fromName = [firstName, lastName]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+
+  // If there is a name, use that name. If there is none, use the local part of the email.
+  const raw = (fromName || (email ? email.split('@')[0] : 'user')).toLowerCase();
+
+  const normalized =
+    raw
+      .replace(/[^a-z0-9._-]+/g, '-') // allow [a-z0-9._-], replace the rest with '-'
+      .replace(/-+/g, '-')            // collapse multiple '-' to single
+      .replace(/^[-. _]+|[-. _]+$/g, '') // trim leading/trailing [-._ ] chars
+      .slice(0, 24) || 'user';
+
+  return normalized;
+}
+
+// ---------- type guard ----------
+function hasPgCode(err: unknown): err is PostgrestError {
+  return typeof err === 'object' && err !== null && 'code' in err;
 }

@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { EventColorSelector } from './EventColorSelector';
+import { EventColorSelector } from "./EventColorSelector";
 import {
   Calendar,
   MapPin,
@@ -24,10 +24,10 @@ import {
   UserPlus,
   Loader2,
 } from "lucide-react";
-import { unsplash_tool } from '@/lib/client/unsplash';
+import { unsplash_tool } from "@/lib/client/unsplash";
 import { toast } from "react-hot-toast";
 import NextImage from "next/image";
-import { Event } from "@/lib/types";
+import type { Event } from "@/lib/types";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getInitials } from "@/lib/utils";
 
@@ -35,10 +35,7 @@ interface AddEventModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreateEvent: (
-    event: Omit<
-      Event,
-      "id" | "progress" | "tasks" | "createdAt" | "ownerId"
-    >
+    event: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members">
   ) => void;
   onInviteMembers?: () => void;
 }
@@ -58,13 +55,34 @@ export function AddEventModal({
     isMultiDay: false,
     location: "",
     description: "",
-    members: [] as string[],
+    members: [] as string[], // ไม่ถูกส่งออก (parent จะตั้งเป็น [])
     coverImage: "",
-    color: "bg-chart-1",
+    color: "bg-chart-1", // จะ map -> number
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+
+  /** map tailwind color token -> numeric index for Event.color */
+  function colorTokenToIndex(token: string): number {
+    // รองรับรูปแบบ "bg-chart-1", "bg-chart-2", ...
+    const m = token.match(/bg-chart-(\d+)/);
+    if (m && m[1]) {
+      const idx = parseInt(m[1], 10);
+      // แปลงเป็น 0-based หรือใช้ตามเลขก็ได้—ในที่นี้ใช้ idx-1 เพื่อให้เริ่มที่ 0
+      return Math.max(0, idx - 1);
+    }
+    return 0;
+  }
+
+  /** สร้าง ISO datetime จาก date(yyyy-mm-dd) + time(HH:mm) */
+  function toIso(date: string, time: string): string | undefined {
+    if (!date) return undefined;
+    // ถ้าไม่มี time ให้ใช้ 00:00
+    const t = time && time.trim().length > 0 ? time : "00:00";
+    const iso = new Date(`${date}T${t}:00`).toISOString();
+    return iso;
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,10 +110,27 @@ export function AddEventModal({
 
     setIsSubmitting(true);
     try {
-      // The parent component will create the full event object
-      onCreateEvent(formData);
+      // แปลงจาก formData -> โครง Event (ยกเว้นฟิลด์ที่ parent จะเติมเอง)
+      const startAt = toIso(formData.date, formData.time);
+      const endAt = formData.isMultiDay
+        ? toIso(formData.endDate, formData.endTime)
+        : toIso(formData.date, formData.endTime || formData.time);
+
+      const payload: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members"> = {
+        title: formData.title.trim(),
+        location: formData.location.trim(),
+        description: formData.description.trim(),
+        coverImageUri: formData.coverImage || undefined,
+        color: colorTokenToIndex(formData.color),
+        startAt: startAt ?? null,
+        endAt: endAt ?? null,
+        // Event ต้องไม่มี members ที่นี่ (parent จะตั้งเป็น [])
+      };
+
+      onCreateEvent(payload);
       onClose();
 
+      // reset form
       setFormData({
         title: "",
         date: "",
@@ -199,7 +234,10 @@ export function AddEventModal({
                 placeholder="Enter image URL or generate from title"
                 value={formData.coverImage}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, coverImage: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    coverImage: e.target.value,
+                  }))
                 }
               />
               <Button
@@ -223,9 +261,7 @@ export function AddEventModal({
           {/* Event Color */}
           <EventColorSelector
             selectedColor={formData.color}
-            onColorSelect={(color) =>
-              setFormData((prev) => ({ ...prev, color }))
-            }
+            onColorSelect={(color) => setFormData((prev) => ({ ...prev, color }))}
           />
 
           {/* Title */}
@@ -324,7 +360,10 @@ export function AddEventModal({
                   type="time"
                   value={formData.endTime}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, endTime: e.target.value }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      endTime: e.target.value,
+                    }))
                   }
                   required={!formData.isMultiDay}
                 />
@@ -363,7 +402,7 @@ export function AddEventModal({
             />
           </div>
 
-          {/* Members */}
+          {/* Members (UI เท่านั้น ตอนนี้ไม่ส่งค่าออก) */}
           <div className="space-y-4">
             <Label className="flex items-center space-x-2">
               <Users className="w-4 h-4" />

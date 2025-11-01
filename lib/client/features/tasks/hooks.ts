@@ -7,20 +7,20 @@ import type { ApiError } from '@/lib/errors';
 
 type TasksPage = { items: Task[]; nextPage: number | null };
 
-// ---------- Queries ----------  
+// ---------- Queries ----------
 
 /**
-* Fetch all tasks
-* - Cache in memory
-* - No refresh if returned within 5 minutes
-* - No re-refetch when switching tabs
-* - Supports prefetch (can load in advance)
-*/
+ * Fetch all tasks
+ * - Cache in memory
+ * - No refresh if returned within 5 minutes
+ * - No re-refetch when switching tabs
+ * - Supports prefetch (can load in advance)
+ */
 
 // List Task of a single Event (For the Event Detail page)
 export function useTasksInfinite(f: {
   eventId: string;
-  status?: Task['status'];
+  status?: Task['taskStatus'];  // << เปลี่ยนจาก status เป็น taskStatus
   q?: string;
   pageSize?: number;
 }) {
@@ -29,17 +29,17 @@ export function useTasksInfinite(f: {
   return useInfiniteQuery<TasksPage, ApiError, TasksPage, ReturnType<typeof queryKeys.tasks>, number>({
     queryKey: queryKeys.tasks({ eventId: f.eventId, status: f.status, pageSize, q: f.q }),
     initialPageParam: 1,
-    queryFn: async ({ pageParam, signal }) => {   
+    queryFn: async ({ pageParam, signal }) => {
       const params = new URLSearchParams();
-      if (f.status) params.set('status', f.status);
+      if (f.status) params.set('status', f.status); // ชื่อ query ยังใช้ status ตาม API route เดิม
       if (f.q) params.set('q', f.q);
       params.set('page', String(pageParam));
       params.set('pageSize', String(pageSize));
 
-      const r = await fetch(
-        `/api/events/${f.eventId}/tasks?${params.toString()}`,
-        { cache: 'no-store', signal }                  
-      );
+      const r = await fetch(`/api/events/${f.eventId}/tasks?${params.toString()}`, {
+        cache: 'no-store',
+        signal,
+      });
       if (!r.ok) throw (await r.json()) as ApiError;
       return (await r.json()) as TasksPage;
     },
@@ -53,7 +53,7 @@ export function useTasksInfinite(f: {
 
 // List all User's Tasks (Personal + Assignee) (For the All Tasks page)
 export function useAllTasksInfinite(f: {
-  status?: Task['status'];
+  status?: Task['taskStatus'];
   q?: string;
   pageSize?: number;
 }) {
@@ -62,14 +62,14 @@ export function useAllTasksInfinite(f: {
   return useInfiniteQuery<TasksPage, ApiError, TasksPage, ReturnType<typeof queryKeys.tasks>, number>({
     queryKey: queryKeys.tasks({ status: f.status, pageSize, q: f.q }),
     initialPageParam: 1,
-    queryFn: async ({ pageParam, signal }): Promise<TasksPage> => {   
+    queryFn: async ({ pageParam, signal }): Promise<TasksPage> => {
       const params = new URLSearchParams();
       if (f.status) params.set('status', f.status);
       if (f.q) params.set('q', f.q);
       params.set('page', String(pageParam));
       params.set('pageSize', String(pageSize));
 
-      const r = await fetch(`/api/tasks?${params.toString()}`, { cache: 'no-store', signal }); 
+      const r = await fetch(`/api/tasks?${params.toString()}`, { cache: 'no-store', signal });
       if (!r.ok) throw (await r.json()) as ApiError;
       return (await r.json()) as TasksPage;
     },
@@ -81,11 +81,11 @@ export function useAllTasksInfinite(f: {
   });
 }
 
-// ---------- Mutations ----------  
+// ---------- Mutations ----------
 export function useCreateEventTask(eventId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: Omit<Task, 'id'|'eventTitle'>) => {
+    mutationFn: async (payload: Omit<Task, 'taskId' | 'eventTitle'>) => {
       const r = await fetch(`/api/events/${eventId}/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -105,7 +105,7 @@ export function useCreateEventTask(eventId: string) {
 export function useCreatePersonalTask() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: Omit<Task, 'id'|'eventId'|'eventTitle'>) => {
+    mutationFn: async (payload: Omit<Task, 'taskId' | 'eventId' | 'eventTitle'>) => {
       const r = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -125,12 +125,16 @@ export function useEditTask(eventId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ taskId, patch }: { taskId: string; patch: Partial<Task> }) => {
-      const r = await fetch(`/api/events/${eventId}/tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify(patch) });
+      const r = await fetch(`/api/events/${eventId}/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
       if (!r.ok) throw await r.json();
       return (await r.json()) as Task;
     },
     onSuccess: (task) => {
-      qc.setQueryData(queryKeys.task(task.id), task);
+      qc.setQueryData(queryKeys.task(task.taskId), task);
       qc.invalidateQueries({ queryKey: queryKeys.tasks({ eventId }) });
     },
     retry: 0,

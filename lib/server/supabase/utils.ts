@@ -1,30 +1,58 @@
-import { Task, Event } from "@/lib/types";
+import type { Task, Event, UserLite } from "@/lib/types";
 
-export const getEffectiveDueDate = (task: {
-  startDate?: string;
-  endDate?: string;
-  dueDate?: string;
-}): string | null => {
-  // If task has a time period (start and end dates), the due date is the end date
-  if (task.startDate && task.endDate) {
-    return task.endDate;
+/* ===================== Effective Due Date ===================== */
+
+/** A generic date-like shape */
+type Dateish = { startDate?: string; endDate?: string; dueDate?: string };
+
+/** Base logic: compute due date from a Dateish object */
+function getEffectiveDueDateFromDateish(d: Dateish): string | null {
+  if (d.startDate && d.endDate) return d.endDate;
+  return d.dueDate ?? null;
+}
+
+/** Overloads: accepts either a Task or Dateish */
+export function getEffectiveDueDate(task: Task): string | null;
+export function getEffectiveDueDate(dateish: Dateish): string | null;
+export function getEffectiveDueDate(arg: Task | Dateish): string | null {
+  // If the argument is a Task, convert it into a Dateish shape first
+  if (isTask(arg)) {
+    const d: Dateish = {
+      startDate: arg.startAt ?? undefined,
+      endDate: arg.endAt ?? undefined,
+      // Currently using endAt as the due date (switch if actual dueDate is added in the schema)
+      dueDate: arg.endAt ?? undefined,
+    };
+    return getEffectiveDueDateFromDateish(d);
   }
 
-  // Otherwise, use the regular due date
-  return task.dueDate || null;
-};
+  // If not a Task, treat it as a Dateish object
+  return getEffectiveDueDateFromDateish(arg);
+}
 
-interface FilterOptions {
+function isTask(x: any): x is Task {
+  return x && typeof x === "object" && "taskId" in x && "taskStatus" in x;
+}
+
+/* ===================== Filters ===================== */
+
+export interface FilterOptions {
   status?: ("To Do" | "In Progress" | "Done")[];
   priority?: ("Urgent" | "High" | "Normal" | "Low")[];
-  assignees?: string[];
-  dateRange?: {
-    from: Date | null;
-    to: Date | null;
-  };
-  eventTypes?: string[];
+  assignees?: string[]; // Matches username/email/userId
+  dateRange?: { from: Date | null; to: Date | null };
+  eventTypes?: string[]; // (Unused in mock data for now)
   showCompleted?: boolean;
-  showPersonalTasks?: boolean;
+  showPersonalTasks?: boolean; // true = show tasks with eventId === null
+}
+
+/** Helper: extract searchable strings from a UserLite */
+function assigneeKeys(a: UserLite): string[] {
+  const keys: string[] = [];
+  if (a.username) keys.push(a.username);
+  if (a.email) keys.push(a.email);
+  if (a.userId) keys.push(a.userId);
+  return keys;
 }
 
 export const filterTasks = (
@@ -33,76 +61,79 @@ export const filterTasks = (
   filters: FilterOptions
 ): Task[] => {
   return tasks.filter((task) => {
-    // Search term filter
+    /* ----- Text Search ----- */
     if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      const matchesSearch =
-        task.name.toLowerCase().includes(searchLower) ||
-        (task.description &&
-          task.description.toLowerCase().includes(searchLower)) ||
-        (task.assignees &&
-          task.assignees.some((assignee) =>
-            assignee.toLowerCase().includes(searchLower)
-          ));
+      const q = searchTerm.toLowerCase();
 
-      if (!matchesSearch) return false;
+      const titleHit = task.title.toLowerCase().includes(q);
+      const descHit = task.description?.toLowerCase().includes(q) ?? false;
+      const asgHit =
+        task.assignees?.some((a) =>
+          assigneeKeys(a).some((k) => k.toLowerCase().includes(q))
+        ) ?? false;
+
+      if (!(titleHit || descHit || asgHit)) return false;
     }
 
-    // Status filter
-    if (filters.status && filters.status.length > 0) {
-      if (!filters.status.includes(task.status)) return false;
+    /* ----- Status Filter ----- */
+    if (filters.status?.length) {
+      if (!filters.status.includes(task.taskStatus)) return false;
     }
 
-    // Priority filter
-    if (filters.priority && filters.priority.length > 0) {
-      if (!filters.priority.includes(task.priority)) return false;
+    /* ----- Priority Filter ----- */
+    if (filters.priority?.length) {
+      if (!filters.priority.includes(task.taskPriority)) return false;
     }
 
-    // Assignee filter
-    if (filters.assignees && filters.assignees.length > 0) {
-      const hasMatchingAssignee = task.assignees && task.assignees.some((assignee) =>
-        filters.assignees!.includes(assignee)
-      );
-      if (!hasMatchingAssignee) return false;
+    /* ----- Assignee Filter (username/email/userId) ----- */
+    if (filters.assignees?.length) {
+      const hasMatch =
+        task.assignees?.some((a) =>
+          assigneeKeys(a).some((key) => filters.assignees!.includes(key))
+        ) ?? false;
+
+      if (!hasMatch) return false;
     }
 
-    // Enhanced date range filter for time periods
+    /* ----- Date Range Filter (supports periods & single due dates) ----- */
     if (filters.dateRange?.from) {
       const fromDate = new Date(filters.dateRange.from);
       fromDate.setHours(0, 0, 0, 0);
 
-      const toDate =
-        filters.dateRange.to ? new Date(filters.dateRange.to) : new Date(fromDate);
+      const toDate = filters.dateRange.to
+        ? new Date(filters.dateRange.to)
+        : new Date(fromDate);
       toDate.setHours(23, 59, 59, 999);
 
-      let taskOverlapsRange = false;
+      let overlaps = false;
 
-      // Check if task has time period (startDate/endDate)
-      if (task.startDate) {
-        const taskStartDate = new Date(task.startDate);
-        const taskEndDate = task.endDate ? new Date(task.endDate) : taskStartDate;
+      // If the task has a time period (startAt/endAt)
+      if (task.startAt || task.endAt) {
+        const start = task.startAt ? new Date(task.startAt) : null;
+        const end = task.endAt ? new Date(task.endAt) : start;
+        const s = start ?? new Date(0);
+        const e = end ?? s;
 
-        // Task overlaps if: task starts before range ends AND task ends after range starts
-        taskOverlapsRange = taskStartDate <= toDate && taskEndDate >= fromDate;
+        overlaps = s <= toDate && e >= fromDate;
       } else {
-        // Check effective due date (endDate for time periods, or dueDate for traditional tasks)
-        const effectiveDueDate = getEffectiveDueDate(task);
-        if (effectiveDueDate) {
-          const taskDate = new Date(effectiveDueDate);
-          taskOverlapsRange = taskDate >= fromDate && taskDate <= toDate;
+        // Regular tasks: use effective due date
+        const eff = getEffectiveDueDate(task);
+        if (eff) {
+          const d = new Date(eff);
+          overlaps = d >= fromDate && d <= toDate;
         }
       }
 
-      if (!taskOverlapsRange) return false;
+      if (!overlaps) return false;
     }
 
-    // Show completed filter
-    if (filters.showCompleted === false && task.status === "Done") {
+    /* ----- Completed Toggle ----- */
+    if (filters.showCompleted === false && task.taskStatus === "Done") {
       return false;
     }
 
-    // Show personal tasks filter
-    if (filters.showPersonalTasks === false && task.isPersonal) {
+    /* ----- Personal Task Toggle (eventId === null) ----- */
+    if (filters.showPersonalTasks === false && task.eventId === null) {
       return false;
     }
 
@@ -110,20 +141,25 @@ export const filterTasks = (
   });
 };
 
+/* ===================== Assignee Collection ===================== */
+
 export const getAllAssignees = (tasks: Task[], events: Event[]): string[] => {
-  const assigneesSet = new Set<string>();
+  const acc = new Set<string>();
 
-  // Add task assignees
-  tasks.forEach((task) => {
-    if (task.assignees) {
-      task.assignees.forEach((assignee) => assigneesSet.add(assignee));
-    }
+  // From task.assignees (UserLite[])
+  tasks.forEach((t) => {
+    t.assignees?.forEach((a) => {
+      // Prefer username > email > userId
+      if (a.username) acc.add(a.username);
+      else if (a.email) acc.add(a.email);
+      else if (a.userId) acc.add(a.userId);
+    });
   });
 
-  // Add event members
-  events.forEach((event) => {
-    event.members.forEach((member) => assigneesSet.add(member));
+  // From event.members (array of userId)
+  events.forEach((e) => {
+    e.members.forEach((uid) => acc.add(uid));
   });
 
-  return Array.from(assigneesSet).sort();
+  return Array.from(acc).sort((a, b) => a.localeCompare(b));
 };

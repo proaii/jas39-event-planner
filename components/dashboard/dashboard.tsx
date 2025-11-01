@@ -6,7 +6,8 @@ import { Event, Task } from "@/lib/types";
 
 interface DashboardProps {
   events: Event[];
-  personalTasks: Task[];
+  tasks: Task[];                
+  personalTasks: Task[]; 
   currentUser: string;
   onCreateEvent: () => void;
   onCreateFromTemplate?: () => void;
@@ -17,7 +18,7 @@ interface DashboardProps {
   onDeleteEvent?: (eventId: string) => void;
   onAddTask?: (eventId: string) => void;
   onCreatePersonalTask?: () => void;
-  onStatusChange?: (taskId: string, newStatus: Task["status"]) => void;
+  onStatusChange?: (taskId: string, newStatus: Task["taskStatus"]) => void;
   onSubTaskToggle?: (taskId: string, subTaskId: string) => void;
   // Navigation handlers
   onNavigateToAllEvents?: () => void;
@@ -28,6 +29,7 @@ interface DashboardProps {
 
 export function Dashboard({
   events,
+  tasks, 
   personalTasks,
   currentUser,
   onCreateEvent,
@@ -47,10 +49,10 @@ export function Dashboard({
           onCreateFromTemplate={onCreateFromTemplate}
         />
         <div className="space-y-8">
-          <DashboardWidgets events={events} onEventClick={onEventClick} onNavigateToAllEvents={onNavigateToAllEvents} />
+          <DashboardWidgets events={events} tasks={tasks} onEventClick={onEventClick} onNavigateToAllEvents={onNavigateToAllEvents} />
           <MyTasksSection
             events={events}
-            personalTasks={personalTasks}
+            tasks={tasks} 
             currentUser={currentUser}
             onStatusChange={onStatusChange}
             onSubTaskToggle={onSubTaskToggle}

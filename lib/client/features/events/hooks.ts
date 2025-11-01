@@ -29,9 +29,7 @@ export function useEventsInfinite(f: { q?: string; pageSize?: number }) {
       params.set('page', String(pageParam ?? 1));
       params.set('pageSize', String(pageSize));
 
-      const r = await fetch(`/api/events?${params.toString()}`, {
-        cache: 'no-store', 
-      });
+      const r = await fetch(`/api/events?${params.toString()}`, { cache: 'no-store' });
       if (!r.ok) throw (await r.json()) as ApiError;
       return (await r.json()) as EventsPage;
     },
@@ -85,7 +83,7 @@ export function useCreateEvent() {
       return (await r.json()) as Event;
     },
     onSuccess: (ev) => {
-      qc.setQueryData(queryKeys.event(ev.id), ev);
+      qc.setQueryData(queryKeys.event(ev.eventId), ev);
       qc.invalidateQueries({ queryKey: ['events'] });
     },
     retry: 0,
@@ -105,7 +103,7 @@ export function useEditEvent() {
       return (await r.json()) as Event;
     },
     onSuccess: (ev) => {
-      qc.setQueryData(queryKeys.event(ev.id), ev);
+      qc.setQueryData(queryKeys.event(ev.eventId), ev);
       qc.invalidateQueries({ queryKey: ['events'] });
     },
     retry: 0,
@@ -187,3 +185,4 @@ export function useRemoveMember(eventId: string) {
     retry: 0,
   });
 }
+

@@ -16,7 +16,7 @@ export const queryKeys = {
 
   tasks: (f: {
     eventId?: string;
-    status?: Task['status'];
+    status?: Task['taskStatus'];
     q?: string;
     page?: number;
     pageSize?: number;

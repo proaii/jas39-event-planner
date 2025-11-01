@@ -1,16 +1,20 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+// Combine Tailwind class names safely
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// This check can be removed, it is just for tutorial purposes
-export const hasEnvVars =
+// Check if Supabase environment variables exist
+export const hasEnvVars = Boolean(
   process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
+// Get initials from a name string
 export const getInitials = (name: string) => {
+  if (!name) return "";
   return name
     .split(" ")
     .map((part) => part[0])
@@ -18,7 +22,9 @@ export const getInitials = (name: string) => {
     .toUpperCase();
 };
 
+// Format date as "MMM dd, yyyy"
 export const formatDate = (dateString: string) => {
+  if (!dateString) return "";
   const date = new Date(dateString);
   return date.toLocaleDateString("en-US", {
     month: "short",
@@ -27,23 +33,26 @@ export const formatDate = (dateString: string) => {
   });
 };
 
+// Format time string "HH:mm" to "h:mm AM/PM"
 export const formatTime = (timeString: string) => {
+  if (!timeString) return "";
   const [hours, minutes] = timeString.split(":");
-  const hour = parseInt(hours);
-  const ampm = hour >= 12 ? "PM" : "AM";
+  const hour = parseInt(hours, 10);
   const displayHour = hour % 12 || 12;
+  const ampm = hour >= 12 ? "PM" : "AM";
   return `${displayHour}:${minutes} ${ampm}`;
 };
 
+// Format task due date with urgency flags
 export const formatDueDate = (dueDate?: string | null) => {
   if (!dueDate) return null;
 
   const today = new Date();
   const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setDate(today.getDate() + 1);
+
   const dueDateTime = new Date(dueDate);
 
-  // Reset hours for date comparison
   today.setHours(0, 0, 0, 0);
   tomorrow.setHours(0, 0, 0, 0);
   dueDateTime.setHours(0, 0, 0, 0);
@@ -64,4 +73,11 @@ export const formatDueDate = (dueDate?: string | null) => {
     isToday,
     isTomorrow,
   };
+};
+
+// Get effective due date for a task
+export const getEffectiveDueDate = (task: { endAt?: string | null; dueDate?: string | null }): string | undefined => {
+  // Prefer endAt over dueDate if both exist
+  if (task.endAt) return task.endAt;
+  return task.dueDate || undefined;
 };

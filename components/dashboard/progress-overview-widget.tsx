@@ -1,12 +1,27 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Event } from "@/lib/types";
+import type { Event, Task } from "@/lib/types";
 import { TrendingUp } from "lucide-react";
 
 interface ProgressOverviewWidgetProps {
   events: Event[];
+  tasks: Task[];
 }
 
-export function ProgressOverviewWidget({ events }: ProgressOverviewWidgetProps) {
+function calcEventProgress(eventId: string, tasks: Task[]) {
+  const related = tasks.filter(t => t.eventId === eventId);
+  const total = related.length;
+  const done = related.filter(t => t.taskStatus === "Done").length;
+  const progress = total === 0 ? 0 : Math.round((done / total) * 100);
+  return { total, done, progress };
+}
+
+export function ProgressOverviewWidget({ events, tasks }: ProgressOverviewWidgetProps) {
+  // แสดง top 3 (ลำดับตามเดิม)
+  const top = events.slice(0, 3).map(ev => {
+    const { total, done, progress } = calcEventProgress(ev.eventId, tasks);
+    return { ev, total, done, progress };
+  });
+
   return (
     <Card className="lg:col-span-1">
       <CardContent className="p-6">
@@ -16,16 +31,18 @@ export function ProgressOverviewWidget({ events }: ProgressOverviewWidgetProps) 
         </div>
 
         <div className="space-y-4">
-          {events.slice(0, 3).map(event => (
-            <div key={event.id} className="space-y-2">
+          {top.map(({ ev, progress, total, done }) => (
+            <div key={ev.eventId} className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-foreground truncate">{event.title}</span>
-                <span className="text-sm text-muted-foreground">{event.progress}%</span>
+                <span className="text-sm font-medium text-foreground truncate">{ev.title}</span>
+                <span className="text-sm text-muted-foreground">
+                  {done}/{total} • {progress}%
+                </span>
               </div>
               <div className="w-full bg-muted rounded-full h-2">
                 <div
                   className="bg-primary h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${event.progress}%` }}
+                  style={{ width: `${progress}%` }}
                 />
               </div>
             </div>

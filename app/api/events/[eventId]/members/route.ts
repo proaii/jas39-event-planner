@@ -4,7 +4,7 @@ import type { MembersRes } from '@/lib/types';
 
 export async function GET(_req: Request, context: { params: Promise<{ eventId: string }> }) {
   try {
-    const { eventId } = await context.params; 
+    const { eventId } = await context.params;
     const items = await listEventMembers(eventId);
     const res: MembersRes = { items };
     return Response.json(res);
@@ -15,13 +15,13 @@ export async function GET(_req: Request, context: { params: Promise<{ eventId: s
 
 export async function POST(req: Request, context: { params: Promise<{ eventId: string }> }) {
   try {
-    const { eventId } = await context.params; 
-    const body = (await req.json()) as { memberId?: string; userId?: string; role?: string };
+    const { eventId } = await context.params;
+    const body = (await req.json()) as { userId?: string; memberId?: string };
 
-    const memberId = body.memberId ?? body.userId;
-    if (!memberId) throw new Error('MISSING_MEMBER_ID');
+    const userId = body.userId ?? body.memberId;
+    if (!userId) throw new Error('MISSING_USER_ID');
 
-    await addEventMember(eventId, memberId, body.role ?? 'member');
+    await addEventMember(eventId, userId);
     return Response.json({ ok: true }, { status: 201 });
   } catch (e) {
     return jsonError(e);

@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,8 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { EventColorSelector } from './EventColorSelector';
+import { EventColorSelector } from "./EventColorSelector";
 import {
   Calendar,
   MapPin,
@@ -24,23 +23,20 @@ import {
   UserPlus,
   Loader2,
 } from "lucide-react";
-import { unsplash_tool } from '@/lib/client/unsplash';
+import { unsplash_tool } from "@/lib/client/unsplash";
 import { toast } from "react-hot-toast";
 import NextImage from "next/image";
-import { Event } from "@/lib/types";
+import type { Event } from "@/lib/types";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getInitials } from "@/lib/utils";
 
 interface AddEventModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreateEvent: (
-    event: Omit<
-      Event,
-      "id" | "progress" | "tasks" | "createdAt" | "ownerId"
-    >
+    event: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members">
   ) => void;
   onInviteMembers?: () => void;
+  prefillData?: Partial<Event>;
 }
 
 export function AddEventModal({
@@ -48,6 +44,7 @@ export function AddEventModal({
   onClose,
   onCreateEvent,
   onInviteMembers,
+  prefillData,
 }: AddEventModalProps) {
   const [formData, setFormData] = useState({
     title: "",
@@ -65,6 +62,40 @@ export function AddEventModal({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && prefillData) {
+      setFormData({
+        title: prefillData.title || "",
+        date: prefillData.startAt ? prefillData.startAt.split("T")[0] : "",
+        endDate: prefillData.endAt ? prefillData.endAt.split("T")[0] : "",
+        time: prefillData.startAt ? prefillData.startAt.split("T")[1].substring(0, 5) : "",
+        endTime: prefillData.endAt ? prefillData.endAt.split("T")[1].substring(0, 5) : "",
+        isMultiDay: !!prefillData.endAt && prefillData.startAt?.split("T")[0] !== prefillData.endAt?.split("T")[0],
+        location: prefillData.location || "",
+        description: prefillData.description || "",
+        members: [],
+        coverImage: prefillData.coverImageUri || "",
+        color: `bg-chart-${(prefillData.color || 0) + 1}`,
+      });
+    }
+  }, [isOpen, prefillData]);
+
+  function colorTokenToIndex(token: string): number {
+    const m = token.match(/bg-chart-(\d+)/);
+    if (m && m[1]) {
+      const idx = parseInt(m[1], 10);
+      return Math.max(0, idx - 1);
+    }
+    return 0;
+  }
+
+  function toIso(date: string, time: string): string | undefined {
+    if (!date) return undefined;
+    const t = time && time.trim().length > 0 ? time : "00:00";
+    const iso = new Date(`${date}T${t}:00`).toISOString();
+    return iso;
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,8 +123,22 @@ export function AddEventModal({
 
     setIsSubmitting(true);
     try {
-      // The parent component will create the full event object
-      onCreateEvent(formData);
+      const startAt = toIso(formData.date, formData.time);
+      const endAt = formData.isMultiDay
+        ? toIso(formData.endDate, formData.endTime)
+        : toIso(formData.date, formData.endTime || formData.time);
+
+      const payload: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members"> = {
+        title: formData.title.trim(),
+        location: formData.location.trim(),
+        description: formData.description.trim(),
+        coverImageUri: formData.coverImage || undefined,
+        color: colorTokenToIndex(formData.color),
+        startAt: startAt ?? null,
+        endAt: endAt ?? null,
+      };
+
+      onCreateEvent(payload);
       onClose();
 
       setFormData({
@@ -140,13 +185,6 @@ export function AddEventModal({
     }
   };
 
-  const removeMember = (member: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      members: prev.members.filter((m) => m !== member),
-    }));
-  };
-
   return (
     <Dialog
       open={isOpen}
@@ -166,7 +204,6 @@ export function AddEventModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Cover Image */}
           <div className="space-y-2">
             <Label className="flex items-center space-x-2">
               <ImageIcon className="w-4 h-4" />
@@ -199,7 +236,10 @@ export function AddEventModal({
                 placeholder="Enter image URL or generate from title"
                 value={formData.coverImage}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, coverImage: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    coverImage: e.target.value,
+                  }))
                 }
               />
               <Button
@@ -220,15 +260,11 @@ export function AddEventModal({
             </div>
           </div>
 
-          {/* Event Color */}
           <EventColorSelector
             selectedColor={formData.color}
-            onColorSelect={(color) =>
-              setFormData((prev) => ({ ...prev, color }))
-            }
+            onColorSelect={(color) => setFormData((prev) => ({ ...prev, color }))}
           />
 
-          {/* Title */}
           <div className="space-y-2">
             <Label htmlFor="title">Event Title</Label>
             <Input
@@ -241,7 +277,6 @@ export function AddEventModal({
             />
           </div>
 
-          {/* Date/Time */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -324,7 +359,10 @@ export function AddEventModal({
                   type="time"
                   value={formData.endTime}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, endTime: e.target.value }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      endTime: e.target.value,
+                    }))
                   }
                   required={!formData.isMultiDay}
                 />
@@ -332,118 +370,43 @@ export function AddEventModal({
             </div>
           </div>
 
-          {/* Location */}
           <div className="space-y-2">
-            <Label className="flex items-center space-x-2">
-              <MapPin className="w-4 h-4" />
-              <span>Location</span>
-            </Label>
+            <Label className="flex items-center space-x-2"><MapPin className="w-4 h-4" /><span>Location</span></Label>
             <Input
               value={formData.location}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, location: e.target.value }))
               }
-              required
             />
           </div>
 
-          {/* Description */}
           <div className="space-y-2">
             <Label>Description</Label>
             <Textarea
               value={formData.description}
               onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
+                setFormData((prev) => ({ ...prev, description: e.target.value }))
               }
               className="min-h-[100px]"
-              required
             />
           </div>
 
-          {/* Members */}
           <div className="space-y-4">
-            <Label className="flex items-center space-x-2">
-              <Users className="w-4 h-4" />
-              <span>Team Members</span>
-            </Label>
-            <div className="space-y-3">
-              {formData.members.length > 0 ? (
-                formData.members.map((member) => (
-                  <div
-                    key={member}
-                    className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                          {getInitials(member)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium text-foreground text-sm">
-                          {member}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Team Member
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeMember(member)}
-                      className="text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-6 border-2 border-dashed border-muted rounded-lg">
-                  <Users className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    No team members assigned
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Add members to start collaborating
-                  </p>
-                </div>
-              )}
+            <Label className="flex items-center space-x-2"><Users className="w-4 h-4" /><span>Team Members</span></Label>
+            <div className="text-center py-6 border-2 border-dashed border-muted rounded-lg">
+              <Users className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">No team members assigned</p>
+              <p className="text-xs text-muted-foreground mt-1">Add members to start collaborating</p>
             </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full border-primary text-primary hover:bg-primary hover:text-white"
-              onClick={onInviteMembers}
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Add Team Member
+            <Button type="button" variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-white" onClick={onInviteMembers}>
+              <UserPlus className="w-4 h-4 mr-2" /> Add Team Member
             </Button>
           </div>
 
-          {/* Actions */}
           <div className="flex justify-end space-x-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="bg-primary hover:bg-primary/90"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Creating...
-                </>
-              ) : (
-                "Create Event"
-              )}
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSubmitting}>
+              {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Creating...</> : "Create Event"}
             </Button>
           </div>
         </form>

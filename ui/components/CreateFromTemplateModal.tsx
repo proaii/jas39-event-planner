@@ -13,7 +13,7 @@ interface EventTemplate {
     title: string;
     location: string;
     description: string;
-    tasks: any[];
+    tasks: { name: string }[];
     coverImage?: string;
     color?: string;
   };
@@ -25,17 +25,17 @@ interface CreateFromTemplateModalProps {
   isOpen: boolean;
   templates: EventTemplate[];
   onClose: () => void;
-  onSelectTemplate: (template: EventTemplate) => void;
+  onUseTemplate: (eventData: EventTemplate["eventData"]) => void;
 }
 
-export function CreateFromTemplateModal({ 
-  isOpen, 
-  templates, 
-  onClose, 
-  onSelectTemplate 
+export function CreateFromTemplateModal({
+  isOpen,
+  templates,
+  onClose,
+  onUseTemplate,
 }: CreateFromTemplateModalProps) {
-  const handleSelectTemplate = (template: EventTemplate) => {
-    onSelectTemplate(template);
+  const handleUseTemplate = (template: EventTemplate) => {
+    onUseTemplate(template.eventData);
     onClose();
   };
 
@@ -64,23 +64,16 @@ export function CreateFromTemplateModal({
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <CardTitle className="text-lg">{template.name}</CardTitle>
-                      <CardDescription className="mt-1">
-                        {template.description}
-                      </CardDescription>
+                      <CardDescription className="mt-1">{template.description}</CardDescription>
                     </div>
-                    <Button
-                      onClick={() => handleSelectTemplate(template)}
-                      size="sm"
-                    >
+                    <Button onClick={() => handleUseTemplate(template)} size="sm">
                       Use Template
                     </Button>
                   </div>
                 </CardHeader>
 
                 <CardContent className="pt-0">
-                  {/* Template Preview */}
                   <div className="space-y-3">
-                    {/* Event Details */}
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
@@ -88,11 +81,11 @@ export function CreateFromTemplateModal({
                       </div>
                       <div className="flex items-center gap-1">
                         <Users className="w-3 h-3" />
-                        {template.eventData.tasks.length} task{template.eventData.tasks.length !== 1 ? 's' : ''}
+                        {template.eventData.tasks.length} task
+                        {template.eventData.tasks.length !== 1 ? "s" : ""}
                       </div>
                     </div>
 
-                    {/* Task Preview */}
                     {template.eventData.tasks.length > 0 && (
                       <div>
                         <div className="text-sm font-medium mb-2">Included Tasks:</div>
@@ -111,7 +104,6 @@ export function CreateFromTemplateModal({
                       </div>
                     )}
 
-                    {/* Template Meta */}
                     <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border">
                       <span>Created by {template.createdBy}</span>
                       <div className="flex items-center gap-1">

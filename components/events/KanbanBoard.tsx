@@ -71,7 +71,7 @@ export function KanbanBoard({ tasks, onTaskStatusChange, onTaskAction }: KanbanB
                 <Card key={task.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleCardClick(task.id)}>
                   <CardContent className="p-4">
                     <div className="mb-3">
-                      <h4 className="font-medium mb-2 line-clamp-2">{task.name}</h4>
+                      <h4 className="font-medium mb-2 line-clamp-2">{task.title}</h4>
 
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>

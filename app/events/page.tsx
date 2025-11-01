@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { useRouter } from "next/navigation"; 
+import React, { useMemo, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -30,12 +30,13 @@ import { Event } from "@/lib/types";
 import { useUiStore } from "@/stores/ui-store";
 import { toast } from "react-hot-toast";
 import { AddEventModal } from "@/components/events/AddEventModal";
-import { CreateFromTemplateModal, EventTemplate } from "@/components/events/CreateFromTemplateModal";
+import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
+import type { TemplateData } from "@/components/events/SaveTemplateModal";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 export default function AllEventsPage() {
   const currentUser = "Bob";
-  const router = useRouter(); 
+  const router = useRouter();
 
   // ------------------- UI STORE -------------------
   const {
@@ -57,15 +58,23 @@ export default function AllEventsPage() {
     setDateFilters,
   } = useUiStore();
 
+  // Temporary local filter state for the popover (moved to component top-level)
+  const [tempProgressFilters, setTempProgressFilters] = useState(progressFilters);
+  const [tempDateFilters, setTempDateFilters] = useState(dateFilters);
+
+  // When popover opens, sync temp state from store
+  useEffect(() => {
+    if (isFilterOpen) {
+      setTempProgressFilters(progressFilters);
+      setTempDateFilters(dateFilters);
+    }
+  }, [isFilterOpen, progressFilters, dateFilters]);
+
   // ------------------- EVENTS STATE -------------------
   const [events, setEvents] = useState<Event[]>(mockEvents);
   const [prefillData, setPrefillData] = useState<
     Omit<Event, "id" | "progress" | "tasks" | "createdAt" | "ownerId"> | null
   >(null);
-
-  // pending filters (not applied yet)
-  const [progressFiltersPending, setProgressFiltersPending] = useState(progressFilters);
-  const [dateFiltersPending, setDateFiltersPending] = useState(dateFilters);
 
   // ------------------- HANDLERS -------------------
   const handleCreateEvent = (
@@ -84,16 +93,16 @@ export default function AllEventsPage() {
     toast.success(`Event "${eventData.title}" created successfully!`);
   };
 
-  const handleUseTemplate = (data: EventTemplate["eventData"]) => {
+  const handleUseTemplate = (data: TemplateData) => {
     setPrefillData({
       title: data.title,
-      location: data.location,
-      description: data.description || "",
+      location: data.location || "",
+      description: data.eventDescription || "",
       coverImage: data.coverImage,
       color: data.color || "bg-chart-1",
-      date: "",
-      time: "",
-      members: [],
+      date: data.date,
+      time: data.time,
+      members: data.members,
     });
     openAddEventModal();
   };
@@ -101,24 +110,28 @@ export default function AllEventsPage() {
   const clearAllFilters = () => {
     const resetProgress = { notStarted: true, inProgress: true, completed: true };
     const resetDate = { past: true, thisWeek: true, thisMonth: true, upcoming: true };
-    setProgressFiltersPending(resetProgress);
-    setDateFiltersPending(resetDate);
     setProgressFilters(resetProgress);
     setDateFilters(resetDate);
     setSearchQuery("");
   };
 
-  const applyFilters = () => {
-    setProgressFilters(progressFiltersPending);
-    setDateFilters(dateFiltersPending);
+  // Apply temp filters to the store (invoked by popover Apply)
+  const applyTempFilters = () => {
+    setProgressFilters(tempProgressFilters);
+    setDateFilters(tempDateFilters);
     setIsFilterOpen(false);
+  };
+
+  const clearTempFilters = () => {
+    setTempProgressFilters({ notStarted: true, inProgress: true, completed: true });
+    setTempDateFilters({ past: true, thisWeek: true, thisMonth: true, upcoming: true });
   };
 
   // ------------------- FILTER & SORT -------------------
   const filteredAndSortedEvents = useMemo(() => {
     let filtered = events;
 
-    // Search
+    // --- Search ---
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -129,7 +142,7 @@ export default function AllEventsPage() {
       );
     }
 
-    // Progress
+    // --- Progress Filter ---
     if (!progressFilters.notStarted || !progressFilters.inProgress || !progressFilters.completed) {
       filtered = filtered.filter((event) => {
         if (event.progress === 0 && !progressFilters.notStarted) return false;
@@ -139,7 +152,7 @@ export default function AllEventsPage() {
       });
     }
 
-    // Date
+    // --- Date Filter ---
     const now = new Date();
     const oneWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const oneMonth = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -160,7 +173,7 @@ export default function AllEventsPage() {
       });
     }
 
-    // Sort
+    // --- Sort ---
     return [...filtered].sort((a, b) => {
       if (sortBy === "date") return new Date(a.date).getTime() - new Date(b.date).getTime();
       if (sortBy === "name") return a.title.localeCompare(b.title);
@@ -205,8 +218,8 @@ export default function AllEventsPage() {
         </div>
       </div>
 
-      {/* 🔍 Search / Filter / Sort */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+      {/* Search / Filter / Sort */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -228,113 +241,85 @@ export default function AllEventsPage() {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80" align="end">
-              {(() => {
-                // --- local temp states ---
-                const [tempProgressFilters, setTempProgressFilters] = useState(progressFilters);
-                const [tempDateFilters, setTempDateFilters] = useState(dateFilters);
+              <div className="space-y-6">
+                <div className="pb-2 border-b border-border">
+                  <h3 className="font-semibold text-foreground">Filter Events</h3>
+                </div>
 
-                // Sync store filters every time popover opens
-                React.useEffect(() => {
-                  if (isFilterOpen) {
-                    setTempProgressFilters(progressFilters);
-                    setTempDateFilters(dateFilters);
-                  }
-                }, [isFilterOpen, progressFilters, dateFilters]);
-
-                const clearTempFilters = () => {
-                  setTempProgressFilters({ notStarted: true, inProgress: true, completed: true });
-                  setTempDateFilters({ past: true, thisWeek: true, thisMonth: true, upcoming: true });
-                };
-
-                const applyFilters = () => {
-                  setProgressFilters(tempProgressFilters);
-                  setDateFilters(tempDateFilters);
-                  setIsFilterOpen(false);
-                };
-
-                return (
-                  <div className="space-y-6">
-                    <div className="pb-2 border-b border-border">
-                      <h3 className="font-semibold text-foreground">Filter Events</h3>
-                    </div>
-
-                    {/* Progress */}
-                    <div className="space-y-3">
-                      <label className="text-sm font-medium text-foreground">Filter by Progress</label>
-                      <div className="space-y-2">
-                        {["notStarted", "inProgress", "completed"].map((key) => (
-                          <div key={key} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`progress-${key}`}
-                              checked={tempProgressFilters[key as keyof typeof tempProgressFilters]}
-                              onCheckedChange={(checked) =>
-                                setTempProgressFilters((prev) => ({
-                                  ...prev,
-                                  [key]: checked as boolean,
-                                }))
-                              }
-                            />
-                            <label htmlFor={`progress-${key}`} className="text-sm text-foreground">
-                              {key === "notStarted"
-                                ? "Not Started (0%)"
-                                : key === "inProgress"
-                                ? "In Progress (1-99%)"
-                                : "Completed (100%)"}
-                            </label>
-                          </div>
-                        ))}
+                {/* Progress */}
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-foreground">Filter by Progress</label>
+                  <div className="space-y-2">
+                    {(["notStarted", "inProgress", "completed"] as const).map((key) => (
+                      <div key={key} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`progress-${key}`}
+                          checked={tempProgressFilters[key]}
+                          onCheckedChange={(checked) =>
+                            setTempProgressFilters((prev) => ({
+                              ...prev,
+                              [key]: checked as boolean,
+                            }))
+                          }
+                        />
+                        <label htmlFor={`progress-${key}`} className="text-sm text-foreground">
+                          {key === "notStarted"
+                            ? "Not Started (0%)"
+                            : key === "inProgress"
+                            ? "In Progress (1-99%)"
+                            : "Completed (100%)"}
+                        </label>
                       </div>
-                    </div>
-
-                    {/* Date */}
-                    <div className="space-y-3">
-                      <label className="text-sm font-medium text-foreground">Filter by Date</label>
-                      <div className="space-y-2">
-                        {["past", "thisWeek", "thisMonth", "upcoming"].map((key) => (
-                          <div key={key} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`date-${key}`}
-                              checked={tempDateFilters[key as keyof typeof tempDateFilters]}
-                              onCheckedChange={(checked) =>
-                                setTempDateFilters((prev) => ({
-                                  ...prev,
-                                  [key]: checked as boolean,
-                                }))
-                              }
-                            />
-                            <label htmlFor={`date-${key}`} className="text-sm text-foreground">
-                              {key === "past"
-                                ? "Past Events"
-                                : key === "thisWeek"
-                                ? "This Week"
-                                : key === "thisMonth"
-                                ? "This Month"
-                                : "Future Events"}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-border">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={clearTempFilters}
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        Clear All
-                      </Button>
-                      <Button size="sm" onClick={applyFilters} className="bg-primary hover:bg-primary/90">
-                        Apply Filters
-                      </Button>
-                    </div>
+                    ))}
                   </div>
-                );
-              })()}
+                </div>
+
+                {/* Date */}
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-foreground">Filter by Date</label>
+                  <div className="space-y-2">
+                    {(["past", "thisWeek", "thisMonth", "upcoming"] as const).map((key) => (
+                      <div key={key} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`date-${key}`}
+                          checked={tempDateFilters[key]}
+                          onCheckedChange={(checked) =>
+                            setTempDateFilters((prev) => ({
+                              ...prev,
+                              [key]: checked as boolean,
+                            }))
+                          }
+                        />
+                        <label htmlFor={`date-${key}`} className="text-sm text-foreground">
+                          {key === "past"
+                            ? "Past Events"
+                            : key === "thisWeek"
+                            ? "This Week"
+                            : key === "thisMonth"
+                            ? "This Month"
+                            : "Future Events"}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-border">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearTempFilters}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    Clear All
+                  </Button>
+                  <Button size="sm" onClick={applyTempFilters} className="bg-primary hover:bg-primary/90">
+                    Apply Filters
+                  </Button>
+                </div>
+              </div>
             </PopoverContent>
           </Popover>
-
 
           {/* Sort */}
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as "date" | "name" | "progress")}>
@@ -380,7 +365,7 @@ export default function AllEventsPage() {
             <EventCard
               key={event.id}
               event={event}
-              onClick={() => router.push(`/events/${event.id}`)} 
+              onClick={() => router.push(`/events/${event.id}`)}
               onEdit={() => {}}
               onDelete={() => {}}
               onAddTask={() => {}}
@@ -396,6 +381,39 @@ export default function AllEventsPage() {
           {events.length !== 1 ? "s" : ""}
         </div>
       )}
+
+      {/* Modals */}
+      <AddEventModal
+        isOpen={isAddEventModalOpen}
+        onClose={closeAddEventModal}
+        onCreateEvent={handleCreateEvent}
+        prefillData={prefillData ?? undefined}
+        onInviteMembers={() => toast("Invite members feature coming soon!", { icon: "ℹ️" })}
+      />
+
+      <CreateFromTemplateModal
+        isOpen={isTemplateModalOpen}
+        templates={mockEvents.map((e) => ({
+          name: e.title,
+          description: e.description,
+          title: e.title,
+          date: "",
+          time: "",
+          endDate: undefined,
+          endTime: undefined,
+          location: e.location,
+          eventDescription: e.description,
+          tasks: e.tasks.map((t) => ({
+            title: t.title,
+            status: "To Do",
+            priority: "Normal",
+            dueDate: undefined,
+          })),
+          members: [e.ownerId],
+        }))}
+        onClose={closeTemplateModal}
+        onUseTemplate={handleUseTemplate}
+      />
     </main>
   );
 }

@@ -19,7 +19,7 @@ export const AttachmentSchema = z.object({
 
 export const TaskSchema = z.object({
   id: z.string(),
-  name: z.string(),
+  title: z.string(),
   description: z.string().optional(),
   assignees: z.array(z.string()),
   dueDate: z.string().optional(),

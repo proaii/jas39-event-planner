@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Task } from "@/lib/types";
+import type { Task } from "@/lib/types";
 import { formatDueDate } from "@/lib/utils";
 import { getEffectiveDueDate } from "@/lib/server/supabase/utils";
 import { Clock } from "lucide-react";
@@ -8,11 +8,22 @@ interface UpcomingDeadlinesWidgetProps {
   tasks: Task[];
 }
 
+// map Task -> shape ที่ getEffectiveDueDate ต้องการ
+type Dateish = { startDate?: string; endDate?: string; dueDate?: string };
+function effectiveDueDateOf(t: Task): string | undefined {
+  const dateish: Dateish = {
+    startDate: t.startAt ?? undefined,
+    endDate: t.endAt ?? undefined,
+    dueDate: t.endAt ?? undefined, // ใช้ endAt เป็น due date ตามสมมติฐานปัจจุบัน
+  };
+  return getEffectiveDueDate(dateish) ?? undefined;
+}
+
 export function UpcomingDeadlinesWidget({ tasks }: UpcomingDeadlinesWidgetProps) {
   const upcomingTasks = tasks
     .filter(task => {
-      const effectiveDueDate = getEffectiveDueDate(task);
-      if (!effectiveDueDate || task.status === 'Done') return false;
+      const effectiveDueDate = effectiveDueDateOf(task);
+      if (!effectiveDueDate || task.taskStatus === "Done") return false;
 
       const dueDate = new Date(effectiveDueDate);
       const today = new Date();
@@ -37,23 +48,41 @@ export function UpcomingDeadlinesWidget({ tasks }: UpcomingDeadlinesWidgetProps)
 
         <div className="space-y-3">
           {upcomingTasks.map(task => {
-            const effectiveDueDate = getEffectiveDueDate(task);
-            const dueInfo = formatDueDate(effectiveDueDate);
+            const due = effectiveDueDateOf(task)!;
+            const dueInfo = formatDueDate(due);
             return (
-              <div key={task.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer">
-                <div className={`w-2 h-2 rounded-full ${
-                  task.priority === 'Urgent' ? 'bg-red-500' :
-                  task.priority === 'High' ? 'bg-orange-500' :
-                  task.priority === 'Normal' ? 'bg-blue-500' : 'bg-gray-500'
-                }`} />
+              <div
+                key={task.taskId}
+                className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+              >
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    task.taskPriority === "Urgent"
+                      ? "bg-red-500"
+                      : task.taskPriority === "High"
+                      ? "bg-orange-500"
+                      : task.taskPriority === "Normal"
+                      ? "bg-blue-500"
+                      : "bg-gray-500"
+                  }`}
+                />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{task.name}</p>
-                  <p className="text-xs text-muted-foreground">{task.eventTitle || 'Personal'}</p>
+                  <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {task.eventTitle
+                      ? task.eventTitle
+                      : task.eventId
+                      ? "Event"
+                      : "Personal"}
+                  </p>
                 </div>
                 <div className="text-right">
-                  <p className={`text-xs ${dueInfo?.isUrgent ? 'text-warning font-medium' : 'text-muted-foreground'}`}>
-                    {dueInfo?.isToday ? 'Today' : dueInfo?.isTomorrow ? 'Tomorrow' :
-                     new Date(effectiveDueDate!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  <p className={`text-xs ${dueInfo?.isUrgent ? "text-warning font-medium" : "text-muted-foreground"}`}>
+                    {dueInfo?.isToday
+                      ? "Today"
+                      : dueInfo?.isTomorrow
+                      ? "Tomorrow"
+                      : new Date(due).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                   </p>
                 </div>
               </div>
@@ -61,9 +90,7 @@ export function UpcomingDeadlinesWidget({ tasks }: UpcomingDeadlinesWidgetProps)
           })}
 
           {upcomingTasks.length === 0 && (
-            <div className="text-center py-4 text-muted-foreground text-sm">
-              No upcoming deadlines
-            </div>
+            <div className="text-center py-4 text-muted-foreground text-sm">No upcoming deadlines</div>
           )}
         </div>
       </CardContent>

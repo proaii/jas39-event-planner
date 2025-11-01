@@ -67,6 +67,7 @@ interface EventDetailProps {
   onTaskAction?: (taskId: string, action: "edit" | "reassign" | "setDueDate" | "delete") => void;
   onDeleteEvent?: (eventId: string) => void;
   onSaveTemplate?: (eventId: string, templateData: TemplateData) => void;
+  onEditEvent?: (eventId: string) => void;
 }
 
 export function EventDetail({
@@ -79,6 +80,7 @@ export function EventDetail({
   onTaskAction,
   onDeleteEvent,
   onSaveTemplate,
+  onEditEvent,
 }: EventDetailProps) {
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
@@ -88,7 +90,7 @@ export function EventDetail({
   const [showCoverImage, setShowCoverImage] = useState(true);
   const [currentView, setCurrentView] = useState<"list" | "board">("list");
 
-  const { openEditEventModal } = useUiStore();
+  const { } = useUiStore();
 
   const tasks = allTasks.filter(t => t.eventId === event.eventId);
   const members = event.members || [];
@@ -172,7 +174,7 @@ export function EventDetail({
               <h1 className="text-xl font-semibold text-foreground">{event.title}</h1>
             </div>
             <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm" onClick={() => openEditEventModal(event.eventId)}>
+              <Button variant="outline" size="sm" onClick={() => onEditEvent?.(event.eventId)}>
                 <Edit className="w-4 h-4 mr-2" /> Edit Event
               </Button>
               <Button variant="outline" size="sm" onClick={() => setShowSaveTemplateModal(true)}>
@@ -239,7 +241,7 @@ export function EventDetail({
               <Card className="border-0 shadow-sm">
                 <CardContent className="p-6 text-center">
                   <div className="py-4">
-                    <Image className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
+                    <Image className="w-8 h-8 mx-auto mb-3 text-muted-foreground" aria-hidden="true" focusable="false" />
                     <Button
                       variant="outline"
                       onClick={() => setShowCoverImage(true)}

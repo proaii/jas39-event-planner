@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from "@/components/ui/button";
 import { Paperclip, CheckSquare, Clock, ChevronDown } from "lucide-react";
 
-import { Task, TaskStatus, TaskPriority, UserLite, Subtask } from "@/lib/types";
+import { Task, TaskStatus, TaskPriority, Subtask } from "@/lib/types";
 import { useKanbanStore } from "@/stores/kanban-store";
 import { AttachmentList } from "./AttachmentList";
 import { formatTaskDateRangeCompact, isCurrentlyActive, extractDateAndTime } from "@/lib/timeUtils";

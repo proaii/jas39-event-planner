@@ -1,6 +1,5 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { Task } from "@/lib/types";
 
 // Combine Tailwind class names safely
 export function cn(...inputs: ClassValue[]) {

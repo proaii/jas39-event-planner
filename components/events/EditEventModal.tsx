@@ -17,7 +17,6 @@ import { EventColorSelector } from "./EventColorSelector";
 import {
   Calendar,
   MapPin,
-  Clock,
   Users,
   Image,
   X,
@@ -153,7 +152,7 @@ export function EditEventModal({
               <div className="relative">
                 <NextImage
                   src={formData.coverImageUri}
-                  alt="Cover preview"
+                  alt={event.title}
                   className="w-full h-32 object-cover rounded-lg"
                   width={1080}
                   height={1080}

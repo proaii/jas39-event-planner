@@ -16,7 +16,7 @@ export default function EventDetailPage() {
   const router = useRouter();
   const { id } = useParams();
   const event = mockEvents.find((e) => e.eventId === id);
-  const { isEditEventModalOpen, openEditEventModal, closeEditEventModal } = useUiStore();
+  const { openEditEventModal, closeEditEventModal } = useUiStore();
 
   const currentUser: UserLite = {
     userId: "user-1",
@@ -69,6 +69,7 @@ export default function EventDetailPage() {
         
         onDeleteEvent={handleDeleteEvent}
         onSaveTemplate={handleSaveTemplate}
+        onEditEvent={handleEditEvent}
       />
 
       {/* Edit Event Modal */}

@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Button } from '@/components/ui/button';
 import { MoreVertical, Eye, Edit3, Trash2, Calendar, Plus, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { formatEventDateRange, isCurrentlyActive, calculateDuration } from '@/lib/timeUtils';
+import { formatEventDateRange, isCurrentlyActive, calculateDuration, extractDateAndTime } from '@/lib/timeUtils';
 import { Event } from '@/lib/types';
 
 
@@ -30,15 +30,29 @@ export function EventCard({ event, onClick, onEdit, onDelete, onAddTask }: Event
     return name.split(' ').map(part => part[0]).join('').toUpperCase();
   };
 
-  const eventDateRange = formatEventDateRange(event);
-  const isActive = isCurrentlyActive(event);
-  const duration = event.date && event.endDate ? calculateDuration(event.date, event.endDate, event.time, event.endTime) : null;
+  const { date: startDate, time: startTime } = extractDateAndTime(event.startAt);
+  const { date: endDate, time: endTime } = extractDateAndTime(event.endAt);
+
+  const eventDateRange = formatEventDateRange({
+    date: startDate || '',
+    time: startTime || '',
+    endDate: endDate || undefined,
+    endTime: endTime || undefined,
+    isMultiDay: startDate !== endDate,
+  });
+  const isActive = isCurrentlyActive({
+    date: startDate || '',
+    endDate: endDate || undefined,
+    time: startTime || '',
+    endTime: endTime || undefined,
+  });
+  const duration = calculateDuration(event.startAt || "", event.endAt || undefined, startTime, endTime);
 
   const handleCardClick = (e: React.MouseEvent) => {
     if ((e.target as Element).closest('[data-dropdown-trigger]')) {
       return;
     }
-    onClick(event.id);
+    onClick(event.eventId);
   };
 
   return (
@@ -50,16 +64,16 @@ export function EventCard({ event, onClick, onEdit, onDelete, onAddTask }: Event
     >
       <div className="w-full">
         <AspectRatio ratio={16 / 9}>
-          {event.coverImage ? (
+          {event.coverImageUri ? (
             <ImageWithFallback
-              src={event.coverImage}
+              src={event.coverImageUri}
               alt={event.title}
               className="object-cover w-full h-full"
             />
           ) : (
             <div 
               className="w-full h-full flex items-center justify-center"
-              style={{ backgroundColor: event.color || '#E8F4FD' }}
+              style={{ backgroundColor: `hsl(var(--chart-${event.color + 1}))` }}
             >
               <Calendar className="w-12 h-12 text-primary/60" />
             </div>
@@ -82,18 +96,18 @@ export function EventCard({ event, onClick, onEdit, onDelete, onAddTask }: Event
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => onClick(event.id)} className="cursor-pointer">
+                <DropdownMenuItem onClick={() => onClick(event.eventId)} className="cursor-pointer">
                   <Eye className="mr-2 h-4 w-4" />
                   View Details
                 </DropdownMenuItem>
                 {onEdit && (
-                  <DropdownMenuItem onClick={() => onEdit(event.id)} className="cursor-pointer">
+                  <DropdownMenuItem onClick={() => onEdit(event.eventId)} className="cursor-pointer">
                     <Edit3 className="mr-2 h-4 w-4" />
                     Edit Event
                   </DropdownMenuItem>
                 )}
                 {onAddTask && (
-                  <DropdownMenuItem onClick={() => onAddTask(event.id)} className="cursor-pointer">
+                  <DropdownMenuItem onClick={() => onAddTask(event.eventId)} className="cursor-pointer">
                     <Plus className="mr-2 h-4 w-4" />
                     Add Task
                   </DropdownMenuItem>
@@ -161,15 +175,6 @@ export function EventCard({ event, onClick, onEdit, onDelete, onAddTask }: Event
             </span>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Progress</span>
-              <span className="text-sm font-medium text-foreground">
-                {event.progress}% Complete
-              </span>
-            </div>
-            <Progress value={event.progress} className="h-2" />
-          </div>
         </div>
       </CardContent>
 
@@ -186,7 +191,7 @@ export function EventCard({ event, onClick, onEdit, onDelete, onAddTask }: Event
             <AlertDialogAction 
               onClick={() => {
                 if (onDelete) {
-                  onDelete(event.id);
+                  onDelete(event.eventId);
                 }
                 setShowDeleteDialog(false);
               }}

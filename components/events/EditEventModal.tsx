@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { useEffect, useState } from "react";
 import {
@@ -27,61 +27,60 @@ import { unsplash_tool } from "@/lib/client/unsplash";
 import { useUiStore } from "@/stores/ui-store";
 import { editEventSchema } from "@/schemas/editEventSchema";
 import type { Event } from "@/lib/types";
+import { z } from "zod";
+import NextImage from "next/image";
 
 interface EditEventModalProps {
-  isOpen: boolean;
-  onClose: () => void;
   events: Event[];
-  onUpdateEvent: (eventId: string, updatedData: any) => void;
+  onUpdateEvent: (eventId: string, updatedData: z.infer<typeof editEventSchema>) => void;
   onInviteMembers: () => void;
 }
 
 export function EditEventModal({
-  isOpen,
-  onClose,
   events,
   onUpdateEvent,
   onInviteMembers,
 }: EditEventModalProps) {
   const { isEditEventModalOpen, currentEventId, closeEditEventModal } =
     useUiStore();
-  const event = events.find((e) => e.id === currentEventId) || null;
-
+  const event = events.find((e) => e.eventId === currentEventId) || null;
 
   const [formData, setFormData] = useState({
     title: "",
-    date: "",
-    endDate: "",
-    time: "",
-    endTime: "",
-    isMultiDay: false,
     location: "",
     description: "",
+    coverImageUri: "",
+    color: 0,
+    startAt: null as string | null,
+    endAt: null as string | null,
     members: [] as string[],
-    coverImage: "",
-    color: "#E8F4FD",
   });
 
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
   useEffect(() => {
     if (event) {
-      
       const valid = editEventSchema.safeParse({
         title: event.title || "",
-        date: event.date || "",
-        endDate: event.endDate || "",
-        time: event.time || "",
-        endTime: event.endTime || "",
-        isMultiDay: event.isMultiDay || false,
         location: event.location || "",
         description: event.description || "",
+        coverImageUri: event.coverImageUri || "",
+        color: event.color || 0,
+        startAt: event.startAt || null,
+        endAt: event.endAt || null,
         members: event.members || [],
-        coverImage: event.coverImage || "",
-        color: event.color || "#E8F4FD",
       });
 
-      if (valid.success) setFormData(valid.data);
+      if (valid.success) {
+        setFormData({
+          ...valid.data,
+          location: valid.data.location || "",
+          description: valid.data.description || "",
+          coverImageUri: valid.data.coverImageUri || "",
+          startAt: valid.data.startAt || null,
+          endAt: valid.data.endAt || null,
+        });
+      }
       else console.warn("Invalid event data:", valid.error.format());
     }
   }, [event]);
@@ -97,7 +96,7 @@ export function EditEventModal({
       return;
     }
 
-    onUpdateEvent(event.id, parsed.data);
+    onUpdateEvent(event.eventId, parsed.data);
     closeEditEventModal();
   };
 
@@ -106,7 +105,7 @@ export function EditEventModal({
     setIsGeneratingImage(true);
     try {
       const imageUrl = await unsplash_tool(formData.title);
-      setFormData((prev) => ({ ...prev, coverImage: imageUrl }));
+      setFormData((prev) => ({ ...prev, coverImageUri: imageUrl }));
     } catch (err) {
       console.error(err);
     } finally {
@@ -150,12 +149,14 @@ export function EditEventModal({
               <Image className="w-4 h-4" />
               <span>Cover Image</span>
             </Label>
-            {formData.coverImage && (
+            {formData.coverImageUri && (
               <div className="relative">
-                <img
-                  src={formData.coverImage}
+                <NextImage
+                  src={formData.coverImageUri}
                   alt="Cover preview"
                   className="w-full h-32 object-cover rounded-lg"
+                  width={1080}
+                  height={1080}
                 />
                 <Button
                   type="button"
@@ -163,7 +164,7 @@ export function EditEventModal({
                   size="sm"
                   className="absolute top-2 right-2"
                   onClick={() =>
-                    setFormData((prev) => ({ ...prev, coverImage: "" }))
+                    setFormData((prev) => ({ ...prev, coverImageUri: "" }))
                   }
                 >
                   <X className="w-4 h-4" />
@@ -173,11 +174,11 @@ export function EditEventModal({
             <div className="flex space-x-2">
               <Input
                 placeholder="Enter image URL or generate from title"
-                value={formData.coverImage}
+                value={formData.coverImageUri}
                 onChange={(e) =>
                   setFormData((prev) => ({
                     ...prev,
-                    coverImage: e.target.value,
+                    coverImageUri: e.target.value,
                   }))
                 }
               />
@@ -194,9 +195,9 @@ export function EditEventModal({
 
           {/* Event Color */}
           <EventColorSelector
-            selectedColor={formData.color}
+            selectedColor={`bg-chart-${formData.color + 1}`}
             onColorSelect={(color) =>
-              setFormData((prev) => ({ ...prev, color }))
+              setFormData((prev) => ({ ...prev, color: parseInt(color.split('-')[2]) - 1 }))
             }
           />
 
@@ -215,106 +216,41 @@ export function EditEventModal({
 
           {/* Date & Time */}
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="isMultiDay"
-                checked={formData.isMultiDay}
-                onChange={(e) => {
-                  const isMultiDay = e.target.checked;
-                  setFormData((prev) => ({
-                    ...prev,
-                    isMultiDay,
-                    endDate: isMultiDay ? prev.endDate : "",
-                    endTime: isMultiDay ? prev.endTime : "",
-                  }));
-                }}
-                className="w-4 h-4 text-primary border-border rounded focus:ring-primary"
-              />
-              <Label htmlFor="isMultiDay" className="text-sm">
-                Multi-day event
-              </Label>
-            </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label
-                  htmlFor="date"
+                  htmlFor="startAt"
                   className="flex items-center space-x-2"
                 >
                   <Calendar className="w-4 h-4" />
                   <span>Start Date</span>
                 </Label>
                 <Input
-                  id="date"
-                  type="date"
-                  value={formData.date}
+                  id="startAt"
+                  type="datetime-local"
+                  value={formData.startAt?.substring(0, 16) || ""}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, date: e.target.value }))
-                  }
-                  required
-                />
-              </div>
-              {formData.isMultiDay && (
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="endDate"
-                    className="flex items-center space-x-2"
-                  >
-                    <Calendar className="w-4 h-4" />
-                    <span>End Date</span>
-                  </Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={formData.endDate}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        endDate: e.target.value,
-                      }))
-                    }
-                    min={formData.date}
-                    required={formData.isMultiDay}
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="time" className="flex items-center space-x-2">
-                  <Clock className="w-4 h-4" />
-                  <span>Start Time</span>
-                </Label>
-                <Input
-                  id="time"
-                  type="time"
-                  value={formData.time}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, time: e.target.value }))
+                    setFormData((prev) => ({ ...prev, startAt: new Date(e.target.value).toISOString() }))
                   }
                   required
                 />
               </div>
               <div className="space-y-2">
                 <Label
-                  htmlFor="endTime"
+                  htmlFor="endAt"
                   className="flex items-center space-x-2"
                 >
-                  <Clock className="w-4 h-4" />
-                  <span>
-                    End Time {formData.isMultiDay ? "(on last day)" : ""}
-                  </span>
+                  <Calendar className="w-4 h-4" />
+                  <span>End Date</span>
                 </Label>
                 <Input
-                  id="endTime"
-                  type="time"
-                  value={formData.endTime}
+                  id="endAt"
+                  type="datetime-local"
+                  value={formData.endAt?.substring(0, 16) || ""}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, endTime: e.target.value }))
+                    setFormData((prev) => ({ ...prev, endAt: new Date(e.target.value).toISOString() }))
                   }
-                  required={!formData.isMultiDay}
+                  min={formData.startAt?.substring(0, 16) || ""}
                 />
               </div>
             </div>
@@ -410,7 +346,7 @@ export function EditEventModal({
               <UserPlus className="w-4 h-4 mr-2" /> Add Team Member
             </Button>
             <p className="text-xs text-muted-foreground">
-              Click "Add Team Member" to search and select from available users.
+              Click &quot;Add Team Member&quot; to search and select from available users.
             </p>
           </div>
 

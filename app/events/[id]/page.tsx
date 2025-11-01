@@ -1,17 +1,28 @@
-"use client";
+'use client';
 
 import { useParams, useRouter } from "next/navigation";
-import { mockEvents } from "@/lib/mock-data";
+import { mockEvents, mockTasks } from "@/lib/mock-data";
 import { EventDetail } from "@/components/events/EventDetail";
 import { EditEventModal } from "@/components/events/EditEventModal";
 import { useUiStore } from "@/stores/ui-store";
-import type { Task } from "@/lib/types";
+import type { Task, UserLite } from "@/lib/types";
+import { type TemplateData } from "@/components/events/SaveTemplateModal";
+import { editEventSchema } from "@/schemas/editEventSchema";
+import { z } from "zod";
+
+type EditEventData = z.infer<typeof editEventSchema>;
 
 export default function EventDetailPage() {
   const router = useRouter();
   const { id } = useParams();
-  const event = mockEvents.find((e) => e.id === id);
+  const event = mockEvents.find((e) => e.eventId === id);
   const { isEditEventModalOpen, openEditEventModal, closeEditEventModal } = useUiStore();
+
+  const currentUser: UserLite = {
+    userId: "user-1",
+    username: "Bob",
+    email: "bob@example.com",
+  };
 
   if (!event) {
     return <p className="p-8 text-center text-muted-foreground">Event not found.</p>;
@@ -24,7 +35,7 @@ export default function EventDetailPage() {
     console.log("✅ Task status changed:", taskId, "→", newStatus);
   };
 
-  const handleAddTask = (task: Omit<Task, "id">) => {
+  const handleAddTask = (task: Omit<Task, "taskId" | "createdAt">) => {
     console.log("➕ Add new task:", task);
   };
 
@@ -36,11 +47,11 @@ export default function EventDetailPage() {
     console.log("🗑️ Delete event:", eventId);
   };
 
-  const handleSaveTemplate = (eventId: string, templateData: any) => {
+  const handleSaveTemplate = (eventId: string, templateData: TemplateData) => {
     console.log("💾 Save as template for event:", eventId, templateData);
   };
 
-  const handleUpdateEvent = (eventId: string, updatedData: any) => {
+  const handleUpdateEvent = (eventId: string, updatedData: EditEventData) => {
     console.log("✏️ Updated event:", eventId, updatedData);
     closeEditEventModal();
   };
@@ -50,19 +61,19 @@ export default function EventDetailPage() {
       {/* Event Detail View */}
       <EventDetail
         event={event}
-        currentUser="Bob"
+        tasks={mockTasks}
+        currentUser={currentUser}
         onBack={handleBack}
         onTaskStatusChange={handleTaskStatusChange}
         onAddTask={handleAddTask}
-        onEditEvent={handleEditEvent}
+        
         onDeleteEvent={handleDeleteEvent}
         onSaveTemplate={handleSaveTemplate}
       />
 
       {/* Edit Event Modal */}
       <EditEventModal
-        isOpen={isEditEventModalOpen}
-        onClose={closeEditEventModal}
+        
         events={mockEvents}
         onUpdateEvent={handleUpdateEvent}
         onInviteMembers={() => console.log("👥 Invite members clicked")}

@@ -10,10 +10,14 @@ import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { CustomizeDashboardModal } from "@/components/dashboard/CustomizeDashboardModal";
 import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
 import type { TemplateData } from "@/components/events/SaveTemplateModal";
-import { Event, Task } from "@/lib/types";
+import { Event, Task, UserLite } from "@/lib/types";
 
 export default function DashboardPage() {
-  const currentUser = "Bob";
+  const currentUser: UserLite = {
+    userId: "user-1",
+    username: "Bob",
+    email: "bob@example.com",
+  };
 
   const {
     isAddEventModalOpen,
@@ -31,7 +35,7 @@ export default function DashboardPage() {
   } = useUiStore();
 
   const [events, setEvents] = useState<Event[]>(mockEvents);
-  const [personalTasks, setPersonalTasks] = useState<Task[]>(mockTasks);
+  const [tasks, setTasks] = useState<Task[]>(mockTasks);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
 
   const [prefillData, setPrefillData] = useState<
@@ -43,14 +47,14 @@ export default function DashboardPage() {
   ) => {
     const newEvent: Event = {
       eventId: `event-${Date.now()}`,
-      ownerId: currentUser,
+      ownerId: currentUser.userId,
       createdAt: new Date().toISOString(),
       members: [],
       ...eventData,
     };
     setEvents((prev) => [...prev, newEvent]);
     closeAddEventModal();
-    toast.success(`Event "${eventData.title}" created successfully!`);
+    toast.success(`PlannerEvent "${eventData.title}" created successfully!`);
   };
 
   const handleCreateTask = (taskData: Omit<Task, "taskId" | "createdAt">) => {
@@ -59,7 +63,7 @@ export default function DashboardPage() {
       ...taskData,
       createdAt: new Date().toISOString(),
     };
-    setPersonalTasks((prev) => [...prev, newTask]);
+    setTasks((prev) => [...prev, newTask]);
     closeAddTaskModal();
     toast.success(`Task "${taskData.title}" added successfully!`);
   };
@@ -76,17 +80,17 @@ export default function DashboardPage() {
   };
 
   const handleUseTemplate = (data: TemplateData) => {
-    // This part needs to be adjusted to the new Event type.
+    // This part needs to be adjusted to the new PlannerEvent type.
     // The TemplateData type from HEAD might be incompatible.
     // For now, I will keep it as is, but it might need further adjustments.
     setPrefillData({
       title: data.title,
       location: data.location || "",
       description: data.eventDescription || "",
-      coverImageUri: data.coverImage,
+      coverImageUri: data.coverImageUri,
       color: 0, // color is a number in the new type
-      startAt: data.date,
-      endAt: data.endDate,
+      startAt: data.startAt,
+      endAt: data.endAt,
     });
 
     openAddEventModal();
@@ -102,10 +106,10 @@ useEffect(() => {
     <>
       <Dashboard
         events={events}
-        personalTasks={personalTasks}
-        currentUser={currentUser}
+        tasks={tasks}
+        currentUser={currentUser.username}
         onCreateEvent={openAddEventModal}
-        onEventClick={(id) => console.log("Event clicked:", id)}
+        onEventClick={(id) => console.log("PlannerEvent clicked:", id)}
         onCreatePersonalTask={openAddTaskModal}
         onCustomize={openCustomizeModal}
         visibleWidgets={visibleWidgets}
@@ -124,7 +128,7 @@ useEffect(() => {
         isOpen={isAddTaskModalOpen}
         onClose={closeAddTaskModal}
         onCreateTask={handleCreateTask}
-        eventMembers={[currentUser]}
+        eventMembers={[] as UserLite[]}
         currentUser={currentUser}
         isPersonal={true}
       />
@@ -143,14 +147,13 @@ useEffect(() => {
           name: e.title,
           description: e.description,
           title: e.title,
-          date: "",
-          time: "",
-          endDate: undefined,
-          endTime: undefined,
           location: e.location,
           eventDescription: e.description,
-          tasks: [], // tasks are not part of the event anymore
-          members: [], // members are strings
+          coverImageUri: e.coverImageUri,
+          color: e.color,
+          startAt: e.startAt,
+          endAt: e.endAt,
+          members: e.members,
         }))}
         onClose={() => setIsTemplateModalOpen(false)}
         onUseTemplate={handleUseTemplate}

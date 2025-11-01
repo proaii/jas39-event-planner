@@ -18,6 +18,7 @@ const DateFiltersSchema = z.object({
   upcoming: z.boolean().default(true),
 });
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const UiStateSchema = z.object({
   // ----- Modals -----
   isAddEventModalOpen: z.boolean().default(false),

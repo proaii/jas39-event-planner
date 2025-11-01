@@ -72,21 +72,18 @@ export default function AllEventsPage() {
 
   // ------------------- EVENTS STATE -------------------
   const [events, setEvents] = useState<Event[]>(mockEvents);
-  const [prefillData, setPrefillData] = useState<
-    Omit<Event, "id" | "progress" | "tasks" | "createdAt" | "ownerId"> | null
-  >(null);
+  const [prefillData, setPrefillData] = useState<Partial<Event> | null>(null);
 
   // ------------------- HANDLERS -------------------
   const handleCreateEvent = (
-    eventData: Omit<Event, "id" | "progress" | "tasks" | "createdAt" | "ownerId">
+    eventData: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members">
   ) => {
     const newEvent: Event = {
-      id: `event-${Date.now()}`,
+      eventId: `event-${Date.now()}`,
       ...eventData,
-      progress: 0,
-      tasks: [],
-      createdAt: new Date().toISOString(),
       ownerId: currentUser,
+      createdAt: new Date().toISOString(),
+      members: [],
     };
     setEvents((prev) => [...prev, newEvent]);
     closeAddEventModal();
@@ -98,22 +95,15 @@ export default function AllEventsPage() {
       title: data.title,
       location: data.location || "",
       description: data.eventDescription || "",
-      coverImage: data.coverImage,
-      color: data.color || "bg-chart-1",
-      date: data.date,
-      time: data.time,
-      members: data.members,
+coverImageUri: data.coverImageUri,
+      color: 0, // color is a number in the new type
+      startAt: data.startAt,
+      endAt: data.endAt,
     });
     openAddEventModal();
   };
 
-  const clearAllFilters = () => {
-    const resetProgress = { notStarted: true, inProgress: true, completed: true };
-    const resetDate = { past: true, thisWeek: true, thisMonth: true, upcoming: true };
-    setProgressFilters(resetProgress);
-    setDateFilters(resetDate);
-    setSearchQuery("");
-  };
+  
 
   // Apply temp filters to the store (invoked by popover Apply)
   const applyTempFilters = () => {
@@ -138,48 +128,12 @@ export default function AllEventsPage() {
         (event) =>
           event.title.toLowerCase().includes(query) ||
           (event.description && event.description.toLowerCase().includes(query)) ||
-          event.location.toLowerCase().includes(query)
+          (event.location && event.location.toLowerCase().includes(query))
       );
     }
 
-    // --- Progress Filter ---
-    if (!progressFilters.notStarted || !progressFilters.inProgress || !progressFilters.completed) {
-      filtered = filtered.filter((event) => {
-        if (event.progress === 0 && !progressFilters.notStarted) return false;
-        if (event.progress > 0 && event.progress < 100 && !progressFilters.inProgress) return false;
-        if (event.progress === 100 && !progressFilters.completed) return false;
-        return true;
-      });
-    }
-
-    // --- Date Filter ---
-    const now = new Date();
-    const oneWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const oneMonth = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-    if (!dateFilters.upcoming || !dateFilters.thisWeek || !dateFilters.thisMonth || !dateFilters.past) {
-      filtered = filtered.filter((event) => {
-        const eventDate = new Date(event.date);
-        const isUpcoming = eventDate > now;
-        const isThisWeek = eventDate <= oneWeek && eventDate > now;
-        const isThisMonth = eventDate <= oneMonth && eventDate > now;
-        const isPast = eventDate <= now;
-
-        if (isPast && !dateFilters.past) return false;
-        if (isThisWeek && !dateFilters.thisWeek) return false;
-        if (isThisMonth && !dateFilters.thisMonth) return false;
-        if (isUpcoming && !dateFilters.upcoming) return false;
-        return true;
-      });
-    }
-
-    // --- Sort ---
-    return [...filtered].sort((a, b) => {
-      if (sortBy === "date") return new Date(a.date).getTime() - new Date(b.date).getTime();
-      if (sortBy === "name") return a.title.localeCompare(b.title);
-      return b.progress - a.progress;
-    });
-  }, [events, searchQuery, sortBy, progressFilters, dateFilters]);
+    return filtered;
+  }, [events, searchQuery]);
 
   // ------------------- RENDER -------------------
   return (
@@ -363,9 +317,9 @@ export default function AllEventsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6 auto-rows-fr">
           {filteredAndSortedEvents.map((event) => (
             <EventCard
-              key={event.id}
+              key={event.eventId}
               event={event}
-              onClick={() => router.push(`/events/${event.id}`)}
+              onClick={() => router.push(`/events/${event.eventId}`)}
               onEdit={() => {}}
               onDelete={() => {}}
               onAddTask={() => {}}
@@ -397,19 +351,13 @@ export default function AllEventsPage() {
           name: e.title,
           description: e.description,
           title: e.title,
-          date: "",
-          time: "",
-          endDate: undefined,
-          endTime: undefined,
           location: e.location,
           eventDescription: e.description,
-          tasks: e.tasks.map((t) => ({
-            title: t.title,
-            status: "To Do",
-            priority: "Normal",
-            dueDate: undefined,
-          })),
-          members: [e.ownerId],
+          coverImageUri: e.coverImageUri,
+          color: e.color,
+          startAt: e.startAt,
+          endAt: e.endAt,
+          members: e.members,
         }))}
         onClose={closeTemplateModal}
         onUseTemplate={handleUseTemplate}

@@ -69,8 +69,8 @@ export function UpcomingDeadlinesWidget({ tasks }: UpcomingDeadlinesWidgetProps)
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    {("eventTitle" in task && (task as any).eventTitle) // เผื่อกรณีถูกเติมมา
-                      ? (task as any).eventTitle
+                    {task.eventTitle
+                      ? task.eventTitle
                       : task.eventId
                       ? "Event"
                       : "Personal"}

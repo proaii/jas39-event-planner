@@ -55,8 +55,8 @@ export const formatDueDate = (dueDate?: string | null) => {
 };
 
 // Get the effective due date for a task
-export const getEffectiveDueDate = (task: Task): string | undefined => {
-  if (task.endDate) return task.endDate;
+export const getEffectiveDueDate = (task: { endAt?: string | null; dueDate?: string | null }): string | undefined => {
+  if (task.endAt) return task.endAt;
   return task.dueDate || undefined;
 };
 

@@ -4,7 +4,7 @@ import * as React from "react";
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 import { cn } from "@/lib/utils";
 
-interface ScrollAreaProps extends React.ComponentProps<typeof ScrollAreaPrimitive.Root> {}
+type ScrollAreaProps = React.ComponentProps<typeof ScrollAreaPrimitive.Root>;
 
 function ScrollArea({ className, children, ...props }: ScrollAreaProps) {
   return (
@@ -23,7 +23,7 @@ function ScrollArea({ className, children, ...props }: ScrollAreaProps) {
   );
 }
 
-interface ScrollBarProps extends React.ComponentProps<typeof ScrollAreaPrimitive.ScrollAreaScrollbar> {}
+type ScrollBarProps = React.ComponentProps<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>;
 
 function ScrollBar({ className, orientation = "vertical", ...props }: ScrollBarProps) {
   return (

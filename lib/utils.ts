@@ -77,8 +77,8 @@ export const formatDueDate = (dueDate?: string | null) => {
 };
 
 // Get effective due date for a task
-export const getEffectiveDueDate = (task: Task): string | undefined => {
-  // Prefer endDate over dueDate if both exist
-  if (task.endDate) return task.endDate;
+export const getEffectiveDueDate = (task: { endAt?: string | null; dueDate?: string | null }): string | undefined => {
+  // Prefer endAt over dueDate if both exist
+  if (task.endAt) return task.endAt;
   return task.dueDate || undefined;
 };

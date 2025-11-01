@@ -8,12 +8,11 @@ import { Event, Task } from "@/lib/types";
 interface DashboardProps {
   events: Event[];
   tasks: Task[];
-  personalTasks: Task[];
   currentUser: string;
   onCreateEvent: () => void;
   onCreateFromTemplate?: () => void;
   onEventClick: (eventId: string) => void;
-  onCreatePersonalTask?: () => void;
+  onCreatePersonalTask: () => void;
   visibleWidgets?: string[];
   onStatusChange?: (taskId: string, newStatus: Task["taskStatus"]) => void;
   onSubTaskToggle?: (taskId: string, subTaskId: string) => void;
@@ -30,7 +29,6 @@ interface DashboardProps {
 export function Dashboard({
   events,
   tasks,
-  personalTasks,
   currentUser,
   onCreateEvent,
   onCreateFromTemplate,

@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { useState, useEffect } from "react";
 import {
@@ -13,27 +13,18 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { z } from "zod";
+import { Event } from "@/lib/types";
 
 export const TemplateSchema = z.object({
   name: z.string().min(1, "Template name is required"),
   description: z.string().optional(),
   title: z.string(),
-  date: z.string(),
-  time: z.string(),
-  endDate: z.string().optional(),
-  endTime: z.string().optional(),
   location: z.string().optional(),
   eventDescription: z.string().optional(),
-  coverImage: z.string().optional(), 
-  color: z.string().optional(),     
-  tasks: z.array(
-    z.object({
-      title: z.string(),
-      status: z.enum(["To Do", "In Progress", "Done"]),
-      priority: z.enum(["Urgent", "High", "Normal", "Low"]),
-      dueDate: z.string().optional(),
-    })
-  ),
+  coverImageUri: z.string().optional(),
+  color: z.number(),
+  startAt: z.string().nullable().optional(),
+  endAt: z.string().nullable().optional(),
   members: z.array(z.string()),
 });
 
@@ -42,7 +33,7 @@ export type TemplateData = z.infer<typeof TemplateSchema>;
 interface SaveTemplateModalProps {
   isOpen: boolean;
   onClose: () => void;
-  templateData?: Partial<TemplateData>;
+  templateData?: Partial<Event>;
   onSave: (data: TemplateData) => void;
 }
 
@@ -52,12 +43,12 @@ export function SaveTemplateModal({
   templateData = {},
   onSave,
 }: SaveTemplateModalProps) {
-  const [name, setName] = useState(templateData.name || "");
+  const [name, setName] = useState(templateData.title || "");
   const [description, setDescription] = useState(templateData.description || "");
 
   useEffect(() => {
     if (isOpen) {
-      setName(templateData.name || "");
+      setName(templateData.title || "");
       setDescription(templateData.description || "");
     }
   }, [isOpen, templateData]);
@@ -70,15 +61,12 @@ export function SaveTemplateModal({
       name: name.trim(),
       description: description.trim() || undefined,
       title: templateData.title || "",
-      date: templateData.date || "",
-      time: templateData.time || "",
-      endDate: templateData.endDate,
-      endTime: templateData.endTime,
       location: templateData.location,
-      eventDescription: templateData.eventDescription,
-      coverImage: templateData.coverImage, 
-      color: templateData.color,           
-      tasks: templateData.tasks || [],
+      eventDescription: templateData.description,
+      coverImageUri: templateData.coverImageUri,
+      color: templateData.color || 0,
+      startAt: templateData.startAt,
+      endAt: templateData.endAt,
       members: templateData.members || [],
     };
 

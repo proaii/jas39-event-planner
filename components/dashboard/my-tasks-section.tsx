@@ -51,19 +51,20 @@ export function MyTasksSection({
   });
   const [taskSortBy, setTaskSortBy] = useState<"dueDate" | "priority" | "recent">("dueDate");
 
-  const isAssignedToCurrentUser = (t: Task) =>
-    t.assignees?.some(
-      a => a?.username === currentUser || a?.userId === currentUser || a?.email === currentUser
-    ) ?? false;
-
   const userTasks = useMemo(() => {
-    const eventMap = new Map(events.map(e => [e.eventId, e.title]));
-    return tasks
-      .filter(isAssignedToCurrentUser)
-      .map(t => ({
-        ...t,
-        eventTitle: t.eventId ? eventMap.get(t.eventId) : undefined,
-      }));
+    const isAssignedToCurrentUser = (t: Task) =>
+      t.assignees?.some(
+        (a) =>
+          a?.username === currentUser ||
+          a?.userId === currentUser ||
+          a?.email === currentUser
+      ) ?? false;
+
+    const eventMap = new Map(events.map((e) => [e.eventId, e.title]));
+    return tasks.filter(isAssignedToCurrentUser).map((t) => ({
+      ...t,
+      eventTitle: t.eventId ? eventMap.get(t.eventId) : undefined,
+    }));
   }, [tasks, events, currentUser]);
 
   const availableAssignees = useMemo(() => getAllAssignees(userTasks, events), [userTasks, events]);
@@ -130,7 +131,7 @@ export function MyTasksSection({
         showTaskFilters
         placeholder="Search your tasks..."
         currentUser={currentUser}
-        sortBy={taskSortby}
+        sortBy={taskSortBy}
         onSortChange={setTaskSortBy}
         showSort
       />

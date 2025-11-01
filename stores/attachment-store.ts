@@ -5,10 +5,9 @@ import { z } from "zod";
 
 // ----------------- Zod Schemas -----------------
 export const attachmentSchema = z.object({
-  id: z.string(),
-  url: z.string().url(),
-  title: z.string(),
-  favicon: z.string().optional(),
+  attachmentId: z.string(),
+  taskId: z.string(),
+  attachmentUrl: z.string().url(),
 });
 
 export type Attachment = z.infer<typeof attachmentSchema>;

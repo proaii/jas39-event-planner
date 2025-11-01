@@ -3,7 +3,8 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, Paperclip } from "lucide-react";
-import { Attachment, useAttachmentStore } from "@/stores/attachment-store";
+import { Attachment } from "@/lib/types";
+import { useAttachmentStore } from "@/stores/attachment-store";
 
 interface AttachmentListProps {
   attachments?: Attachment[];
@@ -53,24 +54,24 @@ export function AttachmentList({
       <div className={`space-y-1 ${store.compact ? "space-y-1" : "space-y-2"}`}>
         {displayAttachments.map((attachment) => (
           <div
-            key={attachment.id}
+            key={attachment.attachmentId}
             className={`group flex items-center justify-between ${
               store.compact
                 ? "p-2 hover:bg-muted/50 rounded cursor-pointer"
                 : "p-3 bg-muted/30 hover:bg-muted/50 rounded-lg cursor-pointer"
             } transition-colors`}
-            onClick={() => handleAttachmentClick(attachment.url)}
+            onClick={() => handleAttachmentClick(attachment.attachmentUrl)}
           >
             <div className="flex items-center space-x-2 flex-1 min-w-0">
               <span className={store.compact ? "text-sm" : "text-base"}>
-                {attachment.favicon || "🔗"}
+                {"🔗"}
               </span>
               <div className="flex-1 min-w-0">
                 <div className={`font-medium truncate ${store.compact ? "text-sm" : "text-sm"}`}>
-                  {attachment.title}
+                  {attachment.attachmentUrl}
                 </div>
                 {!store.compact && (
-                  <div className="text-xs text-muted-foreground truncate">{attachment.url}</div>
+                  <div className="text-xs text-muted-foreground truncate">{attachment.attachmentUrl}</div>
                 )}
               </div>
             </div>
@@ -83,7 +84,7 @@ export function AttachmentList({
               }`}
               onClick={(e) => {
                 e.stopPropagation();
-                handleAttachmentClick(attachment.url);
+                handleAttachmentClick(attachment.attachmentUrl);
               }}
             >
               <ExternalLink className={store.compact ? "w-3 h-3" : "w-4 h-4"} />

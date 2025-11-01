@@ -30,8 +30,9 @@ export function getEffectiveDueDate(arg: Task | Dateish): string | null {
   return getEffectiveDueDateFromDateish(arg);
 }
 
-function isTask(x: any): x is Task {
-  return x && typeof x === "object" && "taskId" in x && "taskStatus" in x;
+function isTask(x: unknown): x is Task {
+  if (typeof x !== "object" || x === null) return false;
+  return "taskId" in x && "taskStatus" in x;
 }
 
 /* ===================== Filters ===================== */

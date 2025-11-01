@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -47,35 +47,37 @@ import {
   Image,
 } from "lucide-react";
 
+import NextImage from "next/image";
+
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { SaveTemplateModal } from "@/components/events/SaveTemplateModal";
 import { ViewSwitcher } from "@/components/events/ViewSwitcher";
 import { KanbanBoard } from "@/components/events/KanbanBoard";
 import type { TemplateData } from "@/components/events/SaveTemplateModal";
-import type { Event, Task } from "@/lib/types";
+import type { Event, Task, TaskStatus, TaskPriority, UserLite } from "@/lib/types";
 import { useUiStore } from "@/stores/ui-store";
 
 interface EventDetailProps {
   event: Event;
-  currentUser: string;
+  tasks: Task[];
+  currentUser: UserLite;
   onBack: () => void;
-  onTaskStatusChange: (taskId: string, newStatus: "To Do" | "In Progress" | "Done") => void;
-  onAddTask: (task: Omit<Task, "id">) => void;
+  onTaskStatusChange: (taskId: string, newStatus: TaskStatus) => void;
+  onAddTask: (task: Omit<Task, "taskId" | "createdAt">) => void;
   onTaskAction?: (taskId: string, action: "edit" | "reassign" | "setDueDate" | "delete") => void;
   onDeleteEvent?: (eventId: string) => void;
-  onEditEvent?: (eventId: string) => void;
   onSaveTemplate?: (eventId: string, templateData: TemplateData) => void;
 }
 
 export function EventDetail({
   event,
+  tasks: allTasks,
   currentUser,
   onBack,
   onTaskStatusChange,
   onAddTask,
   onTaskAction,
   onDeleteEvent,
-  onEditEvent,
   onSaveTemplate,
 }: EventDetailProps) {
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
@@ -88,19 +90,19 @@ export function EventDetail({
 
   const { openEditEventModal } = useUiStore();
 
-  const tasks = event.tasks || [];
+  const tasks = allTasks.filter(t => t.eventId === event.eventId);
   const members = event.members || [];
 
   const totalTasks = tasks.length;
-  const completedTasks = tasks.filter(t => t.status === "Done").length;
-  const inProgressTasks = tasks.filter(t => t.status === "In Progress").length;
-  const todoTasks = tasks.filter(t => t.status === "To Do").length;
+  const completedTasks = tasks.filter(t => t.taskStatus === "Done").length;
+  const inProgressTasks = tasks.filter(t => t.taskStatus === "In Progress").length;
+  const todoTasks = tasks.filter(t => t.taskStatus === "To Do").length;
   const progressPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   const getInitials = (name: string) =>
     name?.split(" ").map(p => p[0]).join("").toUpperCase() || "";
 
-  const getPriorityColor = (priority: Task["priority"]) => {
+  const getPriorityColor = (priority: TaskPriority) => {
     switch (priority) {
       case "Urgent": return "bg-destructive text-destructive-foreground";
       case "High": return "bg-warning text-warning-foreground";
@@ -109,7 +111,7 @@ export function EventDetail({
     }
   };
 
-  const getStatusColor = (status: Task["status"]) => {
+  const getStatusColor = (status: TaskStatus) => {
     switch (status) {
       case "Done": return "bg-secondary/20 text-secondary hover:bg-secondary/30";
       case "In Progress": return "bg-warning/20 text-warning hover:bg-warning/30";
@@ -136,15 +138,15 @@ export function EventDetail({
   const sortedTasks = [...tasks].sort((a, b) => {
     switch (sortBy) {
       case "dueDate":
-        if (!a.dueDate) return 1;
-        if (!b.dueDate) return -1;
-        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        if (!a.endAt) return 1;
+        if (!b.endAt) return -1;
+        return new Date(a.endAt).getTime() - new Date(b.endAt).getTime();
       case "priority":
         const order = { Urgent: 0, High: 1, Normal: 2, Low: 3 };
-        return order[a.priority] - order[b.priority];
+        return order[a.taskPriority] - order[b.taskPriority];
       case "status":
         const statusOrder = { "To Do": 0, "In Progress": 1, Done: 2 };
-        return statusOrder[a.status] - statusOrder[b.status];
+        return statusOrder[a.taskStatus] - statusOrder[b.taskStatus];
       default:
         return a.title?.localeCompare(b.title) || 0;
     }
@@ -170,7 +172,7 @@ export function EventDetail({
               <h1 className="text-xl font-semibold text-foreground">{event.title}</h1>
             </div>
             <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm" onClick={() => openEditEventModal(event.id)}>
+              <Button variant="outline" size="sm" onClick={() => openEditEventModal(event.eventId)}>
                 <Edit className="w-4 h-4 mr-2" /> Edit Event
               </Button>
               <Button variant="outline" size="sm" onClick={() => setShowSaveTemplateModal(true)}>
@@ -200,14 +202,16 @@ export function EventDetail({
           {/* Left Column */}
           <div className="lg:col-span-4 space-y-6">
             {/* Event Picture */}
-            {showCoverImage && event.coverImage && (
+            {showCoverImage && event.coverImageUri && (
               <Card className="border-0 shadow-sm overflow-hidden">
                 <div className="relative">
                   <div className="aspect-video">
-                    <img
-                      src={event.coverImage}
+                    <NextImage
+                      src={event.coverImageUri}
                       alt={event.title}
                       className="object-cover w-full h-full"
+                      width={1080}
+                      height={1080}
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
                         setShowCoverImage(false);
@@ -231,7 +235,7 @@ export function EventDetail({
             )}
             
             {/* Show Photo Button when hidden */}
-            {!showCoverImage && event.coverImage && (
+            {!showCoverImage && event.coverImageUri && (
               <Card className="border-0 shadow-sm">
                 <CardContent className="p-6 text-center">
                   <div className="py-4">
@@ -254,14 +258,14 @@ export function EventDetail({
                 <div className="flex items-center space-x-3 text-muted-foreground">
                   <Clock className="w-5 h-5 flex-shrink-0" />
                   <span className="text-sm">
-                    {event.time && formatTime(event.time)}
-                    {event.endTime && ` - ${formatTime(event.endTime)}`}
+                    {event.startAt && formatTime(new Date(event.startAt).toTimeString().substring(0,5))}
+                    {event.endAt && ` - ${formatTime(new Date(event.endAt).toTimeString().substring(0,5))}`}
                   </span>
                 </div>
                 
                 <div className="flex items-center space-x-3 text-muted-foreground">
                   <Calendar className="w-5 h-5 flex-shrink-0" />
-                  <span className="text-sm">{new Date(event.date).toLocaleDateString('en-US', { 
+                  <span className="text-sm">{new Date(event.startAt || 0).toLocaleDateString('en-US', { 
                     weekday: 'long',
                     year: 'numeric',
                     month: 'long', 
@@ -361,7 +365,7 @@ export function EventDetail({
                     
                     {/* Sort By Dropdown */}
                     {currentView === "list" && (
-                      <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                      <Select value={sortBy} onValueChange={(value: "dueDate" | "priority" | "status" | "name") => setSortBy(value)}>
                         <SelectTrigger className="w-48">
                           <ArrowUpDown className="w-4 h-4 mr-2" />
                           <SelectValue />
@@ -404,13 +408,13 @@ export function EventDetail({
                   ) : (
                     <div className="space-y-2">
                       {sortedTasks.map(task => (
-                        <Card key={task.id} className="border border-border hover:border-primary/50 transition-colors">
+                        <Card key={task.taskId} className="border border-border hover:border-primary/50 transition-colors">
                           <CardContent className="p-4">
                             <div className="flex items-start space-x-4">
                               <Checkbox
-                                checked={task.status === "Done"}
+                                checked={task.taskStatus === "Done"}
                                 onCheckedChange={(checked) => {
-                                  onTaskStatusChange(task.id, checked ? "Done" : "To Do");
+                                  onTaskStatusChange(task.taskId, checked ? "Done" : "To Do");
                                 }}
                                 className="mt-1"
                               />
@@ -418,7 +422,7 @@ export function EventDetail({
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between mb-2">
                                   <div className="flex-1">
-                                    <h4 className={`font-medium text-foreground mb-1 ${task.status === "Done" ? "line-through opacity-60" : ""}`}>
+                                    <h4 className={`font-medium text-foreground mb-1 ${task.taskStatus === "Done" ? "line-through opacity-60" : ""}`}>
                                       {task.title}
                                     </h4>
                                     {task.description && (
@@ -436,7 +440,7 @@ export function EventDetail({
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-48">
                                       <DropdownMenuItem 
-                                        onClick={() => onTaskAction?.(task.id, "edit")}
+                                        onClick={() => onTaskAction?.(task.taskId, "edit")}
                                         className="cursor-pointer"
                                       >
                                         <Edit3 className="mr-2 h-4 w-4" />
@@ -444,7 +448,7 @@ export function EventDetail({
                                       </DropdownMenuItem>
                                       <DropdownMenuSeparator />
                                       <DropdownMenuItem 
-                                        onClick={() => onTaskAction?.(task.id, "delete")}
+                                        onClick={() => onTaskAction?.(task.taskId, "delete")}
                                         className="cursor-pointer text-destructive focus:text-destructive"
                                       >
                                         <Trash2 className="mr-2 h-4 w-4" />
@@ -457,28 +461,28 @@ export function EventDetail({
                                 <div className="flex flex-wrap items-center gap-3">
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                      <button className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${getStatusColor(task.status)}`}>
-                                        {task.status}
+                                      <button className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${getStatusColor(task.taskStatus)}`}>
+                                        {task.taskStatus}
                                         <ChevronDown className="w-3 h-3 ml-1" />
                                       </button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="start">
                                       <DropdownMenuItem 
-                                        onClick={() => onTaskStatusChange(task.id, "To Do")}
+                                        onClick={() => onTaskStatusChange(task.taskId, "To Do")}
                                         className="cursor-pointer"
                                       >
                                         <span className="w-2 h-2 rounded-full bg-muted mr-2" />
                                         To Do
                                       </DropdownMenuItem>
                                       <DropdownMenuItem 
-                                        onClick={() => onTaskStatusChange(task.id, "In Progress")}
+                                        onClick={() => onTaskStatusChange(task.taskId, "In Progress")}
                                         className="cursor-pointer"
                                       >
                                         <span className="w-2 h-2 rounded-full bg-warning mr-2" />
                                         In Progress
                                       </DropdownMenuItem>
                                       <DropdownMenuItem 
-                                        onClick={() => onTaskStatusChange(task.id, "Done")}
+                                        onClick={() => onTaskStatusChange(task.taskId, "Done")}
                                         className="cursor-pointer"
                                       >
                                         <span className="w-2 h-2 rounded-full bg-secondary mr-2" />
@@ -487,15 +491,15 @@ export function EventDetail({
                                     </DropdownMenuContent>
                                   </DropdownMenu>
 
-                                  <Badge variant="secondary" className={`${getPriorityColor(task.priority)} border-0`}>
+                                  <Badge variant="secondary" className={`${getPriorityColor(task.taskPriority)} border-0`}>
                                     <Flag className="w-3 h-3 mr-1" />
-                                    {task.priority}
+                                    {task.taskPriority}
                                   </Badge>
 
-                                  {task.dueDate && (
+                                  {task.endAt && (
                                     <div className="flex items-center text-xs text-muted-foreground">
                                       <Calendar className="w-3 h-3 mr-1" />
-                                      {formatDueDate(task.dueDate)}
+                                      {formatDueDate(task.endAt)}
                                     </div>
                                   )}
 
@@ -504,7 +508,7 @@ export function EventDetail({
                                       {task.assignees.slice(0, 3).map((assignee, index) => (
                                         <Avatar key={index} className="w-6 h-6">
                                           <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
-                                            {getInitials(assignee)}
+                                            {getInitials(assignee.username)}
                                           </AvatarFallback>
                                         </Avatar>
                                       ))}
@@ -518,31 +522,31 @@ export function EventDetail({
                                     </div>
                                   )}
 
-                                  {task.subTasks && task.subTasks.length > 0 && (
+                                  {task.subtasks && task.subtasks.length > 0 && (
                                     <button
-                                      onClick={() => toggleTaskExpansion(task.id)}
+                                      onClick={() => toggleTaskExpansion(task.taskId)}
                                       className="flex items-center text-xs text-muted-foreground hover:text-foreground transition-colors"
                                     >
-                                      {expandedTaskId === task.id ? (
+                                      {expandedTaskId === task.taskId ? (
                                         <ChevronDown className="w-3 h-3 mr-1" />
                                       ) : (
                                         <ChevronRight className="w-3 h-3 mr-1" />
                                       )}
-                                      {task.subTasks.filter(st => st.completed).length}/{task.subTasks.length} subtasks
+                                      {task.subtasks.filter(st => st.subtaskStatus === 'Done').length}/{task.subtasks.length} subtasks
                                     </button>
                                   )}
                                 </div>
 
-                                {expandedTaskId === task.id && task.subTasks && task.subTasks.length > 0 && (
+                                {expandedTaskId === task.taskId && task.subtasks && task.subtasks.length > 0 && (
                                   <div className="mt-3 pt-3 border-t border-border space-y-2">
-                                    {task.subTasks.map((subTask) => (
-                                      <div key={subTask.id} className="flex items-center space-x-2 pl-4">
+                                    {task.subtasks.map((subTask) => (
+                                      <div key={subTask.subtaskId} className="flex items-center space-x-2 pl-4">
                                         <Checkbox
-                                          checked={subTask.completed}
+                                          checked={subTask.subtaskStatus === "Done"}
                                           className="h-4 w-4"
                                         />
-                                        <span className={`text-sm ${subTask.completed ? "line-through opacity-60" : ""}`}>
-                                          {subTask.name}
+                                        <span className={`text-sm ${subTask.subtaskStatus === "Done" ? "line-through opacity-60" : ""}`}>
+                                          {subTask.title}
                                         </span>
                                       </div>
                                     ))}
@@ -557,7 +561,7 @@ export function EventDetail({
                   )
                 ) : (
                   <KanbanBoard
-                    tasks={event.tasks.map(task => ({
+                    tasks={tasks.map(task => ({
                       ...task,
                       assignees: task.assignees || []
                     }))}
@@ -576,10 +580,10 @@ export function EventDetail({
         isOpen={showAddTaskModal}
         onClose={() => setShowAddTaskModal(false)}
         onCreateTask={t => {
-          onAddTask({ ...t, status: "To Do", createdAt: new Date().toISOString() });
+          onAddTask(t);
           setShowAddTaskModal(false);
         }}
-        eventMembers={[currentUser]}
+        eventMembers={[]}
         currentUser={currentUser}
         isPersonal
       />
@@ -589,7 +593,7 @@ export function EventDetail({
         onClose={() => setShowSaveTemplateModal(false)}
         templateData={event}
         onSave={templateData => {
-          onSaveTemplate?.(event.id, templateData);
+          onSaveTemplate?.(event.eventId, templateData);
           setShowSaveTemplateModal(false);
         }}
       />
@@ -599,14 +603,14 @@ export function EventDetail({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Event</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{event.title}"? This action cannot be undone and will permanently remove the event and all its associated tasks.
+              Are you sure you want to delete &quot;{event.title}&quot;? This action cannot be undone and will permanently remove the event and all its associated tasks.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                onDeleteEvent?.(event.id);
+                onDeleteEvent?.(event.eventId);
                 setShowDeleteDialog(false);
                 onBack();
               }}

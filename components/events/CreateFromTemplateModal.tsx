@@ -59,7 +59,7 @@ export function CreateFromTemplateModal({
           ) : (
             templates.map((template) => (
               <Card
-                key={template.name + template.date}
+                key={template.name + (template.startAt || "")}
                 className="cursor-pointer hover:shadow-md transition-shadow"
               >
                 {/* Header */}
@@ -82,34 +82,14 @@ export function CreateFromTemplateModal({
                       <MapPin className="w-3 h-3" />
                       {template.location}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Users className="w-3 h-3" />
-                      {template.tasks.length} task{template.tasks.length !== 1 ? "s" : ""}
-                    </div>
-                  </div>
+                                      </div>
 
-                  {template.tasks.length > 0 && (
-                    <div>
-                      <div className="text-sm font-medium mb-2">Included Tasks:</div>
-                      <div className="flex flex-wrap gap-2">
-                        {template.tasks.slice(0, 3).map((task, i) => (
-                          <Badge key={i} variant="secondary" className="text-xs">
-                            {task.title}
-                          </Badge>
-                        ))}
-                        {template.tasks.length > 3 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{template.tasks.length - 3} more
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  )}
+
 
                   <div className="flex justify-end text-xs text-muted-foreground pt-2 border-t border-border">
                     <div className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
-                      {new Date(template.date).toLocaleDateString()}
+                      {new Date(template.startAt || "").toLocaleDateString()}
                     </div>
                   </div>
                 </CardContent>

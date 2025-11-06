@@ -24,9 +24,15 @@ interface TaskCardProps {
   task: Task;
   onStatusChange?: (taskId: string, newStatus: Task["taskStatus"]) => void;
   onSubTaskToggle?: (taskId: string, subTaskId: string) => void;
+  allowToggleStatus?: boolean; 
 }
 
-export function TaskCard({ task, onStatusChange, onSubTaskToggle }: TaskCardProps) {
+export function TaskCard({
+  task,
+  onStatusChange,
+  onSubTaskToggle,
+  allowToggleStatus = false,
+}: TaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const getPriorityColor = (priority: TaskPriority) => {
@@ -49,8 +55,14 @@ export function TaskCard({ task, onStatusChange, onSubTaskToggle }: TaskCardProp
     }
   };
 
-  const handleSubTaskToggle = (subTaskId: string) => {
+  const handleSubTaskToggle = (e: React.MouseEvent, subTaskId: string) => {
+    e.stopPropagation();
     onSubTaskToggle?.(task.taskId, subTaskId);
+  };
+
+  const handleMainTaskToggle = (checked: boolean) => {
+    if (!onStatusChange) return;
+    onStatusChange(task.taskId, checked ? "Done" : "In Progress");
   };
 
   const completedCount =
@@ -64,6 +76,7 @@ export function TaskCard({ task, onStatusChange, onSubTaskToggle }: TaskCardProp
         }`}
         onClick={handleTaskRowClick}
       >
+        {/* Icon expand/collapse */}
         <div className="flex-shrink-0 w-4">
           {task.subtasks && task.subtasks.length > 0 && (
             <div className="flex items-center justify-center">
@@ -76,6 +89,19 @@ export function TaskCard({ task, onStatusChange, onSubTaskToggle }: TaskCardProp
           )}
         </div>
 
+
+        {allowToggleStatus && (
+          <div className="flex-shrink-0 ml-3 mr-2">
+            <Checkbox
+              checked={task.taskStatus === "Done"}
+              onCheckedChange={handleMainTaskToggle}
+              onClick={(e) => e.stopPropagation()}
+              className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+            />
+          </div>
+        )}
+
+        {/* Main task info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center space-x-2 mb-1">
             <p
@@ -88,6 +114,7 @@ export function TaskCard({ task, onStatusChange, onSubTaskToggle }: TaskCardProp
               {task.title}
             </p>
 
+            {/* Attachments */}
             {task.attachments && task.attachments.length > 0 && (
               <Popover>
                 <PopoverTrigger asChild>
@@ -109,12 +136,14 @@ export function TaskCard({ task, onStatusChange, onSubTaskToggle }: TaskCardProp
             <Flag className={`w-3 h-3 ${getPriorityColor(task.taskPriority)}`} />
           </div>
 
+          {/* Event or Personal tag */}
           {task.eventTitle ? (
             <p className="text-sm text-muted-foreground">{task.eventTitle}</p>
           ) : task.eventId === null ? (
             <p className="text-sm text-muted-foreground italic">Personal Task</p>
           ) : null}
 
+          {/* Subtask progress summary */}
           {task.subtasks && task.subtasks.length > 0 && (
             <div className="flex items-center space-x-2 text-xs text-muted-foreground mt-1">
               <CheckSquare className="w-3 h-3" />
@@ -125,6 +154,7 @@ export function TaskCard({ task, onStatusChange, onSubTaskToggle }: TaskCardProp
           )}
         </div>
 
+        {/* Dropdown for changing task status */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
             <Badge
@@ -169,14 +199,19 @@ export function TaskCard({ task, onStatusChange, onSubTaskToggle }: TaskCardProp
         </DropdownMenu>
       </div>
 
+      {/* Expanded Subtask List */}
       {isExpanded && task.subtasks && task.subtasks.length > 0 && (
         <div className="ml-8 pl-4 py-2 bg-muted/30 rounded-lg border-l-2 border-primary/20">
           <div className="space-y-2">
             {task.subtasks.map((subTask) => (
-              <div key={subTask.subtaskId} className="flex items-center space-x-3">
+              <div
+                key={subTask.subtaskId}
+                className="flex items-center space-x-3"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <Checkbox
                   checked={subTask.subtaskStatus === "Done"}
-                  onCheckedChange={() => handleSubTaskToggle(subTask.subtaskId)}
+                  onCheckedChange={(e) => handleSubTaskToggle(e as any, subTask.subtaskId)}
                   className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                 />
                 <span

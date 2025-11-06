@@ -10,7 +10,6 @@ interface UpcomingEventsWidgetProps {
   onNavigateToAllEvents?: () => void;
 }
 
-// color:number -> ใช้พาเลตง่ายๆจากเลข
 const COLOR_PALETTE = ["#6366F1", "#22C55E", "#F59E0B", "#EF4444", "#06B6D4", "#A855F7"];
 
 export function UpcomingEventsWidget({ events, onEventClick, onNavigateToAllEvents }: UpcomingEventsWidgetProps) {

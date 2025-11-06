@@ -16,7 +16,7 @@ function calcEventProgress(eventId: string, tasks: Task[]) {
 }
 
 export function ProgressOverviewWidget({ events, tasks }: ProgressOverviewWidgetProps) {
-  // แสดง top 3 (ลำดับตามเดิม)
+  
   const top = events.slice(0, 3).map(ev => {
     const { total, done, progress } = calcEventProgress(ev.eventId, tasks);
     return { ev, total, done, progress };

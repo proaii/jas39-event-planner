@@ -32,7 +32,7 @@ export function Sidebar() {
         isCollapsed ? "w-20" : "w-64"
       }`}
     >
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-screen">
         <div className="p-4 flex items-center justify-between border-b">
           {!isCollapsed && (
             <h1 className="text-xl font-semibold text-primary">

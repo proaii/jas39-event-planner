@@ -28,17 +28,22 @@ import { toast } from "react-hot-toast";
 import NextImage from "next/image";
 import type { Event } from "@/lib/types";
 import { Checkbox } from "@/components/ui/checkbox";
+import type { CreateEventInput } from "@/stores/useEventStore";
 
+/**
+ * Props
+ */
 interface AddEventModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreateEvent: (
-    event: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members">
-  ) => void;
+  onCreateEvent: (event: CreateEventInput) => void;
   onInviteMembers?: () => void;
   prefillData?: Partial<Event>;
 }
 
+/**
+ * Component
+ */
 export function AddEventModal({
   isOpen,
   onClose,
@@ -57,21 +62,31 @@ export function AddEventModal({
     description: "",
     members: [] as string[],
     coverImage: "",
-    color: "bg-chart-1",
+    color: "bg-chart-1", // stays as UI token, convert later
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
+  // ----------------------------------------------------------
+  // Prefill data when editing or template is used
+  // ----------------------------------------------------------
   useEffect(() => {
     if (isOpen && prefillData) {
       setFormData({
         title: prefillData.title || "",
         date: prefillData.startAt ? prefillData.startAt.split("T")[0] : "",
         endDate: prefillData.endAt ? prefillData.endAt.split("T")[0] : "",
-        time: prefillData.startAt ? prefillData.startAt.split("T")[1].substring(0, 5) : "",
-        endTime: prefillData.endAt ? prefillData.endAt.split("T")[1].substring(0, 5) : "",
-        isMultiDay: !!prefillData.endAt && prefillData.startAt?.split("T")[0] !== prefillData.endAt?.split("T")[0],
+        time: prefillData.startAt
+          ? prefillData.startAt.split("T")[1].substring(0, 5)
+          : "",
+        endTime: prefillData.endAt
+          ? prefillData.endAt.split("T")[1].substring(0, 5)
+          : "",
+        isMultiDay:
+          !!prefillData.endAt &&
+          prefillData.startAt?.split("T")[0] !==
+            prefillData.endAt?.split("T")[0],
         location: prefillData.location || "",
         description: prefillData.description || "",
         members: [],
@@ -81,22 +96,24 @@ export function AddEventModal({
     }
   }, [isOpen, prefillData]);
 
+  // ----------------------------------------------------------
+  // Helpers
+  // ----------------------------------------------------------
   function colorTokenToIndex(token: string): number {
     const m = token.match(/bg-chart-(\d+)/);
-    if (m && m[1]) {
-      const idx = parseInt(m[1], 10);
-      return Math.max(0, idx - 1);
-    }
-    return 0;
+    if (!m) return 0;
+    return Math.max(0, parseInt(m[1], 10) - 1);
   }
 
-  function toIso(date: string, time: string): string | undefined {
-    if (!date) return undefined;
-    const t = time && time.trim().length > 0 ? time : "00:00";
-    const iso = new Date(`${date}T${t}:00`).toISOString();
-    return iso;
+  function toIso(date: string, time: string): string | null {
+    if (!date) return null;
+    const t = time && time.trim() ? time : "00:00";
+    return new Date(`${date}T${t}:00`).toISOString();
   }
 
+  // ----------------------------------------------------------
+  // Handle Submit
+  // ----------------------------------------------------------
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -112,6 +129,7 @@ export function AddEventModal({
       toast.error("Please select a start time.");
       return;
     }
+
     if (
       formData.isMultiDay &&
       formData.endDate &&
@@ -122,20 +140,21 @@ export function AddEventModal({
     }
 
     setIsSubmitting(true);
+
     try {
       const startAt = toIso(formData.date, formData.time);
       const endAt = formData.isMultiDay
         ? toIso(formData.endDate, formData.endTime)
         : toIso(formData.date, formData.endTime || formData.time);
 
-      const payload: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members"> = {
+      const payload: CreateEventInput = {
         title: formData.title.trim(),
         location: formData.location.trim(),
         description: formData.description.trim(),
         coverImageUri: formData.coverImage || undefined,
         color: colorTokenToIndex(formData.color),
-        startAt: startAt ?? null,
-        endAt: endAt ?? null,
+        startAt,
+        endAt,
       };
 
       onCreateEvent(payload);
@@ -162,6 +181,9 @@ export function AddEventModal({
     }
   };
 
+  // ----------------------------------------------------------
+  // Generate cover image
+  // ----------------------------------------------------------
   const generateCoverImage = async () => {
     if (!formData.title.trim()) {
       toast.error("Please enter a title before generating an image.");
@@ -169,8 +191,10 @@ export function AddEventModal({
     }
 
     setIsGeneratingImage(true);
+
     try {
       const imageUrl = await unsplash_tool(formData.title);
+
       if (imageUrl) {
         setFormData((prev) => ({ ...prev, coverImage: imageUrl }));
         toast.success("Cover image generated successfully!");
@@ -184,6 +208,10 @@ export function AddEventModal({
       setIsGeneratingImage(false);
     }
   };
+
+  // ----------------------------------------------------------
+  // UI Render 
+  // ----------------------------------------------------------
 
   return (
     <Dialog

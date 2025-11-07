@@ -70,6 +70,16 @@ interface EventDetailProps {
   onEditEvent?: (eventId: string) => void;
 }
 
+const safeDate = (value: string | null | undefined): Date | null =>
+  value ? new Date(value) : null;
+
+const safeTimeString = (value: string | null | undefined): string => {
+  if (!value) return "";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "";
+  return d.toTimeString().substring(0, 5);
+};
+
 export function EventDetail({
   event,
   tasks: allTasks,
@@ -90,7 +100,7 @@ export function EventDetail({
   const [showCoverImage, setShowCoverImage] = useState(true);
   const [currentView, setCurrentView] = useState<"list" | "board">("list");
 
-  const { } = useUiStore();
+  useUiStore();
 
   const tasks = allTasks.filter(t => t.eventId === event.eventId);
   const members = event.members || [];
@@ -123,15 +133,15 @@ export function EventDetail({
 
   const formatDueDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric'
-    });
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
   const formatTime = (timeString: string) => {
+    if (!timeString) return "";
     const [hours, minutes] = timeString.split(':');
     const hour = parseInt(hours);
+    if (isNaN(hour)) return "";
+
     const ampm = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour % 12 || 12;
     return `${displayHour}:${minutes} ${ampm}`;
@@ -198,12 +208,14 @@ export function EventDetail({
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main */}
       <div className="px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column */}
+          
+          {/* LEFT COLUMN */}
           <div className="lg:col-span-4 space-y-6">
-            {/* Event Picture */}
+            
+            {/* Cover Image */}
             {showCoverImage && event.coverImageUri && (
               <Card className="border-0 shadow-sm overflow-hidden">
                 <div className="relative">
@@ -215,13 +227,12 @@ export function EventDetail({
                       width={1080}
                       height={1080}
                       onError={(e) => {
-                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.style.display = "none";
                         setShowCoverImage(false);
                       }}
                     />
                   </div>
-                  
-                  {/* Image Controls */}
+
                   <div className="absolute top-3 right-3">
                     <Button
                       variant="outline"
@@ -235,13 +246,12 @@ export function EventDetail({
                 </div>
               </Card>
             )}
-            
-            {/* Show Photo Button when hidden */}
+
             {!showCoverImage && event.coverImageUri && (
               <Card className="border-0 shadow-sm">
                 <CardContent className="p-6 text-center">
                   <div className="py-4">
-                    <Image className="w-8 h-8 mx-auto mb-3 text-muted-foreground" aria-hidden="true" focusable="false" />
+                    <Image className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
                     <Button
                       variant="outline"
                       onClick={() => setShowCoverImage(true)}
@@ -254,85 +264,74 @@ export function EventDetail({
               </Card>
             )}
 
-            {/* Event Details Card */}
+            {/* Event Details */}
             <Card className="border-0 shadow-sm">
               <CardContent className="p-6 space-y-4">
+                
+                {/* ✅ Time */}
                 <div className="flex items-center space-x-3 text-muted-foreground">
-                  <Clock className="w-5 h-5 flex-shrink-0" />
+                  <Clock className="w-5 h-5" />
                   <span className="text-sm">
-                    {event.startAt && formatTime(new Date(event.startAt).toTimeString().substring(0,5))}
-                    {event.endAt && ` - ${formatTime(new Date(event.endAt).toTimeString().substring(0,5))}`}
+                    {event.startAt ? formatTime(safeTimeString(event.startAt)) : ""}
+                    {event.endAt ? ` - ${formatTime(safeTimeString(event.endAt))}` : ""}
                   </span>
                 </div>
-                
+
+                {/* ✅ Date */}
                 <div className="flex items-center space-x-3 text-muted-foreground">
-                  <Calendar className="w-5 h-5 flex-shrink-0" />
-                  <span className="text-sm">{new Date(event.startAt || 0).toLocaleDateString('en-US', { 
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long', 
-                    day: 'numeric'
-                  })}</span>
+                  <Calendar className="w-5 h-5" />
+                  <span className="text-sm">
+                    {safeDate(event.startAt)?.toLocaleDateString("en-US", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    }) || ""}
+                  </span>
                 </div>
-                
+
+                {/* Location */}
                 <div className="flex items-center space-x-3 text-muted-foreground">
-                  <MapPin className="w-5 h-5 flex-shrink-0" />
+                  <MapPin className="w-5 h-5" />
                   <span className="text-sm">{event.location}</span>
                 </div>
-                
+
                 {event.description && (
                   <div className="pt-4 border-t border-border">
-                    <p className="text-sm text-foreground leading-relaxed">
-                      {event.description}
-                    </p>
+                    <p className="text-sm leading-relaxed">{event.description}</p>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Widgets - 3 Cards */}
+            {/* Widgets */}
             <div className="grid grid-cols-3 gap-3">
-              {/* Progress Widget */}
               <Card className="border-0 shadow-sm">
                 <CardContent className="p-4 text-center">
                   <TrendingUp className="w-6 h-6 mx-auto mb-2 text-primary" />
-                  <div className="text-2xl font-bold text-foreground mb-1">
-                    {progressPercentage}%
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Progress
-                  </div>
+                  <div className="text-2xl font-bold">{progressPercentage}%</div>
+                  <div className="text-xs text-muted-foreground">Progress</div>
                 </CardContent>
               </Card>
 
-              {/* Members Widget */}
               <Card className="border-0 shadow-sm">
                 <CardContent className="p-4 text-center">
                   <Users className="w-6 h-6 mx-auto mb-2 text-secondary" />
-                  <div className="text-2xl font-bold text-foreground mb-1">
-                    {members.length}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Members
-                  </div>
+                  <div className="text-2xl font-bold">{members.length}</div>
+                  <div className="text-xs text-muted-foreground">Members</div>
                 </CardContent>
               </Card>
 
-              {/* Tasks Widget */}
               <Card className="border-0 shadow-sm">
                 <CardContent className="p-4 text-center">
                   <ListTodo className="w-6 h-6 mx-auto mb-2 text-warning" />
-                  <div className="text-2xl font-bold text-foreground mb-1">
-                    {todoTasks + inProgressTasks}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Pending
-                  </div>
+                  <div className="text-2xl font-bold">{todoTasks + inProgressTasks}</div>
+                  <div className="text-xs text-muted-foreground">Pending</div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Team Members Card */}
+            {/* Members */}
             <Card className="border-0 shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Team Members</CardTitle>
@@ -341,33 +340,34 @@ export function EventDetail({
                 {members.map(member => (
                   <div key={member} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50">
                     <Avatar className="w-8 h-8">
-                      <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                        {getInitials(member)}
-                      </AvatarFallback>
+                      <AvatarFallback>{getInitials(member)}</AvatarFallback>
                     </Avatar>
-                    <span className="text-sm text-foreground flex-1">{member}</span>
+                    <span className="text-sm">{member}</span>
                   </div>
                 ))}
               </CardContent>
             </Card>
+
           </div>
 
-          {/* Right Column - Tasks */}
+          {/* RIGHT COLUMN */}
           <div className="lg:col-span-8">
             <Card className="border-0 shadow-sm">
+              
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-xl">Tasks</CardTitle>
                   <div className="flex items-center space-x-2">
-                    {/* View Switcher */}
-                    <ViewSwitcher 
-                      currentView={currentView} 
-                      onViewChange={setCurrentView}
-                    />
-                    
-                    {/* Sort By Dropdown */}
+
+                    <ViewSwitcher currentView={currentView} onViewChange={setCurrentView} />
+
                     {currentView === "list" && (
-                      <Select value={sortBy} onValueChange={(value: "dueDate" | "priority" | "status" | "name") => setSortBy(value)}>
+                      <Select
+                        value={sortBy}
+                        onValueChange={(v) =>
+                          setSortBy(v as "dueDate" | "priority" | "status" | "name")
+                        }
+                      >
                         <SelectTrigger className="w-48">
                           <ArrowUpDown className="w-4 h-4 mr-2" />
                           <SelectValue />
@@ -380,51 +380,48 @@ export function EventDetail({
                         </SelectContent>
                       </Select>
                     )}
-                    
-                    {/* Add Task Button */}
-                    <Button 
-                      onClick={() => setShowAddTaskModal(true)}
-                      className="bg-primary hover:bg-primary/90"
-                    >
+
+
+                    <Button className="bg-primary" onClick={() => setShowAddTaskModal(true)}>
                       <Plus className="w-4 h-4 mr-2" />
                       Add Task
                     </Button>
+
                   </div>
                 </div>
               </CardHeader>
+
               <CardContent>
                 {currentView === "list" ? (
-                  // List View
                   sortedTasks.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground">
                       <CheckSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                      <p className="mb-4">No tasks yet. Create your first task to get started!</p>
-                      <Button 
-                        onClick={() => setShowAddTaskModal(true)}
-                        variant="outline"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add First Task
+                      <p className="mb-4">No tasks yet. Create your first task!</p>
+                      <Button variant="outline" onClick={() => setShowAddTaskModal(true)}>
+                        <Plus className="w-4 h-4 mr-2" /> Add First Task
                       </Button>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       {sortedTasks.map(task => (
-                        <Card key={task.taskId} className="border border-border hover:border-primary/50 transition-colors">
+                        <Card key={task.taskId} className="border hover:border-primary/50">
                           <CardContent className="p-4">
+
                             <div className="flex items-start space-x-4">
+                              
                               <Checkbox
                                 checked={task.taskStatus === "Done"}
-                                onCheckedChange={(checked) => {
-                                  onTaskStatusChange(task.taskId, checked ? "Done" : "To Do");
-                                }}
+                                onCheckedChange={(checked) =>
+                                  onTaskStatusChange(task.taskId, checked ? "Done" : "To Do")
+                                }
                                 className="mt-1"
                               />
 
                               <div className="flex-1 min-w-0">
+
                                 <div className="flex items-start justify-between mb-2">
                                   <div className="flex-1">
-                                    <h4 className={`font-medium text-foreground mb-1 ${task.taskStatus === "Done" ? "line-through opacity-60" : ""}`}>
+                                    <h4 className={`font-medium mb-1 ${task.taskStatus === "Done" ? "line-through opacity-60" : ""}`}>
                                       {task.title}
                                     </h4>
                                     {task.description && (
@@ -433,71 +430,60 @@ export function EventDetail({
                                       </p>
                                     )}
                                   </div>
-                                  
+
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                                         <MoreVertical className="h-4 w-4" />
                                       </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-48">
-                                      <DropdownMenuItem 
-                                        onClick={() => onTaskAction?.(task.taskId, "edit")}
-                                        className="cursor-pointer"
-                                      >
-                                        <Edit3 className="mr-2 h-4 w-4" />
-                                        Edit Task
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem onClick={() => onTaskAction?.(task.taskId, "edit")}>
+                                        <Edit3 className="mr-2 h-4 w-4" /> Edit Task
                                       </DropdownMenuItem>
                                       <DropdownMenuSeparator />
-                                      <DropdownMenuItem 
+                                      <DropdownMenuItem
+                                        className="text-destructive"
                                         onClick={() => onTaskAction?.(task.taskId, "delete")}
-                                        className="cursor-pointer text-destructive focus:text-destructive"
                                       >
-                                        <Trash2 className="mr-2 h-4 w-4" />
-                                        Delete Task
+                                        <Trash2 className="mr-2 h-4 w-4" /> Delete Task
                                       </DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>
                                 </div>
 
                                 <div className="flex flex-wrap items-center gap-3">
+
+                                  {/* Status */}
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                      <button className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${getStatusColor(task.taskStatus)}`}>
+                                      <button
+                                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer ${getStatusColor(task.taskStatus)}`}
+                                      >
                                         {task.taskStatus}
                                         <ChevronDown className="w-3 h-3 ml-1" />
                                       </button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="start">
-                                      <DropdownMenuItem 
-                                        onClick={() => onTaskStatusChange(task.taskId, "To Do")}
-                                        className="cursor-pointer"
-                                      >
-                                        <span className="w-2 h-2 rounded-full bg-muted mr-2" />
+                                      <DropdownMenuItem onClick={() => onTaskStatusChange(task.taskId, "To Do")}>
                                         To Do
                                       </DropdownMenuItem>
-                                      <DropdownMenuItem 
-                                        onClick={() => onTaskStatusChange(task.taskId, "In Progress")}
-                                        className="cursor-pointer"
-                                      >
-                                        <span className="w-2 h-2 rounded-full bg-warning mr-2" />
+                                      <DropdownMenuItem onClick={() => onTaskStatusChange(task.taskId, "In Progress")}>
                                         In Progress
                                       </DropdownMenuItem>
-                                      <DropdownMenuItem 
-                                        onClick={() => onTaskStatusChange(task.taskId, "Done")}
-                                        className="cursor-pointer"
-                                      >
-                                        <span className="w-2 h-2 rounded-full bg-secondary mr-2" />
+                                      <DropdownMenuItem onClick={() => onTaskStatusChange(task.taskId, "Done")}>
                                         Done
                                       </DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>
 
-                                  <Badge variant="secondary" className={`${getPriorityColor(task.taskPriority)} border-0`}>
+                                  {/* Priority */}
+                                  <Badge className={`${getPriorityColor(task.taskPriority)} border-0`}>
                                     <Flag className="w-3 h-3 mr-1" />
                                     {task.taskPriority}
                                   </Badge>
 
+                                  {/* Due date */}
                                   {task.endAt && (
                                     <div className="flex items-center text-xs text-muted-foreground">
                                       <Calendar className="w-3 h-3 mr-1" />
@@ -505,57 +491,60 @@ export function EventDetail({
                                     </div>
                                   )}
 
+                                  {/* Assignees */}
                                   {task.assignees && task.assignees.length > 0 && (
                                     <div className="flex space-x-1">
                                       {task.assignees.slice(0, 3).map((assignee, index) => (
                                         <Avatar key={index} className="w-6 h-6">
-                                          <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
+                                          <AvatarFallback>
                                             {getInitials(assignee.username)}
                                           </AvatarFallback>
                                         </Avatar>
                                       ))}
                                       {task.assignees.length > 3 && (
                                         <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
-                                          <span className="text-[10px] text-muted-foreground">
-                                            +{task.assignees.length - 3}
-                                          </span>
+                                          <span className="text-[10px]">+{task.assignees.length - 3}</span>
                                         </div>
                                       )}
                                     </div>
                                   )}
 
+                                  {/* Subtasks */}
                                   {task.subtasks && task.subtasks.length > 0 && (
                                     <button
                                       onClick={() => toggleTaskExpansion(task.taskId)}
-                                      className="flex items-center text-xs text-muted-foreground hover:text-foreground transition-colors"
+                                      className="flex items-center text-xs text-muted-foreground"
                                     >
                                       {expandedTaskId === task.taskId ? (
                                         <ChevronDown className="w-3 h-3 mr-1" />
                                       ) : (
                                         <ChevronRight className="w-3 h-3 mr-1" />
                                       )}
-                                      {task.subtasks.filter(st => st.subtaskStatus === 'Done').length}/{task.subtasks.length} subtasks
+                                      {task.subtasks.filter(st => st.subtaskStatus === "Done").length}/{task.subtasks.length} subtasks
                                     </button>
                                   )}
+
                                 </div>
 
-                                {expandedTaskId === task.taskId && task.subtasks && task.subtasks.length > 0 && (
-                                  <div className="mt-3 pt-3 border-t border-border space-y-2">
-                                    {task.subtasks.map((subTask) => (
-                                      <div key={subTask.subtaskId} className="flex items-center space-x-2 pl-4">
-                                        <Checkbox
-                                          checked={subTask.subtaskStatus === "Done"}
-                                          className="h-4 w-4"
-                                        />
-                                        <span className={`text-sm ${subTask.subtaskStatus === "Done" ? "line-through opacity-60" : ""}`}>
-                                          {subTask.title}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                                {/* Subtasks List */}
+                                {expandedTaskId === task.taskId &&
+                                  task.subtasks &&
+                                  task.subtasks.length > 0 && (
+                                    <div className="mt-3 pt-3 border-t space-y-2">
+                                      {task.subtasks.map((sub) => (
+                                        <div key={sub.subtaskId} className="flex items-center space-x-2 pl-4">
+                                          <Checkbox checked={sub.subtaskStatus === "Done"} className="h-4 w-4" />
+                                          <span className={`text-sm ${sub.subtaskStatus === "Done" ? "line-through opacity-60" : ""}`}>
+                                            {sub.title}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
                               </div>
                             </div>
+
                           </CardContent>
                         </Card>
                       ))}
@@ -563,25 +552,24 @@ export function EventDetail({
                   )
                 ) : (
                   <KanbanBoard
-                    tasks={tasks.map(task => ({
-                      ...task,
-                      assignees: task.assignees || []
-                    }))}
+                    tasks={tasks.map(t => ({ ...t, assignees: t.assignees || [] }))}
                     onTaskStatusChange={onTaskStatusChange}
                     onTaskAction={onTaskAction}
                   />
                 )}
               </CardContent>
+
             </Card>
           </div>
+
         </div>
       </div>
 
-      {/* Modals */}
+      {/* MODALS */}
       <AddTaskModal
         isOpen={showAddTaskModal}
         onClose={() => setShowAddTaskModal(false)}
-        onCreateTask={t => {
+        onCreateTask={(t) => {
           onAddTask(t);
           setShowAddTaskModal(false);
         }}
@@ -594,12 +582,13 @@ export function EventDetail({
         isOpen={showSaveTemplateModal}
         onClose={() => setShowSaveTemplateModal(false)}
         templateData={event}
-        onSave={templateData => {
+        onSave={(templateData) => {
           onSaveTemplate?.(event.eventId, templateData);
           setShowSaveTemplateModal(false);
         }}
       />
 
+      {/* Delete Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -623,6 +612,7 @@ export function EventDetail({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </div>
   );
 }

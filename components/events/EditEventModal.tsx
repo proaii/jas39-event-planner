@@ -26,12 +26,12 @@ import { unsplash_tool } from "@/lib/client/unsplash";
 import { useUiStore } from "@/stores/ui-store";
 import { editEventSchema } from "@/schemas/editEventSchema";
 import type { Event } from "@/lib/types";
-import { z } from "zod";
+import type { UpdateEventInput } from "@/stores/useEventStore";
 import NextImage from "next/image";
 
 interface EditEventModalProps {
   events: Event[];
-  onUpdateEvent: (eventId: string, updatedData: z.infer<typeof editEventSchema>) => void;
+  onUpdateEvent: (eventId: string, updatedData: UpdateEventInput) => void;
   onInviteMembers: () => void;
 }
 
@@ -42,69 +42,101 @@ export function EditEventModal({
 }: EditEventModalProps) {
   const { isEditEventModalOpen, currentEventId, closeEditEventModal } =
     useUiStore();
+
   const event = events.find((e) => e.eventId === currentEventId) || null;
 
-  const [formData, setFormData] = useState({
+  // ✅ MUST include `members` to satisfy UpdateEventInput
+  const [formData, setFormData] = useState<UpdateEventInput>({
     title: "",
     location: "",
     description: "",
     coverImageUri: "",
     color: 0,
-    startAt: null as string | null,
-    endAt: null as string | null,
-    members: [] as string[],
+    startAt: null,
+    endAt: null,
+    members: [], // ✅ required for UpdateEventInput
   });
 
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
+  // ----------------------------------------------------------
+  // Prefill form when event changes
+  // ----------------------------------------------------------
   useEffect(() => {
-    if (event) {
-      const valid = editEventSchema.safeParse({
-        title: event.title || "",
-        location: event.location || "",
-        description: event.description || "",
-        coverImageUri: event.coverImageUri || "",
-        color: event.color || 0,
-        startAt: event.startAt || null,
-        endAt: event.endAt || null,
-        members: event.members || [],
-      });
+    if (!event) return;
 
-      if (valid.success) {
-        setFormData({
-          ...valid.data,
-          location: valid.data.location || "",
-          description: valid.data.description || "",
-          coverImageUri: valid.data.coverImageUri || "",
-          startAt: valid.data.startAt || null,
-          endAt: valid.data.endAt || null,
-        });
-      }
-      else console.warn("Invalid event data:", valid.error.format());
+    const valid = editEventSchema.safeParse({
+      title: event.title,
+      location: event.location || "",
+      description: event.description || "",
+      coverImageUri: event.coverImageUri || "",
+      color: event.color,
+      startAt: event.startAt,
+      endAt: event.endAt,
+      members: event.members || [],
+    });
+
+    if (valid.success) {
+      setFormData({
+        title: valid.data.title,
+        location: valid.data.location,
+        description: valid.data.description,
+        coverImageUri: valid.data.coverImageUri,
+        color: valid.data.color,
+        startAt: valid.data.startAt,
+        endAt: valid.data.endAt,
+        members: valid.data.members, // ✅ now included
+      });
+    } else {
+      console.warn("Invalid event data:", valid.error.format());
     }
   }, [event]);
 
+  // ----------------------------------------------------------
+  // Submit handler
+  // ----------------------------------------------------------
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!event) return;
 
-    const parsed = editEventSchema.safeParse(formData);
+    const parsed = editEventSchema.safeParse({
+      ...formData,
+      members: event.members, // ✅ override with backend data
+    });
+
     if (!parsed.success) {
       console.error(parsed.error.format());
       alert("Please fill in all required fields correctly.");
       return;
     }
 
-    onUpdateEvent(event.eventId, parsed.data);
+    const payload: UpdateEventInput = {
+      title: parsed.data.title,
+      location: parsed.data.location,
+      description: parsed.data.description,
+      coverImageUri: parsed.data.coverImageUri,
+      color: parsed.data.color,
+      startAt: parsed.data.startAt,
+      endAt: parsed.data.endAt,
+      members: parsed.data.members, // ✅ required
+    };
+
+    onUpdateEvent(event.eventId, payload);
     closeEditEventModal();
   };
 
+  // ----------------------------------------------------------
+  // Generate Cover Image
+  // ----------------------------------------------------------
   const generateCoverImage = async () => {
     if (!formData.title.trim()) return;
     setIsGeneratingImage(true);
+
     try {
       const imageUrl = await unsplash_tool(formData.title);
-      setFormData((prev) => ({ ...prev, coverImageUri: imageUrl }));
+      if (imageUrl) {
+        setFormData((prev) => ({ ...prev, coverImageUri: imageUrl }));
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -112,10 +144,13 @@ export function EditEventModal({
     }
   };
 
+  // ----------------------------------------------------------
+  // Remove member (UI only)
+  // ----------------------------------------------------------
   const removeMember = (memberToRemove: string) => {
     setFormData((prev) => ({
       ...prev,
-      members: prev.members?.filter((m) => m !== memberToRemove) || [],
+      members: prev.members.filter((m) => m !== memberToRemove),
     }));
   };
 
@@ -127,6 +162,10 @@ export function EditEventModal({
       .toUpperCase();
 
   if (!event) return null;
+
+  // ----------------------------------------------------------
+  // UI 
+  // ----------------------------------------------------------
 
   return (
     <Dialog open={isEditEventModalOpen} onOpenChange={closeEditEventModal}>

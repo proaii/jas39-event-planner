@@ -23,6 +23,7 @@ import { SettingsPage } from './components/SettingsPage';
 import { Layout } from './components/Layout';
 import { Login } from './components/Login';
 import { Register } from './components/Register';
+import { ForgotPassword } from './components/ForgotPassword';
 import { TopNavigation } from './components/TopNavigation';
 import { Notification } from './components/NotificationDropdown';
 
@@ -703,7 +704,7 @@ export default function App() {
 
   // Authentication state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [authView, setAuthView] = useState<'login' | 'register'>('login');
+  const [authView, setAuthView] = useState<'login' | 'register' | 'forgotPassword'>('login');
   
   // Application state
   const [events, setEvents] = useState<Event[]>(initialEvents);
@@ -1029,6 +1030,10 @@ export default function App() {
     setAuthView('login');
   };
 
+  const handleNavigateToForgotPassword = () => {
+    setAuthView('forgotPassword');
+  };
+
   // Enhanced interactivity handlers
   const handleEditEvent = (eventId: string) => {
     setEditingEventId(eventId);
@@ -1266,12 +1271,19 @@ export default function App() {
           <Login 
             onLogin={handleLogin}
             onNavigateToRegister={handleNavigateToRegister}
+            onNavigateToForgotPassword={handleNavigateToForgotPassword}
           />
         )}
         
         {authView === 'register' && (
           <Register 
             onRegister={handleRegister}
+            onNavigateToLogin={handleNavigateToLogin}
+          />
+        )}
+        
+        {authView === 'forgotPassword' && (
+          <ForgotPassword 
             onNavigateToLogin={handleNavigateToLogin}
           />
         )}

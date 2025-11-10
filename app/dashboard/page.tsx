@@ -168,7 +168,6 @@ export default function DashboardPage() {
         onClose={closeAddEventModal}
         onCreateEvent={handleCreateEvent}
         prefillData={prefillData ?? undefined}
-        onInviteMembers={handleInviteMembers}
       />
 
       {/* ---------------- Add Task Modal ---------------- */}

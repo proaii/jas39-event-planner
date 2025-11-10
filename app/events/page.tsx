@@ -342,7 +342,6 @@ coverImageUri: data.coverImageUri,
         onClose={closeAddEventModal}
         onCreateEvent={handleCreateEvent}
         prefillData={prefillData ?? undefined}
-        onInviteMembers={() => toast("Invite members feature coming soon!", { icon: "ℹ️" })}
       />
 
       <CreateFromTemplateModal

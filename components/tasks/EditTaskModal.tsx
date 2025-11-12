@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -8,13 +10,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { CheckSquare, Calendar, Users, X, Flag, Plus, Trash2, Paperclip, ExternalLink } from 'lucide-react';
 import type { Task, Subtask, Attachment, UserLite, TaskStatus, TaskPriority } from '@/lib/types';
+import { useTaskStore } from '@/stores/task-store'; 
 
-interface EditTaskModalProps {
+export interface EditTaskModalProps {
   isOpen: boolean;
+  onClose: () => void;
   task: Task | null;
   availableAssignees: UserLite[];
-  onClose: () => void;
-  onUpdateTask: (taskId: string, taskData: {
+}
+
+export function EditTaskModal({
+  isOpen,
+  onClose,
+  task,
+  availableAssignees,
+}: EditTaskModalProps) {
+  const { updateTask } = useTaskStore();
+
+  const [formData, setFormData] = useState<{
     title: string;
     description?: string;
     assignees: UserLite[];
@@ -22,25 +35,21 @@ interface EditTaskModalProps {
     endAt?: string | null;
     taskStatus: TaskStatus;
     taskPriority: TaskPriority;
-    subtasks?: Subtask[];
-    attachments?: Attachment[];
-  }) => void;
-}
-
-export function EditTaskModal({ isOpen, task, availableAssignees, onClose, onUpdateTask }: EditTaskModalProps) {
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    assignees: [] as UserLite[],
-    startAt: null as string | null,
-    endAt: null as string | null,
-    taskStatus: 'To Do' as TaskStatus,
-    taskPriority: 'Normal' as TaskPriority,
-    subtasks: [] as Subtask[],
-    attachments: [] as Attachment[]
+    subtasks: Subtask[];
+    attachments: Attachment[];
+  }>({
+    title: task?.title || '',
+    description: task?.description || '',
+    assignees: task?.assignees || [],
+    startAt: task?.startAt || null,
+    endAt: task?.endAt || null,
+    taskStatus: task?.taskStatus || 'To Do',
+    taskPriority: task?.taskPriority || 'Normal',
+    subtasks: task?.subtasks || [],
+    attachments: task?.attachments || [],
   });
-  
-  const [hasTimePeriod, setHasTimePeriod] = useState(false);
+
+  const [hasTimePeriod, setHasTimePeriod] = useState(!!task?.startAt || !!task?.endAt);
   const [newAttachmentUrl, setNewAttachmentUrl] = useState('');
 
   useEffect(() => {
@@ -52,27 +61,18 @@ export function EditTaskModal({ isOpen, task, availableAssignees, onClose, onUpd
         startAt: task.startAt || null,
         endAt: task.endAt || null,
         taskStatus: task.taskStatus,
-        taskPriority: task.taskPriority || 'Normal',
+        taskPriority: task.taskPriority,
         subtasks: task.subtasks || [],
-        attachments: task.attachments || []
+        attachments: task.attachments || [],
       });
-      
-      setHasTimePeriod(!!(task.startAt || task.endAt));
+      setHasTimePeriod(!!task.startAt || !!task.endAt);
     }
   }, [task]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!task) return;
-
-    onUpdateTask(task.taskId, {
-      ...formData,
-      startAt: formData.startAt || null,
-      endAt: formData.endAt || null,
-      description: formData.description || undefined,
-      subtasks: formData.subtasks.length > 0 ? formData.subtasks : undefined,
-      attachments: formData.attachments.length > 0 ? formData.attachments : undefined
-    });
+    updateTask(task.taskId, formData);
     onClose();
   };
 
@@ -108,7 +108,7 @@ export function EditTaskModal({ isOpen, task, availableAssignees, onClose, onUpd
   const updateSubtask = (index: number, field: keyof Subtask, value: string | boolean) => {
     setFormData(prev => ({
       ...prev,
-      subtasks: prev.subtasks.map((st, i) => 
+      subtasks: prev.subtasks.map((st, i) =>
         i === index ? { ...st, [field]: value } : st
       )
     }));
@@ -122,20 +122,17 @@ export function EditTaskModal({ isOpen, task, availableAssignees, onClose, onUpd
   };
 
   const addAttachment = () => {
-    if (newAttachmentUrl.trim()) {
-      const newAttachment: Attachment = {
-        attachmentId: `att_${Date.now()}`,
-        taskId: task?.taskId || '',
-        attachmentUrl: newAttachmentUrl.trim(),
-        // title: extractTitleFromUrl(newAttachmentUrl.trim()),
-        // favicon: getFaviconFromUrl(newAttachmentUrl.trim())
-      };
-      setFormData(prev => ({
-        ...prev,
-        attachments: [...prev.attachments, newAttachment]
-      }));
-      setNewAttachmentUrl('');
-    }
+    if (!newAttachmentUrl.trim() || !task) return;
+    const newAttachment: Attachment = {
+      attachmentId: `att_${Date.now()}`,
+      taskId: task.taskId,
+      attachmentUrl: newAttachmentUrl.trim()
+    };
+    setFormData(prev => ({
+      ...prev,
+      attachments: [...prev.attachments, newAttachment]
+    }));
+    setNewAttachmentUrl('');
   };
 
   const removeAttachment = (attachmentId: string) => {
@@ -170,6 +167,20 @@ export function EditTaskModal({ isOpen, task, availableAssignees, onClose, onUpd
       return '🔗';
     }
   };
+
+  const isFormValid = React.useMemo(() => {
+    if (!formData.title.trim()) return false;
+    if (!formData.taskPriority || !formData.taskStatus) return false;
+
+    if (hasTimePeriod) {
+      if (!formData.startAt || !formData.endAt) return false;
+      if (formData.startAt > formData.endAt) return false;
+    } else {
+      if (!formData.endAt) return false;
+    }
+
+    return true;
+  }, [formData, hasTimePeriod]);
 
   if (!task) return null;
 
@@ -497,7 +508,11 @@ export function EditTaskModal({ isOpen, task, availableAssignees, onClose, onUpd
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90">
+            <Button
+              type="submit"
+              className="bg-primary hover:bg-primary/90"
+              disabled={!isFormValid}
+            >
               Save Changes
             </Button>
           </div>

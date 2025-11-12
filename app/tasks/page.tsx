@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -14,32 +13,29 @@ import {
 import { Card } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Search,
-  Filter,
-  Plus,
-  ArrowUpDown,
-} from "lucide-react";
+import { Search, Filter, Plus, ArrowUpDown } from "lucide-react";
 import { Task, TaskStatus, TaskPriority, UserLite, Subtask, Attachment } from "@/lib/types";
-import { mockTasks, mockUsers } from "@/lib/mock-data";
-
-type OnUpdateTaskPayload = {
-    title: string;
-    description?: string;
-    assignees: UserLite[];
-    startAt?: string | null;
-    endAt?: string | null;
-    taskStatus: TaskStatus;
-    taskPriority: TaskPriority;
-    subtasks?: Subtask[];
-    attachments?: Attachment[];
-};
 
 import { useUiStore } from "@/stores/ui-store";
+import { useTaskStore } from "@/stores/task-store"; 
 import { toast } from "react-hot-toast";
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { TaskCard } from "@/components/task-card";
 import { EditTaskModal } from "@/components/tasks/EditTaskModal";
+import { mockUsers } from "@/lib/mock-data";
+
+
+type OnUpdateTaskPayload = {
+  title: string;
+  description?: string;
+  assignees: UserLite[];
+  startAt?: string | null;
+  endAt?: string | null;
+  taskStatus: TaskStatus;
+  taskPriority: TaskPriority;
+  subtasks?: Subtask[];
+  attachments?: Attachment[];
+};
 
 export default function AllTasksPage() {
   // ------------------- UI STORE -------------------
@@ -59,11 +55,10 @@ export default function AllTasksPage() {
     setDateFilters,
   } = useUiStore();
 
-  // Temporary local filter state for the popover (moved to component top-level)
+  // Temporary local filter state for popover
   const [tempProgressFilters, setTempProgressFilters] = useState(progressFilters);
   const [tempDateFilters, setTempDateFilters] = useState(dateFilters);
 
-  // When popover opens, sync temp state from store
   useEffect(() => {
     if (isFilterOpen) {
       setTempProgressFilters(progressFilters);
@@ -71,43 +66,48 @@ export default function AllTasksPage() {
     }
   }, [isFilterOpen, progressFilters, dateFilters]);
 
-  // ------------------- TASKS STATE -------------------
-  const [allTasks, setAllTasks] = useState<Task[]>(mockTasks);
+  // ---------------- Current User ----------------
+  const currentUser: UserLite = {
+    userId: "user-1",
+    username: "Bob",
+    email: "bob@example.com",
+  };
+
+
+  // ------------------- TASKS STORE -------------------
+  const { tasks: allTasks, addTask, updateTask } = useTaskStore();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   // ------------------- HANDLERS -------------------
-  const handleCreateTask = (
-    taskData: Omit<Task, "taskId" | "createdAt">
-  ) => {
+  const handleCreateTask = (taskData: Omit<Task, "taskId" | "createdAt">) => {
     const newTask: Task = {
-        taskId: `task-${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        ...taskData,
-        taskStatus: 'To Do',
-        taskPriority: 'Normal',
+      taskId: `task-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      ...taskData,
+      taskStatus: "To Do",
+      taskPriority: "Normal",
     };
-    setAllTasks((prev) => [newTask, ...prev]);
+    addTask(newTask); 
     closeAddTaskModal();
     toast.success(`Task "${taskData.title}" created successfully!`);
   };
 
   const handleTaskClick = (taskId: string) => {
-    const task = allTasks.find(t => t.taskId === taskId);
+    const task = allTasks.find((t) => t.taskId === taskId);
     if (task) {
-        setSelectedTask(task);
-        setIsEditModalOpen(true);
+      setSelectedTask(task);
+      setIsEditModalOpen(true);
     }
   };
 
   const handleUpdateTask = (taskId: string, updatedData: OnUpdateTaskPayload) => {
-    setAllTasks(prev => prev.map(task => task.taskId === taskId ? { ...task, ...updatedData } : task));
+    updateTask(taskId, updatedData); 
     setIsEditModalOpen(false);
     setSelectedTask(null);
     toast.success(`Task "${updatedData.title}" updated successfully!`);
   };
 
-  // Apply temp filters to the store (invoked by popover Apply)
   const applyTempFilters = () => {
     setProgressFilters(tempProgressFilters);
     setDateFilters(tempDateFilters);
@@ -134,28 +134,21 @@ export default function AllTasksPage() {
     }
 
     // --- Status Filter ---
-    if (!progressFilters.notStarted) {
-        filtered = filtered.filter((task: Task) => task.taskStatus !== "To Do");
-    }
-    if (!progressFilters.inProgress) {
-        filtered = filtered.filter((task: Task) => task.taskStatus !== "In Progress");
-    }
-    if (!progressFilters.completed) {
-        filtered = filtered.filter((task: Task) => task.taskStatus !== "Done");
-    }
+    if (!progressFilters.notStarted) filtered = filtered.filter((t) => t.taskStatus !== "To Do");
+    if (!progressFilters.inProgress) filtered = filtered.filter((t) => t.taskStatus !== "In Progress");
+    if (!progressFilters.completed) filtered = filtered.filter((t) => t.taskStatus !== "Done");
 
     // --- Sorting ---
-    if (sortBy === "name") {
-        filtered.sort((a: Task, b: Task) => a.title.localeCompare(b.title));
-    } else if (sortBy === "date") {
-        filtered.sort((a: Task, b: Task) => {
-            const dateA = a.endAt ? new Date(a.endAt).getTime() : Infinity;
-            const dateB = b.endAt ? new Date(b.endAt).getTime() : Infinity;
-            return dateA - dateB;
-        });
+    if (sortBy === "name") filtered.sort((a, b) => a.title.localeCompare(b.title));
+    else if (sortBy === "date") {
+      filtered.sort((a, b) => {
+        const dateA = a.endAt ? new Date(a.endAt).getTime() : Infinity;
+        const dateB = b.endAt ? new Date(b.endAt).getTime() : Infinity;
+        return dateA - dateB;
+      });
     } else if (sortBy === "progress") {
-        const statusOrder: Record<TaskStatus, number> = { "To Do": 0, "In Progress": 1, "Done": 2 };
-        filtered.sort((a: Task, b: Task) => statusOrder[a.taskStatus] - statusOrder[b.taskStatus]);
+      const statusOrder: Record<TaskStatus, number> = { "To Do": 0, "In Progress": 1, "Done": 2 };
+      filtered.sort((a, b) => statusOrder[a.taskStatus] - statusOrder[b.taskStatus]);
     }
 
     return filtered;
@@ -320,20 +313,17 @@ export default function AllTasksPage() {
       <AddTaskModal
         isOpen={isAddTaskModalOpen}
         onClose={closeAddTaskModal}
-        onCreateTask={handleCreateTask}
         eventMembers={[]}
-        currentUser={{
-            userId: "user-1",
-            username: "Bob",
-            email: "bob@example.com",
-        }}
+        currentUser={currentUser}
+        isPersonal={true}
       />
+
+
       <EditTaskModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         task={selectedTask}
         availableAssignees={Object.values(mockUsers)}
-        onUpdateTask={handleUpdateTask}
       />
     </main>
   );

@@ -11,8 +11,9 @@ import { CustomizeDashboardModal } from "@/components/dashboard/CustomizeDashboa
 import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
 
 import { useFetchEvents, useCreateEvent } from "@/stores/useEventStore";
+import { useTaskStore } from "@/stores/task-store"; 
 import type { TemplateData } from "@/components/events/SaveTemplateModal";
-import type { Event, Task, UserLite } from "@/lib/types";
+import type { Event, UserLite } from "@/lib/types";
 
 // -------------------------------------------------
 // Dashboard Page — Main landing page for the user
@@ -45,12 +46,9 @@ export default function DashboardPage() {
 
   // ---------------- Fetch Events from API ----------------
   const { data, isLoading } = useFetchEvents();
-
-  // ✅ FIX: add explicit type to avoid implicit `any`
   const events: Event[] = data?.items ?? [];
 
-  // ---------------- Local Tasks (temporary mock) ----------------
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const { tasks } = useTaskStore();
 
   // ---------------- Mutation: Create Event ----------------
   const createEventMutation = useCreateEvent();
@@ -85,21 +83,6 @@ export default function DashboardPage() {
         },
       }
     );
-  };
-
-  // -------------------------------------------------
-  // Create Task (Local Only — Placeholder)
-  // -------------------------------------------------
-  const handleCreateTask = (taskData: Omit<Task, "taskId" | "createdAt">) => {
-    const newTask: Task = {
-      taskId: `task-${Date.now()}`,
-      ...taskData,
-      createdAt: new Date().toISOString(),
-    };
-
-    setTasks((prev) => [...prev, newTask]);
-    closeAddTaskModal();
-    toast.success(`Task "${taskData.title}" added successfully!`);
   };
 
   // -------------------------------------------------
@@ -170,11 +153,10 @@ export default function DashboardPage() {
         prefillData={prefillData ?? undefined}
       />
 
-      {/* ---------------- Add Task Modal ---------------- */}
+      {/* ---------------- Add Task Modal (use store, no callback) ---------------- */}
       <AddTaskModal
         isOpen={isAddTaskModalOpen}
         onClose={closeAddTaskModal}
-        onCreateTask={handleCreateTask}
         eventMembers={[]}
         currentUser={currentUser}
         isPersonal={true}

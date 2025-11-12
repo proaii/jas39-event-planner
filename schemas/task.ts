@@ -13,10 +13,18 @@ const attachmentSchema = z.object({
   favicon: z.string().optional(),
 });
 
+// Updated to reflect latest UserLite type
+const userLiteSchema = z.object({
+  userId: z.string(),
+  username: z.string(),
+  email: z.string(),
+  avatarUrl: z.string().nullable().optional(),
+});
+
 export const taskSchema = z.object({
   title: z.string().min(1, "Task title is required"),
   description: z.string().optional(),
-  assignees: z.array(z.string()).min(1, "At least one assignee required"),
+  assignees: z.array(userLiteSchema).min(1, "At least one assignee required"),
   dueDate: z.string().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),

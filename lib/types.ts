@@ -63,6 +63,19 @@ export interface Task {
   attachments?: Attachment[];
 }
 
+export type UpdateEventInput = {
+  title: string;
+  location?: string;       
+  description?: string;    
+  coverImageUri?: string;  
+  color: number;
+  startAt?: string | null; 
+  endAt?: string | null;   
+  members: EventMember[];
+};
+
+
+
 // ----- User -----
 export interface UserLite {
   userId: string;

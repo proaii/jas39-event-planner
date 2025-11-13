@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import React, { useEffect, useState } from "react";
 import {
@@ -38,9 +38,9 @@ export function EditEventModal({
 
   const [formData, setFormData] = useState<UpdateEventInput>({
     title: "",
-    location: undefined,
-    description: undefined,
-    coverImageUri: undefined,
+    location: "",
+    description: "",
+    coverImageUri: "",
     color: 0,
     startAt: null,
     endAt: null,
@@ -53,7 +53,6 @@ export function EditEventModal({
   useEffect(() => {
     if (!event) return;
 
-    // แปลง members เป็น EventMember[]
     const membersData: EventMember[] = (event.members || []).map((userId, index) => ({
       eventMemberId: `member-${index}`,
       eventId: event.eventId,
@@ -63,9 +62,9 @@ export function EditEventModal({
 
     const parsed = editEventSchema.safeParse({
       title: event.title,
-      location: event.location ?? undefined,
-      description: event.description ?? undefined,
-      coverImageUri: event.coverImageUri ?? undefined,
+      location: event.location ?? "",
+      description: event.description ?? "",
+      coverImageUri: event.coverImageUri ?? "",
       color: event.color,
       startAt: event.startAt ?? null,
       endAt: event.endAt ?? null,
@@ -90,10 +89,11 @@ export function EditEventModal({
     const normalizedData: UpdateEventInput = {
       ...parsed.data,
       members: parsed.data.members.map((m) => ({
-        ...m,
         eventMemberId: m.eventMemberId || `member-${Math.random()}`,
         eventId: m.eventId || event.eventId,
+        userId: m.userId,
         joinedAt: m.joinedAt || new Date().toISOString(),
+        role: m.role,
       })),
     };
 
@@ -113,28 +113,27 @@ export function EditEventModal({
     }
   };
 
-  const removeMember = (userId: string) => {
-    if (userId === currentUserId) {
+  const removeMember = (eventMemberId: string) => {
+    const member = formData.members.find((m) => m.eventMemberId === eventMemberId);
+    if (!member) return;
+    if (member.userId === currentUserId) {
       toast.error("You cannot remove yourself from the event.");
       return;
     }
     setFormData((prev) => ({
       ...prev,
-      members: prev.members.filter((m) => m.userId !== userId),
+      members: prev.members.filter((m) => m.eventMemberId !== eventMemberId),
     }));
   };
 
-  const getDisplayName = (userId: string) =>
-    mockUsers[userId]?.username || userId;
 
-  const getInitials = (userId: string) => {
-    const name = getDisplayName(userId);
-    return name
+  const getDisplayName = (userId: string) => mockUsers[userId]?.username || userId;
+  const getInitials = (userId: string) =>
+    getDisplayName(userId)
       .split(" ")
       .map((p) => p[0])
       .join("")
       .toUpperCase();
-  };
 
   if (!event) return null;
 
@@ -300,7 +299,10 @@ export function EditEventModal({
               <div className="space-y-3">
                 {formData.members.length > 0 ? (
                   formData.members.map((member) => (
-                    <div key={member.userId} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <div
+                      key={member.eventMemberId}
+                      className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
+                    >
                       <div className="flex items-center space-x-3">
                         <Avatar className="w-8 h-8">
                           <AvatarFallback className="bg-primary/10 text-primary text-xs">
@@ -308,7 +310,9 @@ export function EditEventModal({
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium text-foreground text-sm">{getDisplayName(member.userId)}</p>
+                          <p className="font-medium text-foreground text-sm">
+                            {getDisplayName(member.userId)}
+                          </p>
                           <p className="text-xs text-muted-foreground">Team Member</p>
                         </div>
                       </div>
@@ -316,7 +320,7 @@ export function EditEventModal({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => removeMember(member.userId)}
+                        onClick={() => removeMember(member.eventMemberId)}
                         className="text-muted-foreground hover:text-destructive"
                       >
                         <X className="w-4 h-4" />
@@ -343,6 +347,8 @@ export function EditEventModal({
                 <UserPlus className="w-4 h-4 mr-2" /> Add Team Member
               </Button>
             </div>
+
+
 
             {/* Actions */}
             <div className="flex justify-end space-x-3 pt-4 border-t">

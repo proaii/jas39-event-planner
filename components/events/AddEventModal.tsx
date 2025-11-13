@@ -40,7 +40,6 @@ function formatDateTimeWithTZ(dateStr: string, timeStr: string): string {
   const mm = pad(localDate.getMinutes());
   const ss = pad(localDate.getSeconds());
 
-  // คำนวณ offset timezone เช่น +07:00
   const offsetMin = localDate.getTimezoneOffset(); 
   const offsetSign = offsetMin > 0 ? "-" : "+";
   const offsetHr = pad(Math.floor(Math.abs(offsetMin) / 60));

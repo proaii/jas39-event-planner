@@ -1,15 +1,16 @@
-'use client';
+"use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { mockEvents, mockTasks } from "@/lib/mock-data";
+import { mockEvents } from "@/lib/mock-data";
 import { EventDetail } from "@/components/events/EventDetail";
 import { EditEventModal } from "@/components/events/EditEventModal";
 import { useUiStore } from "@/stores/ui-store";
-import { useEventStore, UpdateEventInput } from "@/stores/useEventStore"; 
+import { useEventStore, UpdateEventInput } from "@/stores/useEventStore";
+import { useTaskStore } from "@/stores/task-store";
 import type { TemplateData } from "@/components/events/SaveTemplateModal";
 import { editEventSchema } from "@/schemas/editEventSchema";
 import { z } from "zod";
-import type { Event, UserLite, Task } from "@/lib/types";
+import type { Event, UserLite, Task, TaskStatus, EventMember } from "@/lib/types";
 
 type EditEventData = z.infer<typeof editEventSchema>;
 
@@ -18,71 +19,92 @@ export default function EventDetailPage() {
   const { id } = useParams();
 
   const { openEditEventModal, closeEditEventModal } = useUiStore();
-  const { events, updateEvent } = useEventStore(); 
+  const { events, updateEvent, deleteEvent, saveTemplate } = useEventStore();
+  const { tasks, addTask, updateTask } = useTaskStore();
 
-  const event = events.find((e) => e.eventId === id) || mockEvents.find((e) => e.eventId === id);
+  
+  // Get event from store or fallback to mock
+  const event: Event | undefined =
+    events.find((e) => e.eventId === id) ||
+    mockEvents.find((e) => e.eventId === id);
 
   if (!event) {
-    return <p className="p-8 text-center text-muted-foreground">Event not found.</p>;
+    return (
+      <p className="p-8 text-center text-muted-foreground">
+        Event not found.
+      </p>
+    );
   }
 
-  // use mock user for now, replace with actual current user from auth later
+  // Mock current user, replace with real auth later
   const currentUser: UserLite = {
     userId: "user-1",
     username: "Bob",
     email: "bob@example.com",
   };
 
-  // Handlers
+  // --- Handlers ---
+
+  // Navigate back
   const handleBack = () => router.back();
 
-  const handleTaskStatusChange = (taskId: string, newStatus: "To Do" | "In Progress" | "Done") => {
-    console.log("✅ Task status changed:", taskId, "→", newStatus);
+  // Update task status in TaskStore
+  const handleTaskStatusChange = (taskId: string, newStatus: TaskStatus) => {
+    updateTask(taskId, { taskStatus: newStatus });
   };
 
+  // Add a new task linked to this event
   const handleAddTask = (task: Omit<Task, "taskId" | "createdAt">) => {
-    console.log("➕ Add new task:", task);
+    addTask({ ...task, eventId: event.eventId, eventTitle: event.title });
   };
 
+  // Open edit event modal
   const handleEditEvent = (eventId: string) => {
     openEditEventModal(eventId);
   };
 
+  // Delete event
   const handleDeleteEvent = (eventId: string) => {
-    console.log("🗑️ Delete event:", eventId);
+    deleteEvent(eventId);  // เรียก action ของ store แทน console.log
   };
 
+  // Save event as template
   const handleSaveTemplate = (eventId: string, templateData: TemplateData) => {
-    console.log("💾 Save as template for event:", eventId, templateData);
+    saveTemplate(eventId, templateData); // เรียก action ของ store แทน console.log
   };
 
+  // Update event in EventStore
   const handleUpdateEvent = (eventId: string, updatedData: UpdateEventInput) => {
-    const normalizedData = {
+    // Normalize data to match EventMember and UpdateEventInput types
+    const normalizedData: UpdateEventInput = {
       title: updatedData.title ?? "",
       location: updatedData.location,
       description: updatedData.description ?? "",
       coverImageUri: updatedData.coverImageUri ?? "",
       color: updatedData.color,
-      startAt: updatedData.startAt ?? "",
-      endAt: updatedData.endAt ?? "",
-      members: (updatedData.members || []).map((m) => ({
-        userId: m.userId,
-        eventId: m.eventId ?? eventId,
-        joinedAt: m.joinedAt ?? new Date().toISOString(),
+      startAt: updatedData.startAt ?? null,
+      endAt: updatedData.endAt ?? null,
+      members: (updatedData.members || []).map((m: EventMember) => ({
         eventMemberId: m.eventMemberId,
+        eventId: m.eventId ?? eventId,
+        userId: m.userId,
+        joinedAt: m.joinedAt ?? new Date().toISOString(),
+        role: m.role, // optional field, matches schema
       })),
     };
 
-    updateEvent(eventId, normalizedData); 
+    updateEvent(eventId, normalizedData);
     closeEditEventModal();
   };
 
+  // Filter tasks belonging to this event
+  const eventTasks = tasks.filter((t) => t.eventId === event.eventId);
 
   return (
     <div className="p-0">
       <EventDetail
         event={event}
-        tasks={mockTasks}
+        tasks={eventTasks}
         currentUser={currentUser}
         onBack={handleBack}
         onTaskStatusChange={handleTaskStatusChange}

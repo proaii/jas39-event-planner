@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const editEventSchema = z.object({
   title: z.string().min(1, "Event title is required"),
-  location: z.string().min(1).optional(), 
+  location: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
   coverImageUri: z.string().optional(),
   color: z.number(),
@@ -10,10 +10,11 @@ export const editEventSchema = z.object({
   endAt: z.string().nullable().optional(),
   members: z.array(
     z.object({
-      eventMemberId: z.string(), 
+      eventMemberId: z.string(),
       eventId: z.string(),
       userId: z.string(),
       joinedAt: z.string(),
+      role: z.string().optional(), 
     })
   ),
 });

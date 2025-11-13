@@ -2,16 +2,13 @@
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Event, EventMember } from "@/lib/types";
 import { toast } from "react-hot-toast";
 import { useUiStore } from "@/stores/ui-store";
 import { editEventSchema } from "@/schemas/editEventSchema";
 import { z } from "zod";
+import type { TemplateData } from "@/components/events/SaveTemplateModal";
 
 export type CreateEventInput = Omit<
   Event,
@@ -30,6 +27,10 @@ interface EventStoreState {
   events: Event[];
   setEvents: (events: Event[]) => void;
   updateEvent: (eventId: string, updatedData: UpdateEventInput) => void;
+
+  // New actions
+  deleteEvent: (eventId: string) => void;
+  saveTemplate: (eventId: string, templateData: TemplateData) => void;
 
   setSearchQuery: (q: string) => void;
   setSortBy: (s: "date" | "name" | "progress") => void;
@@ -66,10 +67,22 @@ export const useEventStore = create<EventStoreState>()(
             color: updatedData.color ?? e.color,
             startAt: updatedData.startAt ?? e.startAt,
             endAt: updatedData.endAt ?? e.endAt,
-            members: membersIds, 
+            members: membersIds,
           };
         }),
       });
+    },
+
+    deleteEvent: (eventId) => {
+      set({
+        events: get().events.filter((e) => e.eventId !== eventId),
+      });
+      toast.success("Event deleted");
+    },
+
+    saveTemplate: (eventId, templateData) => {
+      console.log("Template saved in store:", eventId, templateData);
+      toast.success("Template saved");
     },
 
     setSearchQuery: (q) => set({ searchQuery: q }),
@@ -80,6 +93,7 @@ export const useEventStore = create<EventStoreState>()(
   }))
 );
 
+// --- React Query helpers remain unchanged ---
 const API_BASE = "/api/events";
 
 async function fetchEventsAPI(params: {
@@ -123,7 +137,6 @@ async function deleteEventAPI(eventId: string) {
 
 export function useFetchEvents() {
   const { searchQuery, sortBy, page, pageSize } = useEventStore();
-
   return useQuery({
     queryKey: ["events", { searchQuery, sortBy, page, pageSize }],
     queryFn: () =>
@@ -138,7 +151,6 @@ export function useFetchEvents() {
 export function useCreateEvent() {
   const queryClient = useQueryClient();
   const closeModal = useUiStore.getState().closeAddEventModal;
-
   return useMutation({
     mutationFn: (data: CreateEventInput) => createEventAPI(data),
     onSuccess: () => {
@@ -153,7 +165,6 @@ export function useCreateEvent() {
 export function useUpdateEvent() {
   const queryClient = useQueryClient();
   const closeModal = useUiStore.getState().closeEditEventModal;
-
   return useMutation({
     mutationFn: ({ eventId, data }: { eventId: string; data: UpdateEventInput }) =>
       updateEventAPI(eventId, data),
@@ -168,7 +179,6 @@ export function useUpdateEvent() {
 
 export function useDeleteEvent() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: (eventId: string) => deleteEventAPI(eventId),
     onSuccess: () => {

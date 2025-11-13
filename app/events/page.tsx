@@ -28,6 +28,7 @@ import { mockEvents } from "@/lib/mock-data";
 import { Event } from "@/lib/types";
 
 import { useUiStore } from "@/stores/ui-store";
+import { useEventStore } from "@/stores/useEventStore"; 
 import { toast } from "react-hot-toast";
 import { AddEventModal } from "@/components/events/AddEventModal";
 import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
@@ -58,21 +59,27 @@ export default function AllEventsPage() {
     setDateFilters,
   } = useUiStore();
 
-  // Temporary local filter state for the popover (moved to component top-level)
+  // ------------------- EVENT STORE -------------------
+  const { events, setEvents, selectedEventId, setSelectedEventId } = useEventStore();
+
+  useEffect(() => {
+    if (events.length === 0) {
+      setEvents(mockEvents);
+    }
+  }, [events, setEvents]);
+
+  const [prefillData, setPrefillData] = useState<Partial<Event> | null>(null);
+
+  // ------------------- FILTER STATE -------------------
   const [tempProgressFilters, setTempProgressFilters] = useState(progressFilters);
   const [tempDateFilters, setTempDateFilters] = useState(dateFilters);
 
-  // When popover opens, sync temp state from store
   useEffect(() => {
     if (isFilterOpen) {
       setTempProgressFilters(progressFilters);
       setTempDateFilters(dateFilters);
     }
   }, [isFilterOpen, progressFilters, dateFilters]);
-
-  // ------------------- EVENTS STATE -------------------
-  const [events, setEvents] = useState<Event[]>(mockEvents);
-  const [prefillData, setPrefillData] = useState<Partial<Event> | null>(null);
 
   // ------------------- HANDLERS -------------------
   const handleCreateEvent = (
@@ -85,7 +92,7 @@ export default function AllEventsPage() {
       createdAt: new Date().toISOString(),
       members: [],
     };
-    setEvents((prev) => [...prev, newEvent]);
+    setEvents([...events, newEvent]);
     closeAddEventModal();
     toast.success(`Event "${eventData.title}" created successfully!`);
   };
@@ -95,17 +102,14 @@ export default function AllEventsPage() {
       title: data.title,
       location: data.location || "",
       description: data.eventDescription || "",
-coverImageUri: data.coverImageUri,
-      color: 0, // color is a number in the new type
+      coverImageUri: data.coverImageUri,
+      color: 0,
       startAt: data.startAt,
       endAt: data.endAt,
     });
     openAddEventModal();
   };
 
-  
-
-  // Apply temp filters to the store (invoked by popover Apply)
   const applyTempFilters = () => {
     setProgressFilters(tempProgressFilters);
     setDateFilters(tempDateFilters);
@@ -121,7 +125,6 @@ coverImageUri: data.coverImageUri,
   const filteredAndSortedEvents = useMemo(() => {
     let filtered = events;
 
-    // --- Search ---
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(

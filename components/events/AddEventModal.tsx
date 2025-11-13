@@ -29,6 +29,26 @@ interface AddEventModalProps {
 
 const hexToNumber = (hex: string) => parseInt(hex.replace("#", ""), 16);
 
+function formatDateTimeWithTZ(dateStr: string, timeStr: string): string {
+  const localDate = new Date(`${dateStr}T${timeStr}`);
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  const yyyy = localDate.getFullYear();
+  const MM = pad(localDate.getMonth() + 1);
+  const dd = pad(localDate.getDate());
+  const hh = pad(localDate.getHours());
+  const mm = pad(localDate.getMinutes());
+  const ss = pad(localDate.getSeconds());
+
+  // คำนวณ offset timezone เช่น +07:00
+  const offsetMin = localDate.getTimezoneOffset(); 
+  const offsetSign = offsetMin > 0 ? "-" : "+";
+  const offsetHr = pad(Math.floor(Math.abs(offsetMin) / 60));
+  const offsetM = pad(Math.abs(offsetMin) % 60);
+
+  return `${yyyy}-${MM}-${dd} ${hh}:${mm}:${ss}${offsetSign}${offsetHr}:${offsetM}`;
+}
+
 export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefillData }: AddEventModalProps) {
   const [formData, setFormData] = useState({
     title: "",
@@ -82,11 +102,11 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
 
     setIsSubmitting(true);
     try {
-      const startISO = new Date(`${formData.startDate}T${formData.startTime}:00Z`).toISOString();
+      const startISO = formatDateTimeWithTZ(formData.startDate, formData.startTime);
       const endISO = formData.isMultiDay
-        ? new Date(`${formData.endDate}T${formData.endTime}:00Z`).toISOString()
+        ? formatDateTimeWithTZ(formData.endDate, formData.endTime)
         : formData.endTime
-          ? new Date(`${formData.startDate}T${formData.endTime}:00Z`).toISOString()
+          ? formatDateTimeWithTZ(formData.startDate, formData.endTime)
           : null;
 
       const newEvent: Omit<Event, 'eventId' | 'ownerId' | 'createdAt'> = {
@@ -99,6 +119,7 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
         endAt: endISO,
         members: formData.members,
       };
+
       onCreateEvent(newEvent);
       toast.success("Event created successfully!");
       onClose();

@@ -12,7 +12,7 @@ import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateM
 
 import { useFetchEvents, useCreateEvent } from "@/stores/useEventStore";
 import { useTaskStore } from "@/stores/task-store"; 
-import type { TemplateData } from "@/components/events/SaveTemplateModal";
+import { TemplateData } from "@/schemas/template";
 import type { Event, UserLite } from "@/lib/types";
 
 // -------------------------------------------------
@@ -109,7 +109,7 @@ export default function DashboardPage() {
       title: data.title ?? data.name,
       location: data.location || "",
       description: data.eventDescription || "",
-      coverImageUri: data.coverImageUri,
+      coverImageUri: data.coverImageUri ?? undefined,
       color: data.color ?? 0,
       startAt: data.startAt ?? null,
       endAt: data.endAt ?? null,

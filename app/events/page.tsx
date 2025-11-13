@@ -32,7 +32,7 @@ import { useEventStore } from "@/stores/useEventStore";
 import { toast } from "react-hot-toast";
 import { AddEventModal } from "@/components/events/AddEventModal";
 import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
-import type { TemplateData } from "@/components/events/SaveTemplateModal";
+import { TemplateData } from "@/schemas/template";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 export default function AllEventsPage() {
@@ -102,7 +102,7 @@ export default function AllEventsPage() {
       title: data.title,
       location: data.location || "",
       description: data.eventDescription || "",
-      coverImageUri: data.coverImageUri,
+      coverImageUri: data.coverImageUri ?? undefined,
       color: 0,
       startAt: data.startAt,
       endAt: data.endAt,

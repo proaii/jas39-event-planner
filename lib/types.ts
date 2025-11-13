@@ -33,6 +33,27 @@ export interface EventMember {
   joinedAt: string;
 }
 
+// ----- Event Templates -----
+export interface EventTemplateData {
+  title: string;
+  location?: string | null;
+  eventDescription?: string | null;
+  coverImageUri?: string | null;
+  color: number;
+  startAt?: string | null;
+  endAt?: string | null;
+  members: string[];
+}
+
+export interface EventTemplate {
+  templateId: string;
+  ownerId: string;
+  name: string;
+  description?: string | null;
+  createdAt: string;
+  eventData: EventTemplateData;
+}
+
 // ----- Tasks -----
 export interface Attachment {
   attachmentId: string;

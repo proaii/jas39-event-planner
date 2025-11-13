@@ -8,7 +8,7 @@ import { toast } from "react-hot-toast";
 import { useUiStore } from "@/stores/ui-store";
 import { editEventSchema } from "@/schemas/editEventSchema";
 import { z } from "zod";
-import type { TemplateData } from "@/components/events/SaveTemplateModal";
+import { TemplateData } from "@/schemas/template";
 
 export type CreateEventInput = Omit<
   Event,
@@ -29,7 +29,6 @@ interface EventStoreState {
   updateEvent: (eventId: string, updatedData: UpdateEventInput) => void;
 
   deleteEvent: (eventId: string) => void;
-  saveTemplate: (eventId: string, templateData: TemplateData) => void;
 
   setSearchQuery: (q: string) => void;
   setSortBy: (s: "date" | "name" | "progress") => void;
@@ -72,11 +71,6 @@ export const useEventStore = create<EventStoreState>()(
         events: get().events.filter((e) => e.eventId !== eventId),
       });
       toast.success("Event deleted");
-    },
-
-    saveTemplate: (eventId, templateData) => {
-      console.log("Template saved in store:", eventId, templateData);
-      toast.success("Template saved");
     },
 
     setSearchQuery: (q) => set({ searchQuery: q }),
@@ -127,6 +121,15 @@ async function deleteEventAPI(eventId: string) {
   const res = await fetch(`${API_BASE}/${eventId}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete event");
   return { eventId };
+}
+
+async function saveTemplateAPI(eventId: string, data: TemplateData) {
+  const res = await fetch(`${API_BASE}/${eventId}/templates`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to save template");
+  return res.json();
 }
 
 export function useFetchEvents() {
@@ -187,4 +190,18 @@ export function useEventById(eventId: string | null) {
   const { data } = useFetchEvents();
   if (!data || !eventId) return null;
   return data.items?.find((e: Event) => e.eventId === eventId) || null;
+}
+
+export function useSaveTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ eventId, data }: { eventId: string; data: TemplateData }) =>
+      saveTemplateAPI(eventId, data), 
+
+    onSuccess: () => {
+      toast.success("Template saved successfully");
+    },
+    onError: () => toast.error("Failed to save template"),
+  });
 }

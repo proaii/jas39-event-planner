@@ -5,12 +5,13 @@ import { mockEvents } from "@/lib/mock-data";
 import { EventDetail } from "@/components/events/EventDetail";
 import { EditEventModal } from "@/components/events/EditEventModal";
 import { useUiStore } from "@/stores/ui-store";
-import { useEventStore, UpdateEventInput } from "@/stores/useEventStore";
+import { useEventStore, UpdateEventInput, useSaveTemplate } from "@/stores/useEventStore";
 import { useTaskStore } from "@/stores/task-store";
-import type { TemplateData } from "@/components/events/SaveTemplateModal";
+import { TemplateData } from "@/schemas/template";
 import { z } from "zod";
 import { editEventSchema } from "@/schemas/editEventSchema";
 import type { Event, UserLite, Task, TaskStatus, EventMember } from "@/lib/types";
+import { toast } from "react-hot-toast";
 
 type EditEventData = z.infer<typeof editEventSchema>;
 
@@ -19,8 +20,10 @@ export default function EventDetailPage() {
   const { id } = useParams();
 
   const { openEditEventModal, closeEditEventModal } = useUiStore();
-  const { events, updateEvent, deleteEvent, saveTemplate } = useEventStore();
+  const { events, updateEvent, deleteEvent } = useEventStore();
   const { tasks, addTask, updateTask } = useTaskStore();
+
+  const { mutate: saveTemplateMutate } = useSaveTemplate();
 
   // Get event from store or fallback to mock
   const event: Event | undefined =
@@ -63,7 +66,11 @@ export default function EventDetailPage() {
   };
 
   const handleSaveTemplate = (eventId: string, templateData: TemplateData) => {
-    saveTemplate(eventId, templateData);
+    if (!eventId) {
+      toast.error("Cannot save template: Event ID is missing.");
+      return;
+    }
+    saveTemplateMutate({ eventId, data: templateData });
   };
 
   const handleUpdateEvent = (eventId: string, updatedData: Partial<UpdateEventInput>) => {

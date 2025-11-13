@@ -53,7 +53,7 @@ import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { SaveTemplateModal } from "@/components/events/SaveTemplateModal";
 import { ViewSwitcher } from "@/components/events/ViewSwitcher";
 import { KanbanBoard } from "@/components/events/KanbanBoard";
-import type { TemplateData } from "@/components/events/SaveTemplateModal";
+import { TemplateData } from "@/schemas/template";
 import type { Event, Task, TaskStatus, TaskPriority, UserLite } from "@/lib/types";
 import { useUiStore } from "@/stores/ui-store";
 

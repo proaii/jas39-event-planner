@@ -1,3 +1,5 @@
+'use client';
+
 import { Card, CardContent } from "@/components/ui/card";
 import type { Event, Task } from "@/lib/types";
 import { TrendingUp } from "lucide-react";

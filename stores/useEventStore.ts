@@ -15,7 +15,7 @@ export type CreateEventInput = Omit<
   "eventId" | "ownerId" | "createdAt" | "members"
 >;
 
-export type UpdateEventInput = z.infer<typeof editEventSchema>;
+export type UpdateEventInput = Partial<z.infer<typeof editEventSchema>>;
 
 interface EventStoreState {
   searchQuery: string;
@@ -28,7 +28,6 @@ interface EventStoreState {
   setEvents: (events: Event[]) => void;
   updateEvent: (eventId: string, updatedData: UpdateEventInput) => void;
 
-  // New actions
   deleteEvent: (eventId: string) => void;
   saveTemplate: (eventId: string, templateData: TemplateData) => void;
 
@@ -60,17 +59,12 @@ export const useEventStore = create<EventStoreState>()(
 
           return {
             ...e,
-            title: updatedData.title ?? e.title,
-            location: updatedData.location ?? e.location,
-            description: updatedData.description ?? e.description,
-            coverImageUri: updatedData.coverImageUri ?? e.coverImageUri,
-            color: updatedData.color ?? e.color,
-            startAt: updatedData.startAt ?? e.startAt,
-            endAt: updatedData.endAt ?? e.endAt,
-            members: membersIds,
+            ...updatedData,
+            members: membersIds.length > 0 ? membersIds : e.members,
           };
         }),
       });
+      toast.success("Event updated in store");
     },
 
     deleteEvent: (eventId) => {
@@ -93,7 +87,7 @@ export const useEventStore = create<EventStoreState>()(
   }))
 );
 
-// --- React Query helpers remain unchanged ---
+// --- React Query helpers ---
 const API_BASE = "/api/events";
 
 async function fetchEventsAPI(params: {

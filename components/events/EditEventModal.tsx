@@ -23,17 +23,13 @@ import NextImage from "next/image";
 import { InviteTeamMembersModal } from "./InviteTeamMembersModal";
 import { toast } from "react-hot-toast";
 import { mockUsers } from "@/lib/mock-data";
+import { useEventStore } from "@/stores/useEventStore";
 
-export function EditEventModal({
-  events,
-  onUpdateEvent,
-}: {
-  events: Event[];
-  onUpdateEvent: (eventId: string, updatedData: UpdateEventInput) => void;
-}) {
+export function EditEventModal({ events }: { events: Event[] }) {
   const { isEditEventModalOpen, currentEventId, closeEditEventModal } = useUiStore();
-  const event = events.find((e) => e.eventId === currentEventId) || null;
+  const { updateEvent } = useEventStore();
 
+  const event = events.find((e) => e.eventId === currentEventId) || null;
   const currentUserId = "u1";
 
   const [formData, setFormData] = useState<UpdateEventInput>({
@@ -71,9 +67,7 @@ export function EditEventModal({
       members: membersData,
     });
 
-    if (parsed.success) {
-      setFormData(parsed.data);
-    }
+    if (parsed.success) setFormData(parsed.data);
   }, [event]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -97,7 +91,7 @@ export function EditEventModal({
       })),
     };
 
-    onUpdateEvent(event.eventId, normalizedData);
+    updateEvent(event.eventId, normalizedData);
     toast.success("Event updated successfully!");
     closeEditEventModal();
   };
@@ -125,7 +119,6 @@ export function EditEventModal({
       members: prev.members.filter((m) => m.eventMemberId !== eventMemberId),
     }));
   };
-
 
   const getDisplayName = (userId: string) => mockUsers[userId]?.username || userId;
   const getInitials = (userId: string) =>

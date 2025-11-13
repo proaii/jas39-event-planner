@@ -1,3 +1,5 @@
+'use client';
+
 import { Card, CardContent } from "@/components/ui/card";
 import type { Task } from "@/lib/types";
 import { formatDueDate } from "@/lib/utils";

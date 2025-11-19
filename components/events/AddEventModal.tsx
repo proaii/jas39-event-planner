@@ -28,6 +28,7 @@ import { toast } from "react-hot-toast";
 import NextImage from "next/image";
 import type { Event } from "@/lib/types";
 import { Checkbox } from "@/components/ui/checkbox";
+import { GoogleCalendarSync } from "@/components/google-calendar/GoogleCalendarSync";
 
 interface AddEventModalProps {
   isOpen: boolean;
@@ -402,6 +403,35 @@ export function AddEventModal({
               <UserPlus className="w-4 h-4 mr-2" /> Add Team Member
             </Button>
           </div>
+
+          {/* Google Calendar Sync */}
+          {formData.title && formData.date && formData.time && (
+            <div className="space-y-2 pt-4 border-t">
+              <Label className="text-sm font-medium">Google Calendar</Label>
+              <GoogleCalendarSync
+                event={{
+                  eventId: "",
+                  title: formData.title,
+                  location: formData.location,
+                  description: formData.description,
+                  coverImageUri: formData.coverImage || undefined,
+                  color: colorTokenToIndex(formData.color),
+                  startAt: toIso(formData.date, formData.time) ?? null,
+                  endAt: formData.isMultiDay
+                    ? (toIso(formData.endDate, formData.endTime) ?? null)
+                    : (toIso(formData.date, formData.endTime || formData.time) ?? null),
+                  ownerId: "",
+                  createdAt: new Date().toISOString(),
+                  members: [],
+                }}
+                googleEventId={undefined}
+                onSync={() => {
+                  // Event will be created by the sync component
+                  toast.success("Event synced to Google Calendar!");
+                }}
+              />
+            </div>
+          )}
 
           <div className="flex justify-end space-x-3 pt-4 border-t">
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>

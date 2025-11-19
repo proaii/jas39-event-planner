@@ -28,6 +28,7 @@ import { editEventSchema } from "@/schemas/editEventSchema";
 import type { Event } from "@/lib/types";
 import { z } from "zod";
 import NextImage from "next/image";
+import { GoogleCalendarSync } from "@/components/google-calendar/GoogleCalendarSync";
 
 interface EditEventModalProps {
   events: Event[];
@@ -347,6 +348,28 @@ export function EditEventModal({
             <p className="text-xs text-muted-foreground">
               Click &quot;Add Team Member&quot; to search and select from available users.
             </p>
+          </div>
+
+          {/* Google Calendar Sync */}
+          <div className="space-y-2 pt-4 border-t">
+            <Label className="text-sm font-medium">Google Calendar</Label>
+            <GoogleCalendarSync
+              event={event ? {
+                ...event,
+                title: formData.title,
+                location: formData.location,
+                description: formData.description,
+                coverImageUri: formData.coverImageUri || undefined,
+                color: formData.color,
+                startAt: formData.startAt,
+                endAt: formData.endAt,
+              } : undefined}
+              googleEventId={undefined} // TODO: Store googleEventId in event
+              onSync={() => {
+                // Refresh events after sync
+                window.location.reload();
+              }}
+            />
           </div>
 
           {/* Actions */}

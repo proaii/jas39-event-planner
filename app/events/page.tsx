@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,16 +24,16 @@ import {
   ChevronDown,
   FileText,
 } from "lucide-react";
-import { mockEvents } from "@/lib/mock-data";
 import { Event } from "@/lib/types";
 
 import { useUiStore } from "@/stores/ui-store";
-import { useEventStore } from "@/stores/useEventStore"; 
+import { useEventStore, useFetchEvents } from "@/stores/useEventStore";
 import { toast } from "react-hot-toast";
 import { AddEventModal } from "@/components/events/AddEventModal";
 import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
 import { TemplateData } from "@/schemas/template";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+
 
 export default function AllEventsPage() {
   const currentUser = "Bob";
@@ -61,12 +61,14 @@ export default function AllEventsPage() {
 
   // ------------------- EVENT STORE -------------------
   const { events, setEvents } = useEventStore();
+  const { data: fetchedEvents } = useFetchEvents();
 
-  useEffect(() => {
-    if (events.length === 0) {
-      setEvents(mockEvents);
+  React.useEffect(() => {
+    if (fetchedEvents && fetchedEvents.items) {
+      setEvents(fetchedEvents.items);
     }
-  }, [events, setEvents]);
+  }, [fetchedEvents, setEvents]);
+
 
   const [prefillData, setPrefillData] = useState<Partial<Event> | null>(null);
 
@@ -74,7 +76,7 @@ export default function AllEventsPage() {
   const [tempProgressFilters, setTempProgressFilters] = useState(progressFilters);
   const [tempDateFilters, setTempDateFilters] = useState(dateFilters);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (isFilterOpen) {
       setTempProgressFilters(progressFilters);
       setTempDateFilters(dateFilters);
@@ -349,7 +351,7 @@ export default function AllEventsPage() {
 
       <CreateFromTemplateModal
         isOpen={isTemplateModalOpen}
-        templates={mockEvents.map((e) => ({
+        templates={events.map((e) => ({
           name: e.title,
           description: e.description,
           title: e.title,

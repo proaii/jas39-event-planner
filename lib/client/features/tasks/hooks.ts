@@ -9,7 +9,7 @@ import { MINUTES } from '@/lib/constants';
 type TasksPage = { items: Task[]; nextPage: number | null };
 
 // List Task of a single Event (For the Event Detail page)
-export function useTasksInfinite(f: {
+export function useFetchEventTasks(f: {
   eventId: string;
   status?: Task['taskStatus'];  
   q?: string;
@@ -43,7 +43,7 @@ export function useTasksInfinite(f: {
 }
 
 // List all User's Tasks (Personal + Assignee) (For the All Tasks page)
-export function useAllTasksInfinite(f: {
+export function useFetchAllTasks(f: {
   status?: Task['taskStatus'];
   q?: string;
   pageSize?: number;
@@ -72,7 +72,7 @@ export function useAllTasksInfinite(f: {
   });
 }
 
-export function useTask(taskId: string) {
+export function useFetchTask(taskId: string) {
   return useQuery<Task, ApiError>({
     queryKey: queryKeys.task(taskId),
     queryFn: async () => {

@@ -10,7 +10,7 @@ type EventsPage = { items: Event[]; nextPage: number | null };
 
 // ---------- Events ----------
 
-export function useEventsInfinite(f: { q?: string; pageSize?: number }) {
+export function useFetchEvents(f: { q?: string; pageSize?: number }) {
   const pageSize = f.pageSize ?? 10;
 
   return useInfiniteQuery<EventsPage, ApiError, EventsPage, ReturnType<typeof queryKeys.events>, number>({
@@ -36,7 +36,7 @@ export function useEventsInfinite(f: { q?: string; pageSize?: number }) {
   });
 }
 
-export function useEvent(id: string) {
+export function useFetchEvent(id: string) {
   return useQuery<Event, ApiError>({
     queryKey: queryKeys.event(id),
     queryFn: async () => {

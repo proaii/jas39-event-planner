@@ -20,7 +20,7 @@ function isUsersPaged(x: unknown): x is UsersPaged {
   );
 }
 
-export function useAllUsers(opts: UseAllUsersOpts = {}) {
+export function useFetchUsers(opts: UseAllUsersOpts = {}) {
   const { q, enabled = true } = opts;
 
   return useQuery<UserLite[], ApiError>({
@@ -58,7 +58,7 @@ export function useAllUsers(opts: UseAllUsersOpts = {}) {
   });
 }
 
-export function useUser(userId: string) {
+export function useFetchUser(userId: string) {
   return useQuery<UserLite, ApiError>({
     queryKey: ['users', userId], 
     queryFn: async () => {

@@ -8,7 +8,7 @@ import { MINUTES } from '@/lib/constants'
 
 // ---------- Event Templates ----------
 
-export function useTemplates() {
+export function useFetchTemplates() {
   return useQuery<EventTemplate[], ApiError>({
     queryKey: ['templates'], 
     queryFn: async () => {

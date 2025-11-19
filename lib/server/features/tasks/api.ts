@@ -4,6 +4,37 @@ import type { Task, Subtask, Attachment, TaskStatus, TaskPriority, UserLite } fr
 
 const TABLE = 'tasks';
 
+// Get a single task by ID
+export async function getTaskById(taskId: string): Promise<Task> {
+  const db = await createDb();
+
+  try {
+    const { data, error } = await db
+      .from(TABLE)
+      .select(
+        `
+        task_id, event_id, title, description, task_status, task_priority, start_at, end_at, created_at,
+        attachments:attachments ( attachment_id, attachment_url ),
+        subtasks:subtasks ( subtask_id, title, subtask_status ),
+        assignees:task_assignees (
+          assigned_at,
+          user:users!task_assignees_user_id_fkey ( user_id, username, email, avatar_url )
+        ),
+        event:events!tasks_event_id_fkey ( event_id, owner_id, title )
+        `
+      )
+      .eq('task_id', taskId)
+      .single();
+
+    if (error) throw error;
+
+    const row = data as unknown as RawTaskRow;
+    return map(row);
+  } catch (e) {
+    throw toApiError(e, 'TASK_FETCH_FAILED');
+  }
+}
+
 // List Task of a single Event (For the Event Detail page)
 export async function listEventTasks(params: {
   eventId: string;
@@ -392,7 +423,6 @@ type RawUserRow = {
 
 type RawAssigneeRow = {
   assigned_at: string;
-  // Supabase relation can return an object or an array (if configured) — handle both
   user: RawUserRow | RawUserRow[] | null;
 };
 
@@ -404,7 +434,6 @@ type RawAttachmentRow = {
 type RawSubtaskRow = {
   subtask_id: string;
   title: string;
-  // กำหนดให้เป็นชนิดเดียวกับ Subtask['subtaskStatus'] เพื่อตัด cast any
   subtask_status: Subtask['subtaskStatus'];
 };
 

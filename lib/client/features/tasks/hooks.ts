@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import type { Task } from '@/lib/types';
 import type { ApiError } from '@/lib/errors';
@@ -78,6 +78,20 @@ export function useAllTasksInfinite(f: {
     gcTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
+  });
+}
+
+export function useTask(taskId: string) {
+  return useQuery<Task, ApiError>({
+    queryKey: queryKeys.task(taskId),
+    queryFn: async () => {
+      const r = await fetch(`/api/tasks/${taskId}`);
+      if (!r.ok) throw (await r.json()) as ApiError;
+      return (await r.json()) as Task;
+    },
+    enabled: !!taskId,
+    staleTime: 1000 * 60 * 5, 
+    refetchOnWindowFocus: false,
   });
 }
 

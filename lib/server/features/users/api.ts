@@ -11,6 +11,40 @@ type DbUserRow = {
   avatarUrl: string | null; 
 };
 
+export async function getUserById(targetUserId: string): Promise<UserLite> {
+  const supabase = await createClient();
+
+  try {
+    const { data: { user }, error: uerr } = await supabase.auth.getUser();
+    if (uerr) throw uerr;
+    if (!user) throw new Error('UNAUTHORIZED');
+
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select('userId:user_id, username, email, avatarUrl:avatar_url')
+      .eq('user_id', targetUserId)
+      .single();
+
+    if (error) throw error;
+    if (!data) throw new Error('USER_NOT_FOUND');
+
+    const r = data as DbUserRow;
+
+    const userId = r.userId?.toString() ?? '';
+    if (!userId) throw new Error('INVALID_USER_DATA');
+
+    return {
+      userId,
+      username: (r.username ?? r.email ?? '').toString(),
+      email: (r.email ?? '').toString(),
+      avatarUrl: r.avatarUrl ?? null,
+    };
+
+  } catch (e) {
+    throw toApiError(e, 'GET_USER_FAILED');
+  }
+}
+
 export async function listAllUsers(params: {
   q?: string;
   page?: number;
@@ -62,3 +96,4 @@ export async function listAllUsers(params: {
     throw toApiError(e, 'USERS_LIST_FAILED');
   }
 }
+

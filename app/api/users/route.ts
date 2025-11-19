@@ -1,5 +1,5 @@
 import { jsonError } from '@/lib/errors';
-import { listAllUsers } from '@/lib/server/features/members/api';
+import { listAllUsers } from '@/lib/server/features/users/api';
 
 export async function GET(req: Request) {
   try {

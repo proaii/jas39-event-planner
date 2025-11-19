@@ -25,7 +25,7 @@ import {
   FileText,
 } from "lucide-react";
 import { Event } from "@/lib/types";
-
+import { useFetchUsers } from "@/lib/client/features/users/hooks";
 import { useUiStore } from "@/stores/ui-store";
 import { useEventStore, useFetchEvents } from "@/stores/useEventStore";
 import { toast } from "react-hot-toast";
@@ -36,8 +36,14 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 
 
 export default function AllEventsPage() {
-  const currentUser = "Bob";
   const router = useRouter();
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+
+  // ------------------- USERS -------------------
+  const { data: allUsers = [], isLoading: isUsersLoading } = useFetchUsers({
+    q: userSearchQuery,
+    enabled: true,
+  });
 
   // ------------------- UI STORE -------------------
   const {
@@ -90,7 +96,7 @@ export default function AllEventsPage() {
     const newEvent: Event = {
       eventId: `event-${Date.now()}`,
       ...eventData,
-      ownerId: currentUser,
+      ownerId: "currentUser", // <-- แก้เป็น user ที่ล็อกอินจริง
       createdAt: new Date().toISOString(),
       members: [],
     };
@@ -98,7 +104,7 @@ export default function AllEventsPage() {
     closeAddEventModal();
     toast.success(`Event "${eventData.title}" created successfully!`);
   };
-
+  
   const handleUseTemplate = (data: TemplateData) => {
     setPrefillData({
       title: data.title,

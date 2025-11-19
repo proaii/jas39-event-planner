@@ -23,15 +23,14 @@ import NextImage from "next/image";
 import { InviteTeamMembersModal } from "./InviteTeamMembersModal";
 import { toast } from "react-hot-toast";
 import { useEventStore } from "@/stores/useEventStore";
+import { useFetchUsers } from "@/lib/client/features/users/hooks";
 
 export function EditEventModal({ events }: { events: Event[] }) {
   const { isEditEventModalOpen, currentEventId, closeEditEventModal } = useUiStore();
   const { updateEvent } = useEventStore();
 
   const event = events.find((e) => e.eventId === currentEventId) || null;
-  const currentUserId = "u1";
 
-  const [allUsers, setAllUsers] = useState<UserLite[]>([]);
   const [formData, setFormData] = useState<UpdateEventInput>({
     title: "",
     location: "",
@@ -46,22 +45,24 @@ export function EditEventModal({ events }: { events: Event[] }) {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
 
-  // load all users (same approach used in EventDetail)
-  useEffect(() => {
-    async function fetchUsers() {
-      try {
-        const res = await fetch("/api/users");
-        if (!res.ok) throw new Error("Failed to fetch users");
-        const data = await res.json();
-        if (data.items) setAllUsers(data.items);
-      } catch (err) {
-        console.error(err);
-        toast.error("Failed to load users");
-      }
-    }
-    fetchUsers();
-  }, []);
+  // ------------------- USERS -------------------
+  const { data: allUsers = [], isLoading: isUsersLoading } = useFetchUsers({ q: "", enabled: true });
 
+  const getDisplayName = (userId: string) => {
+    const user = allUsers.find((u) => u.userId === userId);
+    return user ? user.username : userId;
+  };
+
+  const getInitials = (userId: string) => {
+    const name = getDisplayName(userId);
+    return name
+      .split(" ")
+      .map((p) => p[0])
+      .join("")
+      .toUpperCase();
+  };
+
+  // ------------------- Load event into form -------------------
   useEffect(() => {
     if (!event) return;
 
@@ -86,51 +87,32 @@ export function EditEventModal({ events }: { events: Event[] }) {
     if (parsed.success) setFormData(parsed.data);
   }, [event]);
 
-  // Replace mockUsers with real users
-  const getDisplayName = (userId: string) => {
-    const user = allUsers.find((u) => u.userId === userId);
-    return user ? user.username : userId;
-  };
+  const generateCoverImage = async () => {
+    if (!formData.title.trim()) return;
 
-  const getInitials = (userId: string) => {
-    const name = getDisplayName(userId);
-    return name
-      .split(" ")
-      .map((p) => p[0])
-      .join("")
-      .toUpperCase();
-  };
+    setIsGeneratingImage(true);
+    try {
+      const result = await unsplash_tool(formData.title);
 
-    const generateCoverImage = async () => {
-  if (!formData.title.trim()) return;
-
-  setIsGeneratingImage(true);
-  try {
-    const result = await unsplash_tool(formData.title);
-
-    if (result) {
-      setFormData((prev) => ({
-        ...prev,
-        coverImageUri: result,
-      }));
-    } else {
-      toast.error("No image found");
+      if (result) {
+        setFormData((prev) => ({ ...prev, coverImageUri: result }));
+      } else {
+        toast.error("No image found");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to generate cover image");
+    } finally {
+      setIsGeneratingImage(false);
     }
-  } catch (err) {
-    console.error(err);
-    toast.error("Failed to generate cover image");
-  } finally {
-    setIsGeneratingImage(false);
-  }
-};
+  };
 
-const removeMember = (memberId: string) => {
-  setFormData((prev) => ({
-    ...prev,
-    members: prev.members.filter((m) => m.eventMemberId !== memberId),
-  }));
-};
-
+  const removeMember = (memberId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      members: prev.members.filter((m) => m.eventMemberId !== memberId),
+    }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

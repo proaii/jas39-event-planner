@@ -10,6 +10,7 @@ import { useTaskStore } from "@/stores/task-store";
 import { TemplateData } from "@/schemas/template";
 import type { Event, UserLite, Task, TaskStatus } from "@/lib/types";
 import { toast } from "react-hot-toast";
+import { useFetchUsers } from "@/lib/client/features/users/hooks";
 
 export default function EventDetailPage() {
   const router = useRouter();
@@ -18,29 +19,20 @@ export default function EventDetailPage() {
   const { openEditEventModal } = useUiStore();
   const { events, deleteEvent } = useEventStore();
   const { tasks, addTask, updateTask } = useTaskStore();
-
   const { mutate: saveTemplateMutate } = useSaveTemplate();
 
-  const [currentUser, setCurrentUser] = useState<UserLite | null>(null);
+  const [currentUserId] = useState(""); 
 
-  // Get event from store
+  // ------------------- USERS -------------------
+  const { data: users = [], isLoading: isUsersLoading } = useFetchUsers({
+    q: currentUserId,
+    enabled: true,
+  });
+
+  const currentUser: UserLite | null = users.length > 0 ? users[0] : null;
+
+  // ------------------- EVENT -------------------
   const event: Event | undefined = events.find((e) => e.eventId === id);
-
-  // Fetch current user from API
-  useEffect(() => {
-    async function fetchUser() {
-      try {
-        const res = await fetch("/api/users");
-        if (!res.ok) throw new Error("Failed to fetch user");
-        const data = await res.json();
-        if (data.items && data.items.length > 0) setCurrentUser(data.items[0]);
-      } catch (err) {
-        console.error(err);
-        toast.error("Failed to load current user");
-      }
-    }
-    fetchUser();
-  }, []);
 
   if (!event) {
     return (
@@ -50,7 +42,7 @@ export default function EventDetailPage() {
     );
   }
 
-  if (!currentUser) {
+  if (isUsersLoading || !currentUser) {
     return (
       <p className="p-8 text-center text-muted-foreground">
         Loading user...

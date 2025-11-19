@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { mockEvents } from "@/lib/mock-data";
+import { useEffect, useState } from "react";
 import { EventDetail } from "@/components/events/EventDetail";
 import { EditEventModal } from "@/components/events/EditEventModal";
 import { useUiStore } from "@/stores/ui-store";
@@ -10,7 +10,6 @@ import { useTaskStore } from "@/stores/task-store";
 import { TemplateData } from "@/schemas/template";
 import type { Event, UserLite, Task, TaskStatus } from "@/lib/types";
 import { toast } from "react-hot-toast";
-
 
 export default function EventDetailPage() {
   const router = useRouter();
@@ -22,10 +21,26 @@ export default function EventDetailPage() {
 
   const { mutate: saveTemplateMutate } = useSaveTemplate();
 
-  // Get event from store or fallback to mock
-  const event: Event | undefined =
-    events.find((e) => e.eventId === id) ||
-    mockEvents.find((e) => e.eventId === id);
+  const [currentUser, setCurrentUser] = useState<UserLite | null>(null);
+
+  // Get event from store
+  const event: Event | undefined = events.find((e) => e.eventId === id);
+
+  // Fetch current user from API
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        const res = await fetch("/api/users");
+        if (!res.ok) throw new Error("Failed to fetch user");
+        const data = await res.json();
+        if (data.items && data.items.length > 0) setCurrentUser(data.items[0]);
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to load current user");
+      }
+    }
+    fetchUser();
+  }, []);
 
   if (!event) {
     return (
@@ -35,15 +50,15 @@ export default function EventDetailPage() {
     );
   }
 
-  // Mock current user
-  const currentUser: UserLite = {
-    userId: "user-1",
-    username: "Bob",
-    email: "bob@example.com",
-  };
+  if (!currentUser) {
+    return (
+      <p className="p-8 text-center text-muted-foreground">
+        Loading user...
+      </p>
+    );
+  }
 
   // --- Handlers ---
-
   const handleBack = () => router.back();
 
   const handleTaskStatusChange = (taskId: string, newStatus: TaskStatus) => {
@@ -70,26 +85,6 @@ export default function EventDetailPage() {
     saveTemplateMutate({ eventId, data: templateData });
   };
 
-  // const handleUpdateEvent = (eventId: string, updatedData: Partial<UpdateEventInput>) => {
-  //   // Normalize members
-  //   const normalizedMembers: EventMember[] =
-  //     (updatedData.members ?? []).map((m) => ({
-  //       eventMemberId: m.eventMemberId ?? "",
-  //       eventId: m.eventId ?? eventId,
-  //       userId: m.userId,
-  //       joinedAt: m.joinedAt ?? new Date().toISOString(),
-  //       role: m.role,
-  //     }));
-
-  //   const normalizedData: Partial<UpdateEventInput> = {
-  //     ...updatedData,
-  //     members: normalizedMembers,
-  //   };
-
-  //   updateEvent(eventId, normalizedData);
-  //   closeEditEventModal();
-  // };
-
   const eventTasks = tasks.filter((t) => t.eventId === event.eventId);
 
   return (
@@ -106,9 +101,7 @@ export default function EventDetailPage() {
         onEditEvent={handleEditEvent}
       />
 
-      <EditEventModal
-        events={events.length > 0 ? events : mockEvents}
-      />
+      <EditEventModal events={events} />
     </div>
   );
 }

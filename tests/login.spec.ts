@@ -16,4 +16,8 @@ test('Login Pages', async ({ page }) => {
     await page.getByRole('textbox', { name: 'Password' }).click();
     await page.getByRole('textbox', { name: 'Password' }).fill(password);
     await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+
+    await page.waitForURL('**/dashboard');
+
+    await expect(page.getByText(email)).toBeVisible();
 });

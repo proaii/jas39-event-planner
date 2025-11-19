@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
-import type { Event, MembersRes } from '@/lib/types';
+import type { Event } from '@/lib/types';
 import type { ApiError } from '@/lib/errors';
 
 type EventsPage = { items: Event[]; nextPage: number | null };
@@ -134,55 +134,3 @@ export function useDeleteEvent() {
     retry: 0,
   });
 }
-
-export function useMembers(eventId: string) {
-  return useQuery<MembersRes, ApiError>({
-    queryKey: queryKeys.members(eventId),
-    queryFn: async () => {
-      const r = await fetch(`/api/events/${eventId}/members`);
-      if (!r.ok) throw await r.json();
-      return (await r.json()) as MembersRes;
-    },
-    staleTime: 1000 * 60 * 5,
-    refetchOnWindowFocus: false,
-  });
-}
-
-export function useAddMember(eventId: string) {
-  const qc = useQueryClient();
-  return useMutation<{ ok: true }, ApiError, { memberId: string; role?: string }>({
-    mutationFn: async (payload) => {
-      const r = await fetch(`/api/events/${eventId}/members`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!r.ok) throw await r.json();
-      return (await r.json()) as { ok: true };
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.members(eventId) });
-      qc.invalidateQueries({ queryKey: ['events'] });
-      qc.invalidateQueries({ queryKey: queryKeys.event(eventId) });
-    },
-    retry: 0,
-  });
-}
-
-export function useRemoveMember(eventId: string) {
-  const qc = useQueryClient();
-  return useMutation<{ ok: true }, ApiError, { memberId: string }>({
-    mutationFn: async ({ memberId }) => {
-      const r = await fetch(`/api/events/${eventId}/members/${memberId}`, { method: 'DELETE' });
-      if (!r.ok) throw await r.json();
-      return (await r.json()) as { ok: true };
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.members(eventId) });
-      qc.invalidateQueries({ queryKey: ['events'] });
-      qc.invalidateQueries({ queryKey: queryKeys.event(eventId) });
-    },
-    retry: 0,
-  });
-}
-

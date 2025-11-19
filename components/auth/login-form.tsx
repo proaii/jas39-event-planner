@@ -77,6 +77,15 @@ export function LoginForm() {
                 required
                 disabled={isPending}
               />
+              <div className="text-right text-sm mt-1">
+                <button
+                  onClick={() => router.push("/auth/forgot-password")}
+                  className="text-primary hover:text-primary/80 font-medium"
+                  disabled={isPending || isSocialPending}
+                >
+                  Forgot Password?
+                </button>
+              </div>
             </div>
 
             {error && (

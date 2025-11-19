@@ -31,7 +31,6 @@ interface SearchAndFilterProps {
   placeholder?: string;
   className?: string;
   currentUser?: string;
-  // Sort functionality
   sortBy?: 'dueDate' | 'priority' | 'recent';
   onSortChange?: (sortBy: 'dueDate' | 'priority' | 'recent') => void;
   showSort?: boolean;
@@ -66,7 +65,14 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
 }) => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [tempFilters, setTempFilters] = useState<FilterOptions>(filters);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isFilterOpen) {
+      setTempFilters(filters);
+    }
+  }, [isFilterOpen, filters]);
 
   const quickFilters = [
     {
@@ -76,33 +82,20 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
         today.setHours(0, 0, 0, 0);
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
-        
-        onFiltersChange({
-          ...filters,
-          dateRange: { from: today, to: tomorrow }
-        });
+        onFiltersChange({ ...filters, dateRange: { from: today, to: tomorrow } });
       }
     },
     {
       label: 'High Priority',
-      filter: () => onFiltersChange({
-        ...filters,
-        priority: ['Urgent', 'High']
-      })
+      filter: () => onFiltersChange({ ...filters, priority: ['Urgent', 'High'] })
     },
     {
       label: 'In Progress',
-      filter: () => onFiltersChange({
-        ...filters,
-        status: ['In Progress']
-      })
+      filter: () => onFiltersChange({ ...filters, status: ['In Progress'] })
     },
     {
       label: 'My Tasks',
-      filter: () => onFiltersChange({
-        ...filters,
-        assignees: [currentUser]
-      })
+      filter: () => onFiltersChange({ ...filters, assignees: [currentUser] })
     }
   ];
 
@@ -115,7 +108,7 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
   }, 0);
 
   const clearAllFilters = () => {
-    onFiltersChange({
+    const cleared = {
       status: [],
       priority: [],
       assignees: [],
@@ -123,25 +116,22 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
       eventTypes: [],
       showCompleted: true,
       showPersonalTasks: true
-    });
+    };
+    setTempFilters(cleared);
+    onFiltersChange(cleared);
   };
 
   const removeFilter = (filterType: keyof FilterOptions, value?: string) => {
     const newFilters = { ...filters };
-    
     switch (filterType) {
       case "status":
         newFilters.status = newFilters.status?.filter((item) => item !== value);
         break;
       case "priority":
-        newFilters.priority = newFilters.priority?.filter(
-          (item) => item !== value
-        );
+        newFilters.priority = newFilters.priority?.filter((item) => item !== value);
         break;
       case "assignees":
-        newFilters.assignees = newFilters.assignees?.filter(
-          (item) => item !== value
-        );
+        newFilters.assignees = newFilters.assignees?.filter((item) => item !== value);
         break;
       case "dateRange":
         newFilters.dateRange = { from: null, to: null };
@@ -153,7 +143,6 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
         newFilters.showPersonalTasks = !newFilters.showPersonalTasks;
         break;
     }
-    
     onFiltersChange(newFilters);
   };
 
@@ -168,13 +157,13 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
         onSearchChange('');
       }
     };
-
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onSearchChange]);
 
   return (
     <div className={`space-y-4 ${className}`}>
+      {/* Search Bar */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
         <Input
@@ -185,20 +174,19 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-10 pr-10"
         />
-        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-          {searchTerm && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onSearchChange('')}
-              className="h-6 w-6 p-0"
-            >
-              <X className="w-3 h-3" />
-            </Button>
-          )}
-        </div>
+        {searchTerm && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onSearchChange('')}
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+          >
+            <X className="w-3 h-3" />
+          </Button>
+        )}
       </div>
 
+      {/* Quick Filters */}
       <div className="flex flex-wrap gap-2">
         {quickFilters.map((quickFilter, index) => (
           <Button
@@ -211,39 +199,25 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
             {quickFilter.label}
           </Button>
         ))}
-        
+
         {showSort && onSortChange && (
           <>
-            <Button
-              variant={sortBy === 'dueDate' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => onSortChange('dueDate')}
-              className="h-7 text-xs"
-            >
-              <ArrowUpDown className="w-3 h-3 mr-1" />
-              Due Date
-            </Button>
-            <Button
-              variant={sortBy === 'priority' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => onSortChange('priority')}
-              className="h-7 text-xs"
-            >
-              <ArrowUpDown className="w-3 h-3 mr-1" />
-              Priority
-            </Button>
-            <Button
-              variant={sortBy === 'recent' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => onSortChange('recent')}
-              className="h-7 text-xs"
-            >
-              <ArrowUpDown className="w-3 h-3 mr-1" />
-              Recent
-            </Button>
+            {(['dueDate', 'priority', 'recent'] as const).map((type) => (
+              <Button
+                key={type}
+                variant={sortBy === type ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => onSortChange(type)}
+                className="h-7 text-xs"
+              >
+                <ArrowUpDown className="w-3 h-3 mr-1" />
+                {type === 'dueDate' ? 'Due Date' : type === 'priority' ? 'Priority' : 'Recent'}
+              </Button>
+            ))}
           </>
         )}
-        
+
+        {/* Filters Popover */}
         <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="h-7 text-xs">
@@ -256,22 +230,18 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
               )}
             </Button>
           </PopoverTrigger>
+
           <PopoverContent className="w-80 p-4" align="start">
             <div className="space-y-4">
+              {/* Header with Clear All */}
               <div className="flex items-center justify-between">
                 <h4 className="font-medium">Advanced Filters</h4>
-                {activeFilterCount > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearAllFilters}
-                    className="h-6 text-xs text-muted-foreground"
-                  >
-                    Clear all
-                  </Button>
-                )}
+                <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={clearAllFilters}>
+                  Clear All
+                </Button>
               </div>
 
+              {/* Status */}
               {showTaskFilters && (
                 <>
                   <div className="space-y-2">
@@ -281,14 +251,16 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
                         <button
                           key={status}
                           onClick={() => {
-                            const currentStatuses = filters.status || [];
-                            const newStatuses = currentStatuses.includes(status)
-                              ? currentStatuses.filter(s => s !== status)
-                              : [...currentStatuses, status];
-                            onFiltersChange({ ...filters, status: newStatuses });
+                            const current = tempFilters.status || [];
+                            const newStatuses = current.includes(status)
+                              ? current.filter(s => s !== status)
+                              : [...current, status];
+                            const updated = { ...tempFilters, status: newStatuses };
+                            setTempFilters(updated);
+                            onFiltersChange(updated);
                           }}
                           className={`text-xs text-background px-2 py-1 rounded border transition-colors ${
-                            filters.status?.includes(status)
+                            tempFilters.status?.includes(status)
                               ? statusColors[status]
                               : 'bg-white hover:bg-gray-50 border-gray-200'
                           }`}
@@ -299,6 +271,7 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
                     </div>
                   </div>
 
+                  {/* Priority */}
                   <div className="space-y-2">
                     <label className="text-xs">Priority</label>
                     <div className="flex flex-wrap gap-1">
@@ -306,14 +279,16 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
                         <button
                           key={priority}
                           onClick={() => {
-                            const currentPriorities = filters.priority || [];
-                            const newPriorities = currentPriorities.includes(priority)
-                              ? currentPriorities.filter(p => p !== priority)
-                              : [...currentPriorities, priority];
-                            onFiltersChange({ ...filters, priority: newPriorities });
+                            const current = tempFilters.priority || [];
+                            const newPriorities = current.includes(priority)
+                              ? current.filter(p => p !== priority)
+                              : [...current, priority];
+                            const updated = { ...tempFilters, priority: newPriorities };
+                            setTempFilters(updated);
+                            onFiltersChange(updated);
                           }}
                           className={`text-xs text-background px-2 py-1 rounded border transition-colors ${
-                            filters.priority?.includes(priority)
+                            tempFilters.priority?.includes(priority)
                               ? priorityColors[priority]
                               : 'bg-white hover:bg-gray-50 border-gray-200'
                           }`}
@@ -324,6 +299,7 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
                     </div>
                   </div>
 
+                  {/* Assignees */}
                   {availableAssignees.length > 0 && (
                     <div className="space-y-2">
                       <label className="text-xs">Assignees</label>
@@ -331,13 +307,15 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
                         {availableAssignees.map((assignee) => (
                           <label key={assignee} className="flex items-center space-x-2 text-xs">
                             <Checkbox
-                              checked={filters.assignees?.includes(assignee) || false}
+                              checked={tempFilters.assignees?.includes(assignee) || false}
                               onCheckedChange={(checked) => {
-                                const currentAssignees = filters.assignees || [];
+                                const current = tempFilters.assignees || [];
                                 const newAssignees = checked
-                                  ? [...currentAssignees, assignee]
-                                  : currentAssignees.filter(a => a !== assignee);
-                                onFiltersChange({ ...filters, assignees: newAssignees });
+                                  ? [...current, assignee]
+                                  : current.filter(a => a !== assignee);
+                                const updated = { ...tempFilters, assignees: newAssignees };
+                                setTempFilters(updated);
+                                onFiltersChange(updated);
                               }}
                             />
                             <span>{assignee}</span>
@@ -349,38 +327,36 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
                 </>
               )}
 
+              {/* Date Range */}
               <div className="space-y-2">
                 <label className="text-xs">Due Date Range</label>
                 <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" size="sm" className="w-full justify-start h-8">
                       <Calendar className="w-3 h-3 mr-2" />
-                      {filters.dateRange?.from && filters.dateRange?.to
-                        ? `${filters.dateRange.from.toLocaleDateString()} - ${filters.dateRange.to.toLocaleDateString()}`
-                        : filters.dateRange?.from
-                        ? `From ${filters.dateRange.from.toLocaleDateString()}`
-                        : "Select date range"
-                      }
+                      {tempFilters.dateRange?.from && tempFilters.dateRange?.to
+                        ? `${tempFilters.dateRange.from.toLocaleDateString()} - ${tempFilters.dateRange.to.toLocaleDateString()}`
+                        : "Select date range"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <CalendarComponent
                       mode="range"
                       selected={{
-                        from: filters.dateRange?.from || undefined,
-                        to: filters.dateRange?.to || undefined
+                        from: tempFilters.dateRange?.from || undefined,
+                        to: tempFilters.dateRange?.to || undefined
                       }}
                       onSelect={(range) => {
-                        onFiltersChange({
-                          ...filters,
+                        const updated = {
+                          ...tempFilters,
                           dateRange: {
                             from: range?.from || null,
                             to: range?.to || null
                           }
-                        });
-                        if (range?.to) {
-                          setIsDatePickerOpen(false);
-                        }
+                        };
+                        setTempFilters(updated);
+                        onFiltersChange(updated);
+                        if (range?.to) setIsDatePickerOpen(false);
                       }}
                       initialFocus
                     />
@@ -388,23 +364,28 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
                 </Popover>
               </div>
 
+              {/* Toggles */}
               <div className="space-y-2">
                 <label className="flex items-center space-x-2 text-xs">
                   <Checkbox
-                    checked={filters.showCompleted ?? true}
-                    onCheckedChange={(checked) => 
-                      onFiltersChange({ ...filters, showCompleted: checked as boolean })
-                    }
+                    checked={tempFilters.showCompleted ?? true}
+                    onCheckedChange={(checked) => {
+                      const updated = { ...tempFilters, showCompleted: checked as boolean };
+                      setTempFilters(updated);
+                      onFiltersChange(updated);
+                    }}
                   />
                   <span>Show completed tasks</span>
                 </label>
-                
+
                 <label className="flex items-center space-x-2 text-xs">
                   <Checkbox
-                    checked={filters.showPersonalTasks ?? true}
-                    onCheckedChange={(checked) => 
-                      onFiltersChange({ ...filters, showPersonalTasks: checked as boolean })
-                    }
+                    checked={tempFilters.showPersonalTasks ?? true}
+                    onCheckedChange={(checked) => {
+                      const updated = { ...tempFilters, showPersonalTasks: checked as boolean };
+                      setTempFilters(updated);
+                      onFiltersChange(updated);
+                    }}
                   />
                   <span>Show personal tasks</span>
                 </label>
@@ -414,14 +395,11 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
         </Popover>
       </div>
 
+      {/* Active Filter Badges */}
       {activeFilterCount > 0 && (
         <div className="flex flex-wrap gap-1">
           {filters.status?.map((status) => (
-            <Badge
-              key={`status-${status}`}
-              variant="secondary"
-              className="text-xs h-6 px-2"
-            >
+            <Badge key={`status-${status}`} variant="secondary" className="text-xs h-6 px-2">
               Status: {status}
               <Button
                 variant="ghost"
@@ -433,13 +411,9 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
               </Button>
             </Badge>
           ))}
-          
+
           {filters.priority?.map((priority) => (
-            <Badge
-              key={`priority-${priority}`}
-              variant="secondary"
-              className="text-xs h-6 px-2"
-            >
+            <Badge key={`priority-${priority}`} variant="secondary" className="text-xs h-6 px-2">
               {priority} Priority
               <Button
                 variant="ghost"
@@ -451,13 +425,9 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
               </Button>
             </Badge>
           ))}
-          
+
           {filters.assignees?.map((assignee) => (
-            <Badge
-              key={`assignee-${assignee}`}
-              variant="secondary"
-              className="text-xs h-6 px-2"
-            >
+            <Badge key={`assignee-${assignee}`} variant="secondary" className="text-xs h-6 px-2">
               <User className="w-2 h-2 mr-1" />
               {assignee}
               <Button
@@ -470,7 +440,7 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
               </Button>
             </Badge>
           ))}
-          
+
           {filters.dateRange?.from && (
             <Badge variant="secondary" className="text-xs h-6 px-2">
               <Clock className="w-2 h-2 mr-1" />

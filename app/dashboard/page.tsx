@@ -1,138 +1,168 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
+
 import { useUiStore } from "@/stores/ui-store";
-import { mockEvents, mockTasks } from "@/lib/mock-data";
 import { Dashboard } from "@/components/dashboard/dashboard";
 import { AddEventModal } from "@/components/events/AddEventModal";
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { CustomizeDashboardModal } from "@/components/dashboard/CustomizeDashboardModal";
 import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
-import type { TemplateData } from "@/components/events/SaveTemplateModal";
-import { Event, Task, UserLite } from "@/lib/types";
 
+import { useFetchEvents, useCreateEvent } from "@/stores/useEventStore";
+import { useTaskStore } from "@/stores/task-store"; 
+import { TemplateData } from "@/schemas/template";
+import type { Event, UserLite } from "@/lib/types";
+
+// -------------------------------------------------
+// Dashboard Page — Main landing page for the user
+// -------------------------------------------------
 export default function DashboardPage() {
+  // ---------------- Current User (Mock) ----------------
   const currentUser: UserLite = {
     userId: "user-1",
     username: "Bob",
     email: "bob@example.com",
   };
 
+  // ---------------- UI Store ----------------
   const {
     isAddEventModalOpen,
     isAddTaskModalOpen,
     isCustomizeModalOpen,
+
     openAddEventModal,
     closeAddEventModal,
     openAddTaskModal,
     closeAddTaskModal,
     openCustomizeModal,
     closeCustomizeModal,
+
     visibleWidgets,
     setVisibleWidgets,
     resetWidgets,
   } = useUiStore();
 
-  const [events, setEvents] = useState<Event[]>(mockEvents);
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  // ---------------- Fetch Events from API ----------------
+  const { data } = useFetchEvents();
+  const events: Event[] = data?.items ?? [];
+
+  const { tasks } = useTaskStore();
+
+  // ---------------- Mutation: Create Event ----------------
+  const createEventMutation = useCreateEvent();
+
+  // ---------------- Template Modal State ----------------
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
 
+  // ---------------- Prefill Data for AddEventModal ----------------
   const [prefillData, setPrefillData] = useState<
     Omit<Event, "eventId" | "ownerId" | "createdAt" | "members"> | null
   >(null);
 
+  // -------------------------------------------------
+  // Create Event Handler — Uses React Query Mutation
+  // -------------------------------------------------
   const handleCreateEvent = (
-    eventData: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members">
+    payload: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members">
   ) => {
-    const newEvent: Event = {
-      eventId: `event-${Date.now()}`,
-      ownerId: currentUser.userId,
-      createdAt: new Date().toISOString(),
-      members: [],
-      ...eventData,
-    };
-    setEvents((prev) => [...prev, newEvent]);
-    closeAddEventModal();
-    toast.success(`PlannerEvent "${eventData.title}" created successfully!`);
+    createEventMutation.mutate(
+      {
+        title: payload.title,
+        location: payload.location,
+        description: payload.description,
+        coverImageUri: payload.coverImageUri,
+        color: payload.color,
+        startAt: payload.startAt,
+        endAt: payload.endAt,
+      },
+      {
+        onSuccess: () => {
+          toast.success(`Event "${payload.title}" created successfully!`);
+        },
+      }
+    );
   };
 
-  const handleCreateTask = (taskData: Omit<Task, "taskId" | "createdAt">) => {
-    const newTask: Task = {
-      taskId: `task-${Date.now()}`,
-      ...taskData,
-      createdAt: new Date().toISOString(),
-    };
-    setTasks((prev) => [...prev, newTask]);
-    closeAddTaskModal();
-    toast.success(`Task "${taskData.title}" added successfully!`);
-  };
+  // -------------------------------------------------
+  // Placeholder: Invite Members
+  // -------------------------------------------------
+  // const handleInviteMembers = () => {
+  //   toast("Invite members feature coming soon!", { icon: "ℹ️" });
+  // };
 
-  const handleInviteMembers = () => {
-    console.log("Open invite members modal");
-    toast("Invite members feature coming soon!", { icon: "ℹ️" });
-  };
-
+  // -------------------------------------------------
+  // Save Widgets / Customize Dashboard
+  // -------------------------------------------------
   const handleSaveWidgets = (selected: string[]) => {
     setVisibleWidgets(selected);
     closeCustomizeModal();
     toast.success("Dashboard updated!");
   };
 
+  // -------------------------------------------------
+  // Handle Template Use → Prefill AddEventModal
+  // -------------------------------------------------
   const handleUseTemplate = (data: TemplateData) => {
-    // This part needs to be adjusted to the new PlannerEvent type.
-    // The TemplateData type from HEAD might be incompatible.
-    // For now, I will keep it as is, but it might need further adjustments.
     setPrefillData({
-      title: data.title,
+      title: data.title ?? data.name,
       location: data.location || "",
       description: data.eventDescription || "",
-      coverImageUri: data.coverImageUri,
-      color: 0, // color is a number in the new type
-      startAt: data.startAt,
-      endAt: data.endAt,
+      coverImageUri: data.coverImageUri ?? undefined,
+      color: data.color ?? 0,
+      startAt: data.startAt ?? null,
+      endAt: data.endAt ?? null,
     });
 
     openAddEventModal();
   };
 
-useEffect(() => {
+  // -------------------------------------------------
+  // Reset prefill when modal closes
+  // -------------------------------------------------
+  useEffect(() => {
     if (!isAddEventModalOpen) {
       setPrefillData(null);
     }
   }, [isAddEventModalOpen]);
 
+  // -------------------------------------------------
+  // Render UI
+  // -------------------------------------------------
   return (
     <>
+      {/* ---------------- Dashboard Main View ---------------- */}
       <Dashboard
         events={events}
         tasks={tasks}
         currentUser={currentUser.username}
         onCreateEvent={openAddEventModal}
-        onEventClick={(id) => console.log("PlannerEvent clicked:", id)}
+        onEventClick={(id) => console.log("Clicked event:", id)}
         onCreatePersonalTask={openAddTaskModal}
         onCustomize={openCustomizeModal}
         visibleWidgets={visibleWidgets}
         onCreateFromTemplate={() => setIsTemplateModalOpen(true)}
       />
 
+      {/* ---------------- Add Event Modal ---------------- */}
       <AddEventModal
         isOpen={isAddEventModalOpen}
         onClose={closeAddEventModal}
         onCreateEvent={handleCreateEvent}
         prefillData={prefillData ?? undefined}
-        onInviteMembers={handleInviteMembers}
       />
 
+      {/* ---------------- Add Task Modal (use store, no callback) ---------------- */}
       <AddTaskModal
         isOpen={isAddTaskModalOpen}
         onClose={closeAddTaskModal}
-        onCreateTask={handleCreateTask}
-        eventMembers={[] as UserLite[]}
+        eventMembers={[]}
         currentUser={currentUser}
         isPersonal={true}
       />
 
+      {/* ---------------- Customize Dashboard Modal ---------------- */}
       <CustomizeDashboardModal
         isOpen={isCustomizeModalOpen}
         onClose={closeCustomizeModal}
@@ -141,19 +171,20 @@ useEffect(() => {
         onResetDefault={resetWidgets}
       />
 
+      {/* ---------------- Create From Template Modal ---------------- */}
       <CreateFromTemplateModal
         isOpen={isTemplateModalOpen}
-        templates={mockEvents.map((e) => ({
-          name: e.title,
-          description: e.description,
-          title: e.title,
-          location: e.location,
-          eventDescription: e.description,
-          coverImageUri: e.coverImageUri,
-          color: e.color,
-          startAt: e.startAt,
-          endAt: e.endAt,
-          members: e.members,
+        templates={events.map((event: Event) => ({
+          name: event.title,
+          description: event.description,
+          title: event.title,
+          location: event.location,
+          eventDescription: event.description,
+          coverImageUri: event.coverImageUri,
+          color: event.color,
+          startAt: event.startAt,
+          endAt: event.endAt,
+          members: event.members,
         }))}
         onClose={() => setIsTemplateModalOpen(false)}
         onUseTemplate={handleUseTemplate}

@@ -17,7 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Calendar, MapPin } from "lucide-react";
-import { TemplateData } from "./SaveTemplateModal"; 
+import { TemplateData } from "@/schemas/template";
 
 interface CreateFromTemplateModalProps {
   isOpen: boolean;

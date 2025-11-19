@@ -12,23 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { z } from "zod";
 import { Event } from "@/lib/types";
-
-export const TemplateSchema = z.object({
-  name: z.string().min(1, "Template name is required"),
-  description: z.string().optional(),
-  title: z.string(),
-  location: z.string().optional(),
-  eventDescription: z.string().optional(),
-  coverImageUri: z.string().optional(),
-  color: z.number(),
-  startAt: z.string().nullable().optional(),
-  endAt: z.string().nullable().optional(),
-  members: z.array(z.string()),
-});
-
-export type TemplateData = z.infer<typeof TemplateSchema>;
+import { TemplateData } from "@/schemas/template";
 
 interface SaveTemplateModalProps {
   isOpen: boolean;
@@ -42,9 +27,9 @@ export function SaveTemplateModal({
   onClose,
   templateData = {},
   onSave,
-}: SaveTemplateModalProps) {
-  const [name, setName] = useState(templateData.title || "");
-  const [description, setDescription] = useState(templateData.description || "");
+  }: SaveTemplateModalProps) {
+    const [name, setName] = useState(templateData.title || "");
+    const [description, setDescription] = useState(templateData.description || "");
 
   useEffect(() => {
     if (isOpen) {

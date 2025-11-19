@@ -33,6 +33,27 @@ export interface EventMember {
   joinedAt: string;
 }
 
+// ----- Event Templates -----
+export interface EventTemplateData {
+  title: string;
+  location?: string | null;
+  eventDescription?: string | null;
+  coverImageUri?: string | null;
+  color: number;
+  startAt?: string | null;
+  endAt?: string | null;
+  members: string[];
+}
+
+export interface EventTemplate {
+  templateId: string;
+  ownerId: string;
+  name: string;
+  description?: string | null;
+  createdAt: string;
+  eventData: EventTemplateData;
+}
+
 // ----- Tasks -----
 export interface Attachment {
   attachmentId: string;
@@ -62,6 +83,19 @@ export interface Task {
   subtasks?: Subtask[];
   attachments?: Attachment[];
 }
+
+export type UpdateEventInput = {
+  title: string;
+  location?: string;       
+  description?: string;    
+  coverImageUri?: string;  
+  color: number;
+  startAt?: string | null; 
+  endAt?: string | null;   
+  members: EventMember[];
+};
+
+
 
 // ----- User -----
 export interface UserLite {

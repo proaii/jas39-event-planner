@@ -1,8 +1,11 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Event } from "@/lib/types";
 import { formatDate, cn } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface UpcomingEventsWidgetProps {
   events: Event[];
@@ -10,10 +13,10 @@ interface UpcomingEventsWidgetProps {
   onNavigateToAllEvents?: () => void;
 }
 
-// color:number -> ใช้พาเลตง่ายๆจากเลข
 const COLOR_PALETTE = ["#6366F1", "#22C55E", "#F59E0B", "#EF4444", "#06B6D4", "#A855F7"];
 
 export function UpcomingEventsWidget({ events, onEventClick, onNavigateToAllEvents }: UpcomingEventsWidgetProps) {
+  const router = useRouter();
   const dateOf = (e: Event) => e.startAt ?? e.endAt ?? e.createdAt;
   const sortedEvents = [...events].sort((a, b) => new Date(dateOf(a)).getTime() - new Date(dateOf(b)).getTime());
 
@@ -22,7 +25,15 @@ export function UpcomingEventsWidget({ events, onEventClick, onNavigateToAllEven
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-foreground">Upcoming Events</h3>
-          <Button variant="ghost" size="sm" className="text-primary" onClick={onNavigateToAllEvents}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-primary"
+            onClick={() => {
+              if (onNavigateToAllEvents) onNavigateToAllEvents();
+              router.push("/events");
+            }}
+          >
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
@@ -55,7 +66,9 @@ export function UpcomingEventsWidget({ events, onEventClick, onNavigateToAllEven
           })}
 
           {sortedEvents.length === 0 && (
-            <div className="text-center py-4 text-muted-foreground text-sm">No upcoming events</div>
+            <div className="text-center py-4 text-muted-foreground text-sm">
+              No upcoming events
+            </div>
           )}
         </div>
       </CardContent>

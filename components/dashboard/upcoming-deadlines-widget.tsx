@@ -1,3 +1,5 @@
+'use client';
+
 import { Card, CardContent } from "@/components/ui/card";
 import type { Task } from "@/lib/types";
 import { formatDueDate } from "@/lib/utils";
@@ -8,13 +10,12 @@ interface UpcomingDeadlinesWidgetProps {
   tasks: Task[];
 }
 
-// map Task -> shape ที่ getEffectiveDueDate ต้องการ
 type Dateish = { startDate?: string; endDate?: string; dueDate?: string };
 function effectiveDueDateOf(t: Task): string | undefined {
   const dateish: Dateish = {
     startDate: t.startAt ?? undefined,
     endDate: t.endAt ?? undefined,
-    dueDate: t.endAt ?? undefined, // ใช้ endAt เป็น due date ตามสมมติฐานปัจจุบัน
+    dueDate: t.endAt ?? undefined, 
   };
   return getEffectiveDueDate(dateish) ?? undefined;
 }

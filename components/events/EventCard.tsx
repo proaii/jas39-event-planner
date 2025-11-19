@@ -6,21 +6,22 @@ import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { ImageWithFallback } from '@/components/ImageWithFallback';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { MoreVertical, Eye, Edit3, Trash2, Calendar, Plus, Clock } from 'lucide-react';
+import { MoreVertical, Eye, Edit3, Trash2, Calendar, Plus, Clock, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatEventDateRange, isCurrentlyActive, calculateDuration, extractDateAndTime } from '@/lib/timeUtils';
-import { Event } from '@/lib/types';
+import { Event, Task } from '@/lib/types';
 
 
 interface EventCardProps {
   event: Event;
+  tasks?: Task[];
   onClick: (eventId: string) => void;
   onEdit?: (eventId: string) => void;
   onDelete?: (eventId: string) => void;
   onAddTask?: (eventId: string) => void;
 }
 
-export function EventCard({ event, onClick, onEdit, onDelete, onAddTask }: EventCardProps) {
+export function EventCard({ event, tasks = [], onClick, onEdit, onDelete, onAddTask }: EventCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -46,6 +47,12 @@ export function EventCard({ event, onClick, onEdit, onDelete, onAddTask }: Event
     endTime: endTime || undefined,
   });
   const duration = calculateDuration(event.startAt || "", event.endAt || undefined, startTime, endTime);
+
+  // Calculate task completion progress from tasks prop
+  const eventTasks = tasks.filter(task => task.eventId === event.eventId);
+  const totalTasks = eventTasks.length;
+  const completedTasks = eventTasks.filter(task => task.taskStatus === 'Done').length;
+  const progressPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   const handleCardClick = (e: React.MouseEvent) => {
     if ((e.target as Element).closest('[data-dropdown-trigger]')) {
@@ -85,13 +92,13 @@ export function EventCard({ event, onClick, onEdit, onDelete, onAddTask }: Event
           <div className="absolute top-4 right-4 z-10">
             <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
               <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-8 w-8 p-0 bg-white/90 hover:bg-white shadow-sm border border-border/50"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 bg-transparent hover:bg-white/20 text-white transition-colors"
                   data-dropdown-trigger
                 >
-                  <MoreVertical className="h-4 w-4" />
+                  <MoreVertical className="h-4 w-4 text-white" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
@@ -173,6 +180,43 @@ export function EventCard({ event, onClick, onEdit, onDelete, onAddTask }: Event
               {event.members.length} member{event.members.length !== 1 ? 's' : ''}
             </span>
           </div>
+
+          {totalTasks > 0 && (
+            <div className="space-y-2 mt-2">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>Task Progress</span>
+                </div>
+                <span className="font-medium text-foreground">
+                  {completedTasks}/{totalTasks}
+                </span>
+              </div>
+
+              
+              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                <div
+                  className="h-2 rounded-full transition-all duration-500 ease-out"
+                  style={{
+                    width: `${progressPercentage}%`,
+                    backgroundColor: '#4A90E2',
+                  }}
+                />
+              </div>
+
+              <div className="text-right">
+                <span
+                  className={`text-xs font-medium ${
+                    progressPercentage === 100 ? 'text-[#4A90E2]' : 'text-muted-foreground'
+                  }`}
+                >
+                  {progressPercentage}% complete
+                </span>
+              </div>
+            </div>
+          )}
+
+
 
         </div>
       </CardContent>

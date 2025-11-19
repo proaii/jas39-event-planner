@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import type { ApiError } from '@/lib/errors';
 import type { MembersRes } from '@/lib/types';
+import { MINUTES } from '@/lib/constants'
 
 export function useMembers(eventId: string) {
   return useQuery<MembersRes, ApiError>({
@@ -16,7 +17,7 @@ export function useMembers(eventId: string) {
       }
       return (await r.json()) as MembersRes;
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: MINUTES.FIVE,
     refetchOnWindowFocus: false,
   });
 }

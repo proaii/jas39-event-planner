@@ -1,4 +1,4 @@
-import { saveEventAsTemplate } from '@/lib/server/features/events/api';
+import { saveEventAsTemplate } from '@/lib/server/features/templates/api';
 import { jsonError } from '@/lib/errors';
 import { TemplateSchema } from '@/schemas/template';
 

@@ -1,4 +1,4 @@
-import { removeEventMember } from '@/lib/server/features/events/api';
+import { removeEventMember } from '@/lib/server/features/members/api';
 import { jsonError } from '@/lib/errors';
 
 export async function DELETE(_req: Request, context: { params: Promise<{ eventId: string; memberId: string }> }) {

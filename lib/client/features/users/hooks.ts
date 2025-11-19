@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ApiError } from '@/lib/errors';
 import type { UserLite } from '@/lib/types';
+import { MINUTES } from '@/lib/constants'
 
 type UseAllUsersOpts = {
   q?: string;
@@ -25,7 +26,7 @@ export function useAllUsers(opts: UseAllUsersOpts = {}) {
   return useQuery<UserLite[], ApiError>({
     queryKey: ['all-users', { q: q ?? '' }],
     enabled,
-    staleTime: 1000 * 60 * 5,
+    staleTime: MINUTES.FIVE,
     refetchOnWindowFocus: false,
     retry: 1,
     queryFn: async () => {
@@ -66,7 +67,7 @@ export function useUser(userId: string) {
       return (await r.json()) as UserLite;
     },
     enabled: !!userId,
-    staleTime: 1000 * 60 * 30, 
+    staleTime: MINUTES.THIRTY, 
     refetchOnWindowFocus: false,
   });
 }

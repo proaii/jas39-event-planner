@@ -4,23 +4,14 @@ import { useMutation, useQueryClient, useInfiniteQuery, useQuery } from '@tansta
 import { queryKeys } from '@/lib/queryKeys';
 import type { Task } from '@/lib/types';
 import type { ApiError } from '@/lib/errors';
+import { MINUTES } from '@/lib/constants';
 
 type TasksPage = { items: Task[]; nextPage: number | null };
-
-// ---------- Queries ----------
-
-/**
- * Fetch all tasks
- * - Cache in memory
- * - No refresh if returned within 5 minutes
- * - No re-refetch when switching tabs
- * - Supports prefetch (can load in advance)
- */
 
 // List Task of a single Event (For the Event Detail page)
 export function useTasksInfinite(f: {
   eventId: string;
-  status?: Task['taskStatus'];  // << เปลี่ยนจาก status เป็น taskStatus
+  status?: Task['taskStatus'];  
   q?: string;
   pageSize?: number;
 }) {
@@ -31,7 +22,7 @@ export function useTasksInfinite(f: {
     initialPageParam: 1,
     queryFn: async ({ pageParam, signal }) => {
       const params = new URLSearchParams();
-      if (f.status) params.set('status', f.status); // ชื่อ query ยังใช้ status ตาม API route เดิม
+      if (f.status) params.set('status', f.status);
       if (f.q) params.set('q', f.q);
       params.set('page', String(pageParam));
       params.set('pageSize', String(pageSize));
@@ -44,8 +35,8 @@ export function useTasksInfinite(f: {
       return (await r.json()) as TasksPage;
     },
     getNextPageParam: (last) => last.nextPage ?? undefined,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 10,
+    staleTime: MINUTES.FIVE,
+    gcTime: MINUTES.TEN,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
   });
@@ -74,8 +65,8 @@ export function useAllTasksInfinite(f: {
       return (await r.json()) as TasksPage;
     },
     getNextPageParam: (last) => last.nextPage ?? undefined,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 10,
+    staleTime: MINUTES.FIVE,
+    gcTime: MINUTES.TEN,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
   });
@@ -90,7 +81,7 @@ export function useTask(taskId: string) {
       return (await r.json()) as Task;
     },
     enabled: !!taskId,
-    staleTime: 1000 * 60 * 5, 
+    staleTime: MINUTES.FIVE, 
     refetchOnWindowFocus: false,
   });
 }
@@ -135,11 +126,11 @@ export function useCreatePersonalTask() {
   });
 }
 
-export function useEditTask(eventId: string) {
+export function useEditTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ taskId, patch }: { taskId: string; patch: Partial<Task> }) => {
-      const r = await fetch(`/api/events/${eventId}/tasks/${taskId}`, {
+      const r = await fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch),
@@ -149,24 +140,26 @@ export function useEditTask(eventId: string) {
     },
     onSuccess: (task) => {
       qc.setQueryData(queryKeys.task(task.taskId), task);
-      qc.invalidateQueries({ queryKey: queryKeys.tasks({ eventId }) });
+      
+      qc.invalidateQueries({ queryKey: queryKeys.tasks({}) }); // All Tasks
+      if (task.eventId) {
+        qc.invalidateQueries({ queryKey: queryKeys.tasks({ eventId: task.eventId }) });
+      }
     },
-    retry: 0,
   });
 }
 
-export function useDeleteTask(eventId: string) {
+export function useDeleteTask() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (taskId: string) => {
-      const r = await fetch(`/api/events/${eventId}/tasks/${taskId}`, { method: 'DELETE' });
+    mutationFn: async ({ taskId }: { taskId: string }) => {
+      const r = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
       if (!r.ok) throw await r.json();
-      return true;
+      return taskId; 
     },
-    onSuccess: (_ok, taskId) => {
+    onSuccess: (taskId) => {
       qc.removeQueries({ queryKey: queryKeys.task(taskId) });
-      qc.invalidateQueries({ queryKey: queryKeys.tasks({ eventId }) });
+      qc.invalidateQueries({ queryKey: ['tasks'] }); 
     },
-    retry: 0,
   });
 }

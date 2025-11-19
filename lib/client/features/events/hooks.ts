@@ -2,20 +2,14 @@
 
 import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
-import type { Event } from '@/lib/types';
 import type { ApiError } from '@/lib/errors';
+import type { Event, EventTemplate } from '@/lib/types';
+import type { TemplateData } from '@/schemas/template';
+import { MINUTES } from '@/lib/constants'
 
 type EventsPage = { items: Event[]; nextPage: number | null };
 
-// ---------- Queries ----------  
-
-/**
-* Fetch all events associated with the user (owner + member)
-* - Cache in memory
-* - No refresh if returned within 5 minutes
-* - No re-refetch when switching tabs
-* - Supports prefetch (can load in advance)
-*/
+// ---------- Events ----------
 
 export function useEventsInfinite(f: { q?: string; pageSize?: number }) {
   const pageSize = f.pageSize ?? 10;
@@ -35,8 +29,8 @@ export function useEventsInfinite(f: { q?: string; pageSize?: number }) {
     },
     getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,
 
-    staleTime: 1000 * 60 * 5, // 5 mins
-    gcTime: 1000 * 60 * 10, // 10 mins
+    staleTime: MINUTES.FIVE,
+    gcTime: MINUTES.TEN,
     refetchOnWindowFocus: false, // No need to refetch when changing tabs.
     refetchOnReconnect: true, // But refetch if the internet is disconnected and comes back.
     retry: 1, // Reduce the number of retry to avoid spam API.
@@ -51,7 +45,7 @@ export function useEvent(id: string) {
       if (!r.ok) throw await r.json();
       return (await r.json()) as Event;
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: MINUTES.FIVE,
     refetchOnWindowFocus: false,
   });
 }
@@ -65,7 +59,7 @@ export async function prefetchEvent(qc: ReturnType<typeof useQueryClient>, id: s
       if (!r.ok) throw await r.json();
       return (await r.json()) as Event;
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: MINUTES.FIVE,
   });
 }
 
@@ -132,5 +126,38 @@ export function useDeleteEvent() {
       qc.invalidateQueries({ queryKey: queryKeys.members(eventId) });
     },
     retry: 0,
+  });
+}
+
+// ---------- Event Templates ----------
+
+export function useTemplates() {
+  return useQuery<EventTemplate[], ApiError>({
+    queryKey: ['templates'], 
+    queryFn: async () => {
+      const r = await fetch(`/api/templates`); 
+      if (!r.ok) throw (await r.json()) as ApiError;
+      return (await r.json()) as EventTemplate[];
+    },
+    staleTime: MINUTES.FIVE,
+  });
+}
+
+export function useSaveTemplate() {
+  const qc = useQueryClient();
+  
+  return useMutation<EventTemplate, ApiError, { eventId: string; data: TemplateData }>({
+    mutationFn: async ({ eventId, data }) => {
+      const r = await fetch(`/api/events/${eventId}/templates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!r.ok) throw (await r.json()) as ApiError;
+      return (await r.json()) as EventTemplate;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['templates'] });
+    },
   });
 }

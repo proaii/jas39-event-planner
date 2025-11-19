@@ -3,8 +3,7 @@
 import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import type { ApiError } from '@/lib/errors';
-import type { Event, EventTemplate } from '@/lib/types';
-import type { TemplateData } from '@/schemas/template';
+import type { Event } from '@/lib/types';
 import { MINUTES } from '@/lib/constants'
 
 type EventsPage = { items: Event[]; nextPage: number | null };
@@ -129,35 +128,3 @@ export function useDeleteEvent() {
   });
 }
 
-// ---------- Event Templates ----------
-
-export function useTemplates() {
-  return useQuery<EventTemplate[], ApiError>({
-    queryKey: ['templates'], 
-    queryFn: async () => {
-      const r = await fetch(`/api/templates`); 
-      if (!r.ok) throw (await r.json()) as ApiError;
-      return (await r.json()) as EventTemplate[];
-    },
-    staleTime: MINUTES.FIVE,
-  });
-}
-
-export function useSaveTemplate() {
-  const qc = useQueryClient();
-  
-  return useMutation<EventTemplate, ApiError, { eventId: string; data: TemplateData }>({
-    mutationFn: async ({ eventId, data }) => {
-      const r = await fetch(`/api/events/${eventId}/templates`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!r.ok) throw (await r.json()) as ApiError;
-      return (await r.json()) as EventTemplate;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['templates'] });
-    },
-  });
-}

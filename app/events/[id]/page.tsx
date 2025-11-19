@@ -1,23 +1,29 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { EventDetail } from "@/components/events/EventDetail";
 import { EditEventModal } from "@/components/events/EditEventModal";
 import { useUiStore } from "@/stores/ui-store";
-import { useEventStore, useSaveTemplate } from "@/stores/useEventStore";
 import { useTaskStore } from "@/stores/task-store";
+import { useSaveTemplate } from "@/stores/useEventStore";
 import { TemplateData } from "@/schemas/template";
 import type { Event, UserLite, Task, TaskStatus } from "@/lib/types";
 import { toast } from "react-hot-toast";
 import { useFetchUsers } from "@/lib/client/features/users/hooks";
+import { useFetchEvent } from "@/lib/client/features/events/hooks";
 
 export default function EventDetailPage() {
   const router = useRouter();
   const { id } = useParams();
 
+  // --- convert id to string safely ---
+  const eventId = typeof id === "string" ? id : Array.isArray(id) ? id[0] : undefined;
+  if (!eventId) {
+    return <p className="p-8 text-center text-muted-foreground">Event ID missing</p>;
+  }
+
   const { openEditEventModal } = useUiStore();
-  const { events, deleteEvent } = useEventStore();
   const { tasks, addTask, updateTask } = useTaskStore();
   const { mutate: saveTemplateMutate } = useSaveTemplate();
 
@@ -28,26 +34,21 @@ export default function EventDetailPage() {
     q: currentUserId,
     enabled: true,
   });
-
   const currentUser: UserLite | null = users.length > 0 ? users[0] : null;
 
   // ------------------- EVENT -------------------
-  const event: Event | undefined = events.find((e) => e.eventId === id);
+  const { data: event, isLoading: isEventLoading } = useFetchEvent(eventId);
+
+  if (isEventLoading) {
+    return <p className="p-8 text-center text-muted-foreground">Loading event...</p>;
+  }
 
   if (!event) {
-    return (
-      <p className="p-8 text-center text-muted-foreground">
-        Event not found.
-      </p>
-    );
+    return <p className="p-8 text-center text-muted-foreground">Event not found.</p>;
   }
 
   if (isUsersLoading || !currentUser) {
-    return (
-      <p className="p-8 text-center text-muted-foreground">
-        Loading user...
-      </p>
-    );
+    return <p className="p-8 text-center text-muted-foreground">Loading user...</p>;
   }
 
   // --- Handlers ---
@@ -66,14 +67,10 @@ export default function EventDetailPage() {
   };
 
   const handleDeleteEvent = (eventId: string) => {
-    deleteEvent(eventId);
+    toast.error("Delete not implemented yet"); 
   };
 
   const handleSaveTemplate = (eventId: string, templateData: TemplateData) => {
-    if (!eventId) {
-      toast.error("Cannot save template: Event ID is missing.");
-      return;
-    }
     saveTemplateMutate({ eventId, data: templateData });
   };
 
@@ -93,7 +90,7 @@ export default function EventDetailPage() {
         onEditEvent={handleEditEvent}
       />
 
-      <EditEventModal events={events} />
+      <EditEventModal events={[event]} />
     </div>
   );
 }

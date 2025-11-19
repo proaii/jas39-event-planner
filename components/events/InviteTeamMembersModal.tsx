@@ -14,7 +14,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Search, Check, UserPlus } from "lucide-react";
 import { toast } from "react-hot-toast";
 import type { EventMember, UserLite } from "@/lib/types";
-import { useFetchUsers } from "@/lib/client/features/users/hooks"; // ใช้ hook ของจริง
+import { useFetchUsers } from "@/lib/client/features/users/hooks"; 
 
 interface InviteTeamMembersModalProps {
   isOpen: boolean;
@@ -42,10 +42,8 @@ export function InviteTeamMembersModal({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUsers, setSelectedUsers] = useState<UserLite[]>([]);
 
-  // ใช้ hook ที่สร้างไว้
   const { data: allUsers = [] } = useFetchUsers({ q: searchQuery, enabled: isOpen });
 
-  // filter เอาเฉพาะ users ที่ยังไม่ได้อยู่ใน currentMembers
   const availableUsers: UserLite[] = allUsers.filter(
     (u) => !currentMembers.some((m) => m.userId === u.userId)
   );

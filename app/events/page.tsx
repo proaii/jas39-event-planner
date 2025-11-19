@@ -96,7 +96,7 @@ export default function AllEventsPage() {
     const newEvent: Event = {
       eventId: `event-${Date.now()}`,
       ...eventData,
-      ownerId: "currentUser", // <-- แก้เป็น user ที่ล็อกอินจริง
+      ownerId: "currentUser", 
       createdAt: new Date().toISOString(),
       members: [],
     };
@@ -104,7 +104,7 @@ export default function AllEventsPage() {
     closeAddEventModal();
     toast.success(`Event "${eventData.title}" created successfully!`);
   };
-  
+
   const handleUseTemplate = (data: TemplateData) => {
     setPrefillData({
       title: data.title,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -46,12 +46,16 @@ export function EditEventModal({ events }: { events: Event[] }) {
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
 
   // ------------------- USERS -------------------
+  // Fetch all users once, filtered only when typing
   const { data: allUsers = [], isLoading: isUsersLoading } = useFetchUsers({ q: "", enabled: true });
 
-  const getDisplayName = (userId: string) => {
-    const user = allUsers.find((u) => u.userId === userId);
-    return user ? user.username : userId;
-  };
+  const usersMap = useMemo(() => {
+    const map = new Map<string, UserLite>();
+    for (const u of allUsers) map.set(u.userId, u);
+    return map;
+  }, [allUsers]);
+
+  const getDisplayName = (userId: string) => usersMap.get(userId)?.username || userId;
 
   const getInitials = (userId: string) => {
     const name = getDisplayName(userId);
@@ -93,12 +97,8 @@ export function EditEventModal({ events }: { events: Event[] }) {
     setIsGeneratingImage(true);
     try {
       const result = await unsplash_tool(formData.title);
-
-      if (result) {
-        setFormData((prev) => ({ ...prev, coverImageUri: result }));
-      } else {
-        toast.error("No image found");
-      }
+      if (result) setFormData((prev) => ({ ...prev, coverImageUri: result }));
+      else toast.error("No image found");
     } catch (err) {
       console.error(err);
       toast.error("Failed to generate cover image");

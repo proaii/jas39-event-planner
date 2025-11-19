@@ -60,7 +60,7 @@ export default function AllEventsPage() {
   } = useUiStore();
 
   // ------------------- EVENT STORE -------------------
-  const { events, setEvents, selectedEventId, setSelectedEventId } = useEventStore();
+  const { events, setEvents } = useEventStore();
 
   useEffect(() => {
     if (events.length === 0) {

@@ -222,7 +222,7 @@ export function EventDetail({
                   <div className="aspect-video">
                     <NextImage
                       src={event.coverImageUri}
-                      alt={event.title}
+                      alt={`Cover image for ${event.title}`}
                       className="object-cover w-full h-full"
                       width={1080}
                       height={1080}

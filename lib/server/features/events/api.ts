@@ -366,13 +366,24 @@ function map(r: RawEventRow): Event {
 }
 
 // ---------- Template Types & Mapper ----------
+type EventData = {
+  title?: string;
+  location?: string | null;
+  eventDescription?: string | null;
+  coverImageUri?: string | null;
+  color?: number;
+  members?: { userId: string }[];
+  startAt?: string | null;
+  endAt?: string | null;
+};
+
 type RawTemplateRow = {
   template_id: string;
   owner_id: string;
   name: string;
   description?: string | null;
   created_at: string;
-  event_data: Record<string, any>; 
+  event_data: EventData; 
 };
 
 function mapTemplate(r: RawTemplateRow): EventTemplate {
@@ -386,8 +397,9 @@ function mapTemplate(r: RawTemplateRow): EventTemplate {
       title: r.event_data.title ?? '',
       location: r.event_data.location,
       eventDescription: r.event_data.eventDescription,
+      coverImageUri: r.event_data.coverImageUri,
       color: Number(r.event_data.color ?? 0),
-      members: Array.isArray(r.event_data.members) ? r.event_data.members : [],
+      members: Array.isArray(r.event_data.members) ? r.event_data.members.map(m => m.userId) : [],
       startAt: r.event_data.startAt,
       endAt: r.event_data.endAt,
     },

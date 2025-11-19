@@ -5,22 +5,19 @@ import { mockEvents } from "@/lib/mock-data";
 import { EventDetail } from "@/components/events/EventDetail";
 import { EditEventModal } from "@/components/events/EditEventModal";
 import { useUiStore } from "@/stores/ui-store";
-import { useEventStore, UpdateEventInput, useSaveTemplate } from "@/stores/useEventStore";
+import { useEventStore, useSaveTemplate } from "@/stores/useEventStore";
 import { useTaskStore } from "@/stores/task-store";
 import { TemplateData } from "@/schemas/template";
-import { z } from "zod";
-import { editEventSchema } from "@/schemas/editEventSchema";
-import type { Event, UserLite, Task, TaskStatus, EventMember } from "@/lib/types";
+import type { Event, UserLite, Task, TaskStatus } from "@/lib/types";
 import { toast } from "react-hot-toast";
 
-type EditEventData = z.infer<typeof editEventSchema>;
 
 export default function EventDetailPage() {
   const router = useRouter();
   const { id } = useParams();
 
-  const { openEditEventModal, closeEditEventModal } = useUiStore();
-  const { events, updateEvent, deleteEvent } = useEventStore();
+  const { openEditEventModal } = useUiStore();
+  const { events, deleteEvent } = useEventStore();
   const { tasks, addTask, updateTask } = useTaskStore();
 
   const { mutate: saveTemplateMutate } = useSaveTemplate();
@@ -73,25 +70,25 @@ export default function EventDetailPage() {
     saveTemplateMutate({ eventId, data: templateData });
   };
 
-  const handleUpdateEvent = (eventId: string, updatedData: Partial<UpdateEventInput>) => {
-    // Normalize members
-    const normalizedMembers: EventMember[] =
-      (updatedData.members ?? []).map((m) => ({
-        eventMemberId: m.eventMemberId ?? "",
-        eventId: m.eventId ?? eventId,
-        userId: m.userId,
-        joinedAt: m.joinedAt ?? new Date().toISOString(),
-        role: m.role,
-      }));
+  // const handleUpdateEvent = (eventId: string, updatedData: Partial<UpdateEventInput>) => {
+  //   // Normalize members
+  //   const normalizedMembers: EventMember[] =
+  //     (updatedData.members ?? []).map((m) => ({
+  //       eventMemberId: m.eventMemberId ?? "",
+  //       eventId: m.eventId ?? eventId,
+  //       userId: m.userId,
+  //       joinedAt: m.joinedAt ?? new Date().toISOString(),
+  //       role: m.role,
+  //     }));
 
-    const normalizedData: Partial<UpdateEventInput> = {
-      ...updatedData,
-      members: normalizedMembers,
-    };
+  //   const normalizedData: Partial<UpdateEventInput> = {
+  //     ...updatedData,
+  //     members: normalizedMembers,
+  //   };
 
-    updateEvent(eventId, normalizedData);
-    closeEditEventModal();
-  };
+  //   updateEvent(eventId, normalizedData);
+  //   closeEditEventModal();
+  // };
 
   const eventTasks = tasks.filter((t) => t.eventId === event.eventId);
 

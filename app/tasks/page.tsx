@@ -14,28 +14,15 @@ import { Card } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search, Filter, Plus, ArrowUpDown } from "lucide-react";
-import { Task, TaskStatus, TaskPriority, UserLite, Subtask, Attachment } from "@/lib/types";
+import { Task, TaskStatus, UserLite } from "@/lib/types";
 
 import { useUiStore } from "@/stores/ui-store";
 import { useTaskStore } from "@/stores/task-store"; 
-import { toast } from "react-hot-toast";
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { TaskCard } from "@/components/task-card";
 import { EditTaskModal } from "@/components/tasks/EditTaskModal";
 import { mockUsers } from "@/lib/mock-data";
 
-
-type OnUpdateTaskPayload = {
-  title: string;
-  description?: string;
-  assignees: UserLite[];
-  startAt?: string | null;
-  endAt?: string | null;
-  taskStatus: TaskStatus;
-  taskPriority: TaskPriority;
-  subtasks?: Subtask[];
-  attachments?: Attachment[];
-};
 
 export default function AllTasksPage() {
   // ------------------- UI STORE -------------------
@@ -75,23 +62,23 @@ export default function AllTasksPage() {
 
 
   // ------------------- TASKS STORE -------------------
-  const { tasks: allTasks, addTask, updateTask } = useTaskStore();
+  const { tasks: allTasks } = useTaskStore();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   // ------------------- HANDLERS -------------------
-  const handleCreateTask = (taskData: Omit<Task, "taskId" | "createdAt">) => {
-    const newTask: Task = {
-      taskId: `task-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      ...taskData,
-      taskStatus: "To Do",
-      taskPriority: "Normal",
-    };
-    addTask(newTask); 
-    closeAddTaskModal();
-    toast.success(`Task "${taskData.title}" created successfully!`);
-  };
+  // const handleCreateTask = (taskData: Omit<Task, "taskId" | "createdAt">) => {
+  //   const newTask: Task = {
+  //     taskId: `task-${Date.now()}`,
+  //     createdAt: new Date().toISOString(),
+  //     ...taskData,
+  //     taskStatus: "To Do",
+  //     taskPriority: "Normal",
+  //   };
+  //   addTask(newTask); 
+  //   closeAddTaskModal();
+  //   toast.success(`Task "${taskData.title}" created successfully!`);
+  // };
 
   const handleTaskClick = (taskId: string) => {
     const task = allTasks.find((t) => t.taskId === taskId);
@@ -101,12 +88,12 @@ export default function AllTasksPage() {
     }
   };
 
-  const handleUpdateTask = (taskId: string, updatedData: OnUpdateTaskPayload) => {
-    updateTask(taskId, updatedData); 
-    setIsEditModalOpen(false);
-    setSelectedTask(null);
-    toast.success(`Task "${updatedData.title}" updated successfully!`);
-  };
+  // const handleUpdateTask = (taskId: string, updatedData: OnUpdateTaskPayload) => {
+  //   updateTask(taskId, updatedData); 
+  //   setIsEditModalOpen(false);
+  //   setSelectedTask(null);
+  //   toast.success(`Task "${updatedData.title}" updated successfully!`);
+  // };
 
   const applyTempFilters = () => {
     setProgressFilters(tempProgressFilters);

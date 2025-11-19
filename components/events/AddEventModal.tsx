@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { EventColorSelector } from "./EventColorSelector";
-import { Calendar, MapPin, Clock, Users, Image, X, UserPlus, Loader2 } from "lucide-react";
+import { Calendar, MapPin, Clock, Users, Image as LucideImage, X, UserPlus, Loader2 } from "lucide-react";
+import NextImage from "next/image";
 import { toast } from "react-hot-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { Event, EventMember } from "@/lib/types";
@@ -209,11 +210,11 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
 
             {/* Cover Image */}
             <div className="space-y-2">
-              <Label className="flex items-center space-x-2"><Image className="w-4 h-4" /><span>Cover Image</span></Label>
+              <Label className="flex items-center space-x-2"><LucideImage className="w-4 h-4" /><span>Cover Image</span></Label>
               {formData.coverImage && (
-                <div className="relative">
-                  <img src={formData.coverImage} alt="Cover preview" className="w-full h-32 object-cover rounded-lg" />
-                  <Button type="button" variant="outline" size="sm" className="absolute top-2 right-2" onClick={() => setFormData(prev => ({ ...prev, coverImage: "" }))}>
+                <div className="relative w-full h-32">
+                  <NextImage src={formData.coverImage} alt="Cover preview" fill style={{ objectFit: "cover" }} className="rounded-lg" />
+                  <Button type="button" variant="outline" size="sm" className="absolute top-2 right-2 z-10" onClick={() => setFormData(prev => ({ ...prev, coverImage: "" }))}>
                     <X className="w-4 h-4" />
                   </Button>
                 </div>

@@ -45,7 +45,7 @@ export default function DashboardPage() {
   } = useUiStore();
 
   // ---------------- Fetch Events from API ----------------
-  const { data, isLoading } = useFetchEvents();
+  const { data } = useFetchEvents();
   const events: Event[] = data?.items ?? [];
 
   const { tasks } = useTaskStore();
@@ -88,9 +88,9 @@ export default function DashboardPage() {
   // -------------------------------------------------
   // Placeholder: Invite Members
   // -------------------------------------------------
-  const handleInviteMembers = () => {
-    toast("Invite members feature coming soon!", { icon: "ℹ️" });
-  };
+  // const handleInviteMembers = () => {
+  //   toast("Invite members feature coming soon!", { icon: "ℹ️" });
+  // };
 
   // -------------------------------------------------
   // Save Widgets / Customize Dashboard

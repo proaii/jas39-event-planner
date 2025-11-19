@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Event, EventMember } from "@/lib/types";
+import type { Event } from "@/lib/types";
 import { toast } from "react-hot-toast";
 import { useUiStore } from "@/stores/ui-store";
 import { editEventSchema } from "@/schemas/editEventSchema";
@@ -193,8 +193,6 @@ export function useEventById(eventId: string | null) {
 }
 
 export function useSaveTemplate() {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: ({ eventId, data }: { eventId: string; data: TemplateData }) =>
       saveTemplateAPI(eventId, data), 

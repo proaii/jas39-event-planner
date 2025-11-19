@@ -155,7 +155,7 @@ export function EditEventModal({ events }: { events: Event[] }) {
                 <div className="relative">
                   <NextImage
                     src={formData.coverImageUri}
-                    alt={event.title}
+                    alt={`Cover image for ${event.title}`}
                     className="w-full h-32 object-cover rounded-lg"
                     width={1080}
                     height={1080}

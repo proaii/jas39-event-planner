@@ -1,8 +1,10 @@
 import { createClient, createDb } from '@/lib/server/supabase/server';
 import { toApiError } from '@/lib/errors';
 import type { Task, Subtask, Attachment, TaskStatus, TaskPriority, UserLite } from '@/lib/types';
-
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 const TABLE = 'tasks';
+
+// ---------- Tasks ----------
 
 // Get a single task by ID
 export async function getTaskById(taskId: string): Promise<Task> {
@@ -404,12 +406,138 @@ export async function updateTask(
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
-  const db = await createDb();
+  const root = await createClient();
+  const { data: { user }, error: authError } = await root.auth.getUser();
+  if (authError || !user) throw new Error('UNAUTHORIZED');
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error("Missing SUPABASE_SERVICE_ROLE_KEY");
+    throw new Error("SERVER_CONFIGURATION_ERROR");
+  }
+
+  const adminDb = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+
   try {
-    const { error } = await db.from(TABLE).delete().eq('task_id', taskId);
-    if (error) throw error;
+    const { data: task, error: findError } = await adminDb
+      .from(TABLE)
+      .select(`
+        task_id, 
+        event_id,
+        event:events!tasks_event_id_fkey(owner_id),
+        assignees:task_assignees(user_id)
+      `)
+      .eq('task_id', taskId)
+      .maybeSingle();
+
+    if (findError) throw findError;
+    if (!task) throw new Error('TASK_NOT_FOUND');
+
+    type TaskWithOwnership = {
+      event: { owner_id: string } | { owner_id: string }[] | null;
+      assignees: { user_id: string }[];
+    }
+
+    const taskData = task as unknown as TaskWithOwnership;
+    
+    const eventData = Array.isArray(taskData.event) ? taskData.event[0] : taskData.event;
+
+    const isEventOwner = eventData?.owner_id === user.id;
+    
+    const isAssignee = Array.isArray(taskData.assignees)
+      ? taskData.assignees.some((a) => a.user_id === user.id)
+      : false;
+
+    if (!isEventOwner && !isAssignee) {
+      throw new Error('FORBIDDEN_DELETE');
+    }
+
+    const { error: deleteError } = await adminDb.from(TABLE).delete().eq('task_id', taskId);
+
+    if (deleteError) throw deleteError;
+
   } catch (e) {
     throw toApiError(e, 'TASK_DELETE_FAILED');
+  }
+}
+
+// ---------- Subtasks ----------
+
+export async function createSubtask(
+  taskId: string, 
+  title: string, 
+  status: Subtask['subtaskStatus'] = 'To Do' // 'To Do' as Default
+): Promise<Subtask> {
+  const db = await createDb();
+  try {
+    const { data, error } = await db
+      .from('subtasks')
+      .insert({
+        task_id: taskId,
+        title: title,
+        subtask_status: status, 
+      })
+      .select('subtask_id, title, subtask_status')
+      .single();
+
+    if (error) throw error;
+
+    return {
+      subtaskId: String(data.subtask_id),
+      taskId: taskId,
+      title: data.title,
+      subtaskStatus: data.subtask_status,
+    };
+  } catch (e) {
+    throw toApiError(e, 'SUBTASK_CREATE_FAILED');
+  }
+}
+
+export async function updateSubtask(
+  subtaskId: string,
+  patch: { title?: string; subtaskStatus?: Subtask['subtaskStatus'] }
+): Promise<Subtask> {
+  const db = await createDb();
+  try {
+    const updateData: Record<string, unknown> = {};
+    if (patch.title !== undefined) updateData.title = patch.title;
+    if (patch.subtaskStatus !== undefined) updateData.subtask_status = patch.subtaskStatus;
+
+    const { data, error } = await db
+      .from('subtasks')
+      .update(updateData)
+      .eq('subtask_id', subtaskId)
+      .select('subtask_id, task_id, title, subtask_status')
+      .single();
+
+    if (error) throw error;
+
+    return {
+      subtaskId: String(data.subtask_id),
+      taskId: String(data.task_id),
+      title: data.title,
+      subtaskStatus: data.subtask_status,
+    };
+  } catch (e) {
+    throw toApiError(e, 'SUBTASK_UPDATE_FAILED');
+  }
+}
+
+export async function deleteSubtask(subtaskId: string): Promise<void> {
+  const db = await createDb();
+  try {
+    const { error } = await db.from('subtasks').delete().eq('subtask_id', subtaskId);
+    if (error) throw error;
+  } catch (e) {
+    throw toApiError(e, 'SUBTASK_DELETE_FAILED');
   }
 }
 

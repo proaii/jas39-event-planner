@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ApiError } from '@/lib/errors';
 import type { UserLite } from '@/lib/types';
 import { MINUTES } from '@/lib/constants'
@@ -69,5 +69,50 @@ export function useFetchUser(userId: string) {
     enabled: !!userId,
     staleTime: MINUTES.THIRTY, 
     refetchOnWindowFocus: false,
+  });
+}
+
+export function useUpdateUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation<UserLite, ApiError, { userId: string; patch: { username?: string; avatarUrl?: string } }>({
+    mutationFn: async ({ userId, patch }) => {
+      const r = await fetch(`/api/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+
+      if (!r.ok) {
+        throw (await r.json()) as ApiError;
+      }
+      return (await r.json()) as UserLite;
+    },
+    onSuccess: (updatedUser, variables) => {
+      queryClient.setQueryData(['users', variables.userId], updatedUser);
+
+      queryClient.invalidateQueries({ queryKey: ['all-users'] });
+    },
+  });
+}
+
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, ApiError, string>({
+    mutationFn: async (userId) => {
+      const r = await fetch(`/api/users/${userId}`, {
+        method: 'DELETE',
+      });
+
+      if (!r.ok) {
+        throw (await r.json()) as ApiError;
+      }
+    },
+    onSuccess: (_, userId) => {
+      queryClient.invalidateQueries({ queryKey: ['all-users'] });
+
+      queryClient.removeQueries({ queryKey: ['users', userId] });
+    },
   });
 }

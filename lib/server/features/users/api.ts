@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/server/supabase/server';
+import { createClient } from '@/lib/server/supabase/server'; 
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { toApiError } from '@/lib/errors';
 import type { UserLite } from '@/lib/types';
 
@@ -10,6 +11,22 @@ type DbUserRow = {
   email: string | null;
   avatarUrl: string | null; 
 };
+
+function getAdminDb() {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("SERVER_ERROR: Missing Service Role Key");
+  }
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+}
 
 export async function getUserById(targetUserId: string): Promise<UserLite> {
   const supabase = await createClient();
@@ -44,6 +61,80 @@ export async function getUserById(targetUserId: string): Promise<UserLite> {
     throw toApiError(e, 'GET_USER_FAILED');
   }
 }
+
+export async function updateUser(
+  userId: string,
+  patch: { username?: string; avatarUrl?: string }
+): Promise<UserLite> {
+  const root = await createClient();
+  const { data: { user }, error: uerr } = await root.auth.getUser();
+  if (uerr || !user) throw new Error('UNAUTHORIZED');
+
+  if (user.id !== userId) {
+    throw new Error('FORBIDDEN: You can only update your own profile');
+  }
+
+  const adminDb = getAdminDb();
+
+  try {
+    const updates: Record<string, unknown> = {};
+    
+    if (patch.username !== undefined) updates.username = patch.username;
+    if (patch.avatarUrl !== undefined) updates.avatar_url = patch.avatarUrl;
+
+    if (Object.keys(updates).length === 0) {
+        return getUserById(userId); 
+    }
+
+    const { data, error } = await adminDb
+      .from(TABLE)
+      .update(updates)
+      .eq('user_id', userId)
+      .select('userId:user_id, username, email, avatarUrl:avatar_url') 
+      .single();
+
+    if (error) throw error;
+
+    const r = data as DbUserRow;
+    
+    return {
+      userId: r.userId,
+      username: (r.username ?? r.email ?? '').toString(),
+      email: (r.email ?? '').toString(), 
+      avatarUrl: r.avatarUrl ?? null,
+    };
+
+  } catch (e) {
+    throw toApiError(e, 'USER_UPDATE_FAILED');
+  }
+}
+
+/*
+export async function deleteUser(targetUserId: string): Promise<void> {
+  const root = await createClient();
+
+  try {
+    const { data: { user }, error: uerr } = await root.auth.getUser();
+    if (uerr || !user) throw new Error('UNAUTHORIZED');
+
+    if (user.id !== targetUserId) {
+        throw new Error('FORBIDDEN');
+    }
+
+    const adminDb = getAdminDb();
+
+    const { error } = await adminDb
+      .from(TABLE)
+      .delete()
+      .eq('user_id', targetUserId);
+
+    if (error) throw error;
+
+  } catch (e) {
+    throw toApiError(e, 'USER_DELETE_FAILED');
+  }
+}
+*/
 
 export async function listAllUsers(params: {
   q?: string;

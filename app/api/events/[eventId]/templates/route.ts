@@ -1,6 +1,15 @@
-import { saveEventAsTemplate } from '@/lib/server/features/templates/api';
+import { listEventTemplates, saveEventAsTemplate } from '@/lib/server/features/templates/api';
 import { jsonError } from '@/lib/errors';
 import { TemplateSchema } from '@/schemas/template';
+
+export async function GET() {
+  try {
+    const templates = await listEventTemplates();
+    return Response.json(templates);
+  } catch (e) {
+    return jsonError(e);
+  }
+}
 
 export async function POST(
   req: Request,

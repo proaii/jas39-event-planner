@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,14 +14,14 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Search, Check, UserPlus } from "lucide-react";
 import { toast } from "react-hot-toast";
 import type { EventMember, UserLite } from "@/lib/types";
-import { mockUsers } from "@/lib/mock-data";
+import { useFetchUsers } from "@/lib/client/features/users/hooks"; 
 
 interface InviteTeamMembersModalProps {
   isOpen: boolean;
   onClose: () => void;
   eventId: string;
   currentMembers: EventMember[];
-  onMembersUpdated?: (newMembers: EventMember[]) => void; 
+  onMembersUpdated?: (newMembers: EventMember[]) => void;
 }
 
 function getInitials(name: string): string {
@@ -40,20 +40,13 @@ export function InviteTeamMembersModal({
   onMembersUpdated,
 }: InviteTeamMembersModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [availableUsers, setAvailableUsers] = useState<UserLite[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<UserLite[]>([]);
 
-  useEffect(() => {
-    if (!isOpen) return;
+  const { data: allUsers = [] } = useFetchUsers({ q: searchQuery, enabled: isOpen });
 
-    const allUsers = Object.values(mockUsers);
-    const currentIds = currentMembers.map((m) => m.userId);
-    const filtered = allUsers.filter((u) => !currentIds.includes(u.userId));
-
-    setAvailableUsers(filtered);
-    setSelectedUsers([]);
-    setSearchQuery("");
-  }, [isOpen, currentMembers]);
+  const availableUsers: UserLite[] = allUsers.filter(
+    (u) => !currentMembers.some((m) => m.userId === u.userId)
+  );
 
   const handleToggleUser = (user: UserLite) => {
     setSelectedUsers((prev) =>
@@ -88,12 +81,6 @@ export function InviteTeamMembersModal({
     }
   };
 
-  const filteredUsers = availableUsers.filter(
-    (u) =>
-      u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
@@ -115,8 +102,8 @@ export function InviteTeamMembersModal({
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-2">
-          {filteredUsers.length > 0 ? (
-            filteredUsers.map((user) => {
+          {availableUsers.length > 0 ? (
+            availableUsers.map((user) => {
               const isSelected = selectedUsers.some((u) => u.userId === user.userId);
               return (
                 <div

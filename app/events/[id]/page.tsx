@@ -1,49 +1,57 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { mockEvents } from "@/lib/mock-data";
+import { useState } from "react";
 import { EventDetail } from "@/components/events/EventDetail";
 import { EditEventModal } from "@/components/events/EditEventModal";
 import { useUiStore } from "@/stores/ui-store";
-import { useEventStore, useSaveTemplate } from "@/stores/useEventStore";
 import { useTaskStore } from "@/stores/task-store";
+import { useSaveTemplate } from "@/stores/useEventStore";
 import { TemplateData } from "@/schemas/template";
 import type { Event, UserLite, Task, TaskStatus } from "@/lib/types";
 import { toast } from "react-hot-toast";
-
+import { useFetchUsers } from "@/lib/client/features/users/hooks";
+import { useFetchEvent } from "@/lib/client/features/events/hooks";
 
 export default function EventDetailPage() {
   const router = useRouter();
   const { id } = useParams();
 
-  const { openEditEventModal } = useUiStore();
-  const { events, deleteEvent } = useEventStore();
-  const { tasks, addTask, updateTask } = useTaskStore();
-
-  const { mutate: saveTemplateMutate } = useSaveTemplate();
-
-  // Get event from store or fallback to mock
-  const event: Event | undefined =
-    events.find((e) => e.eventId === id) ||
-    mockEvents.find((e) => e.eventId === id);
-
-  if (!event) {
-    return (
-      <p className="p-8 text-center text-muted-foreground">
-        Event not found.
-      </p>
-    );
+  // --- convert id to string safely ---
+  const eventId = typeof id === "string" ? id : Array.isArray(id) ? id[0] : undefined;
+  if (!eventId) {
+    return <p className="p-8 text-center text-muted-foreground">Event ID missing</p>;
   }
 
-  // Mock current user
-  const currentUser: UserLite = {
-    userId: "user-1",
-    username: "Bob",
-    email: "bob@example.com",
-  };
+  const { openEditEventModal } = useUiStore();
+  const { tasks, addTask, updateTask } = useTaskStore();
+  const { mutate: saveTemplateMutate } = useSaveTemplate();
+
+  const [currentUserId] = useState(""); 
+
+  // ------------------- USERS -------------------
+  const { data: users = [], isLoading: isUsersLoading } = useFetchUsers({
+    q: currentUserId,
+    enabled: true,
+  });
+  const currentUser: UserLite | null = users.length > 0 ? users[0] : null;
+
+  // ------------------- EVENT -------------------
+  const { data: event, isLoading: isEventLoading } = useFetchEvent(eventId);
+
+  if (isEventLoading) {
+    return <p className="p-8 text-center text-muted-foreground">Loading event...</p>;
+  }
+
+  if (!event) {
+    return <p className="p-8 text-center text-muted-foreground">Event not found.</p>;
+  }
+
+  if (isUsersLoading || !currentUser) {
+    return <p className="p-8 text-center text-muted-foreground">Loading user...</p>;
+  }
 
   // --- Handlers ---
-
   const handleBack = () => router.back();
 
   const handleTaskStatusChange = (taskId: string, newStatus: TaskStatus) => {
@@ -59,36 +67,12 @@ export default function EventDetailPage() {
   };
 
   const handleDeleteEvent = (eventId: string) => {
-    deleteEvent(eventId);
+    toast.error("Delete not implemented yet"); 
   };
 
   const handleSaveTemplate = (eventId: string, templateData: TemplateData) => {
-    if (!eventId) {
-      toast.error("Cannot save template: Event ID is missing.");
-      return;
-    }
     saveTemplateMutate({ eventId, data: templateData });
   };
-
-  // const handleUpdateEvent = (eventId: string, updatedData: Partial<UpdateEventInput>) => {
-  //   // Normalize members
-  //   const normalizedMembers: EventMember[] =
-  //     (updatedData.members ?? []).map((m) => ({
-  //       eventMemberId: m.eventMemberId ?? "",
-  //       eventId: m.eventId ?? eventId,
-  //       userId: m.userId,
-  //       joinedAt: m.joinedAt ?? new Date().toISOString(),
-  //       role: m.role,
-  //     }));
-
-  //   const normalizedData: Partial<UpdateEventInput> = {
-  //     ...updatedData,
-  //     members: normalizedMembers,
-  //   };
-
-  //   updateEvent(eventId, normalizedData);
-  //   closeEditEventModal();
-  // };
 
   const eventTasks = tasks.filter((t) => t.eventId === event.eventId);
 
@@ -106,9 +90,7 @@ export default function EventDetailPage() {
         onEditEvent={handleEditEvent}
       />
 
-      <EditEventModal
-        events={events.length > 0 ? events : mockEvents}
-      />
+      <EditEventModal events={[event]} />
     </div>
   );
 }

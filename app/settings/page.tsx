@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,9 +11,18 @@ import { Separator } from "@/components/ui/separator";
 import { User, Bell, Palette, Shield, Edit } from "lucide-react";
 import { useTheme } from "next-themes"; 
 import { EditProfileModal } from "@/components/settings/EditProfileModal";
+import { useFetchUsers } from "@/lib/client/features/users/hooks";
+import type { UserLite } from "@/lib/types";
 
 export default function SettingsPage() {
-  const currentUser = "Alex Johnson";
+  // ------------------- USERS -------------------
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const { data: allUsers = [], isLoading: isUsersLoading } = useFetchUsers({
+    q: userSearchQuery,
+    enabled: true,
+  });
+
+  const currentUser: UserLite | null = allUsers[0] ?? null;
 
   // ---------- Notification Settings ----------
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -40,14 +49,33 @@ export default function SettingsPage() {
   };
 
   const [profileData, setProfileData] = useState({
-    ...parseFullName(currentUser),
-    email: "alex.johnson@university.edu",
-    phone: "+1 (555) 123-4567",
-    location: "San Francisco, CA",
-    bio: "Computer Science student passionate about technology and events.",
+    ...parseFullName(currentUser?.username ?? ""),
+    email: currentUser?.email ?? "",
+    phone: "",
+    location: "",
+    bio: "",
   });
 
   const [editProfileData, setEditProfileData] = useState(profileData);
+
+  useEffect(() => {
+    if (currentUser) {
+      setProfileData({
+        ...parseFullName(currentUser.username),
+        email: currentUser.email,
+        phone: "",
+        location: "",
+        bio: "",
+      });
+      setEditProfileData({
+        ...parseFullName(currentUser.username),
+        email: currentUser.email,
+        phone: "",
+        location: "",
+        bio: "",
+      });
+    }
+  }, [currentUser]);
 
   const getInitials = (first: string, middle: string, last: string) =>
     [first, middle, last].map((n) => n?.[0]).join("").toUpperCase();

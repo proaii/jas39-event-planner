@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,19 +18,18 @@ import { Calendar, MapPin, Users, Image, X, UserPlus } from "lucide-react";
 import { unsplash_tool } from "@/lib/client/unsplash";
 import { useUiStore } from "@/stores/ui-store";
 import { editEventSchema } from "@/schemas/editEventSchema";
-import type { Event, EventMember, UpdateEventInput } from "@/lib/types";
+import type { Event, EventMember, UpdateEventInput, UserLite } from "@/lib/types";
 import NextImage from "next/image";
 import { InviteTeamMembersModal } from "./InviteTeamMembersModal";
 import { toast } from "react-hot-toast";
-import { mockUsers } from "@/lib/mock-data";
 import { useEventStore } from "@/stores/useEventStore";
+import { useFetchUsers } from "@/lib/client/features/users/hooks";
 
 export function EditEventModal({ events }: { events: Event[] }) {
   const { isEditEventModalOpen, currentEventId, closeEditEventModal } = useUiStore();
   const { updateEvent } = useEventStore();
 
   const event = events.find((e) => e.eventId === currentEventId) || null;
-  const currentUserId = "u1";
 
   const [formData, setFormData] = useState<UpdateEventInput>({
     title: "",
@@ -46,6 +45,28 @@ export function EditEventModal({ events }: { events: Event[] }) {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
 
+  // ------------------- USERS -------------------
+  // Fetch all users once, filtered only when typing
+  const { data: allUsers = [], isLoading: isUsersLoading } = useFetchUsers({ q: "", enabled: true });
+
+  const usersMap = useMemo(() => {
+    const map = new Map<string, UserLite>();
+    for (const u of allUsers) map.set(u.userId, u);
+    return map;
+  }, [allUsers]);
+
+  const getDisplayName = (userId: string) => usersMap.get(userId)?.username || userId;
+
+  const getInitials = (userId: string) => {
+    const name = getDisplayName(userId);
+    return name
+      .split(" ")
+      .map((p) => p[0])
+      .join("")
+      .toUpperCase();
+  };
+
+  // ------------------- Load event into form -------------------
   useEffect(() => {
     if (!event) return;
 
@@ -69,6 +90,29 @@ export function EditEventModal({ events }: { events: Event[] }) {
 
     if (parsed.success) setFormData(parsed.data);
   }, [event]);
+
+  const generateCoverImage = async () => {
+    if (!formData.title.trim()) return;
+
+    setIsGeneratingImage(true);
+    try {
+      const result = await unsplash_tool(formData.title);
+      if (result) setFormData((prev) => ({ ...prev, coverImageUri: result }));
+      else toast.error("No image found");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to generate cover image");
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  const removeMember = (memberId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      members: prev.members.filter((m) => m.eventMemberId !== memberId),
+    }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,38 +139,6 @@ export function EditEventModal({ events }: { events: Event[] }) {
     toast.success("Event updated successfully!");
     closeEditEventModal();
   };
-
-  const generateCoverImage = async () => {
-    if (!formData.title.trim()) return;
-    setIsGeneratingImage(true);
-    try {
-      const imageUrl = await unsplash_tool(formData.title);
-      if (imageUrl) setFormData((prev) => ({ ...prev, coverImageUri: imageUrl }));
-    } finally {
-      setIsGeneratingImage(false);
-    }
-  };
-
-  const removeMember = (eventMemberId: string) => {
-    const member = formData.members.find((m) => m.eventMemberId === eventMemberId);
-    if (!member) return;
-    if (member.userId === currentUserId) {
-      toast.error("You cannot remove yourself from the event.");
-      return;
-    }
-    setFormData((prev) => ({
-      ...prev,
-      members: prev.members.filter((m) => m.eventMemberId !== eventMemberId),
-    }));
-  };
-
-  const getDisplayName = (userId: string) => mockUsers[userId]?.username || userId;
-  const getInitials = (userId: string) =>
-    getDisplayName(userId)
-      .split(" ")
-      .map((p) => p[0])
-      .join("")
-      .toUpperCase();
 
   if (!event) return null;
 

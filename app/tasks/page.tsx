@@ -21,8 +21,7 @@ import { useTaskStore } from "@/stores/task-store";
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { TaskCard } from "@/components/task-card";
 import { EditTaskModal } from "@/components/tasks/EditTaskModal";
-import { mockUsers } from "@/lib/mock-data";
-
+import { useFetchUsers } from "@/lib/client/features/users/hooks";
 
 export default function AllTasksPage() {
   // ------------------- UI STORE -------------------
@@ -42,7 +41,6 @@ export default function AllTasksPage() {
     setDateFilters,
   } = useUiStore();
 
-  // Temporary local filter state for popover
   const [tempProgressFilters, setTempProgressFilters] = useState(progressFilters);
   const [tempDateFilters, setTempDateFilters] = useState(dateFilters);
 
@@ -53,18 +51,28 @@ export default function AllTasksPage() {
     }
   }, [isFilterOpen, progressFilters, dateFilters]);
 
-  // ---------------- Current User ----------------
-  const currentUser: UserLite = {
-    userId: "user-1",
-    username: "Bob",
-    email: "bob@example.com",
-  };
+  // ------------------- USERS -------------------
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const { data: allUsers = [], isLoading: isUsersLoading } = useFetchUsers({
+    q: userSearchQuery,
+    enabled: true,
+  });
 
+  // Select current user as first user for now (or integrate with auth)
+  const currentUser: UserLite | null = allUsers[0] ?? null;
 
   // ------------------- TASKS STORE -------------------
   const { tasks: allTasks } = useTaskStore();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+
+  const handleTaskClick = (taskId: string) => {
+    const task = allTasks.find((t) => t.taskId === taskId);
+    if (task) {
+      setSelectedTask(task);
+      setIsEditModalOpen(true);
+    }
+  };
 
   // ------------------- HANDLERS -------------------
   // const handleCreateTask = (taskData: Omit<Task, "taskId" | "createdAt">) => {
@@ -79,14 +87,6 @@ export default function AllTasksPage() {
   //   closeAddTaskModal();
   //   toast.success(`Task "${taskData.title}" created successfully!`);
   // };
-
-  const handleTaskClick = (taskId: string) => {
-    const task = allTasks.find((t) => t.taskId === taskId);
-    if (task) {
-      setSelectedTask(task);
-      setIsEditModalOpen(true);
-    }
-  };
 
   // const handleUpdateTask = (taskId: string, updatedData: OnUpdateTaskPayload) => {
   //   updateTask(taskId, updatedData); 
@@ -300,7 +300,7 @@ export default function AllTasksPage() {
       <AddTaskModal
         isOpen={isAddTaskModalOpen}
         onClose={closeAddTaskModal}
-        eventMembers={[]}
+        eventMembers={allUsers}
         currentUser={currentUser}
         isPersonal={true}
       />
@@ -310,7 +310,7 @@ export default function AllTasksPage() {
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         task={selectedTask}
-        availableAssignees={Object.values(mockUsers)}
+        availableAssignees={allUsers}
       />
     </main>
   );

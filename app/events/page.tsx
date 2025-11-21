@@ -27,7 +27,7 @@ import {
 import { Event } from "@/lib/types";
 import { useFetchUsers } from "@/lib/client/features/users/hooks";
 import { useUiStore } from "@/stores/ui-store";
-import { useEventStore, useFetchEvents } from "@/stores/useEventStore";
+import { useEventStore, useFetchEvents, useCreateEvent } from "@/stores/useEventStore";
 import { toast } from "react-hot-toast";
 import { AddEventModal } from "@/components/events/AddEventModal";
 import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
@@ -38,6 +38,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 export default function AllEventsPage() {
   const router = useRouter();
   const [userSearchQuery, setUserSearchQuery] = useState("");
+  const { mutate: createEvent } = useCreateEvent();
 
   // ------------------- USERS -------------------
   const { data: allUsers = [], isLoading: isUsersLoading } = useFetchUsers({
@@ -91,18 +92,10 @@ export default function AllEventsPage() {
 
   // ------------------- HANDLERS -------------------
   const handleCreateEvent = (
-    eventData: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members">
+    eventData: Omit<Event, "eventId" | "ownerId" | "createdAt">
   ) => {
-    const newEvent: Event = {
-      eventId: `event-${Date.now()}`,
-      ...eventData,
-      ownerId: "currentUser", 
-      createdAt: new Date().toISOString(),
-      members: [],
-    };
-    setEvents([...events, newEvent]);
-    closeAddEventModal();
-    toast.success(`Event "${eventData.title}" created successfully!`);
+    const { members, ...rest } = eventData;
+    createEvent(rest);
   };
 
   const handleUseTemplate = (data: TemplateData) => {

@@ -49,15 +49,30 @@ function formatDateTimeWithTZ(dateStr: string, timeStr: string): string {
   return `${yyyy}-${MM}-${dd} ${hh}:${mm}:${ss}${offsetSign}${offsetHr}:${offsetM}`;
 }
 
+function getDateTimeDefaults() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+
+  return {
+    date: `${year}-${month}-${day}`,
+    time: `${hours}:${minutes}`,
+  };
+}
+
 export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefillData }: AddEventModalProps) {
+  const { date: defaultDate, time: defaultTime } = getDateTimeDefaults();
   const [formData, setFormData] = useState({
     title: "",
     location: "",
     isMultiDay: false,
-    startDate: "",
-    startTime: "",
-    endDate: "",
-    endTime: "",
+    startDate: defaultDate,
+    startTime: defaultTime,
+    endDate: defaultDate,
+    endTime: defaultTime,
     description: "",
     coverImage: "",
     color: "#E8F4FD",
@@ -74,20 +89,40 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
         title: prefillData.title || "",
         location: prefillData.location || "",
         isMultiDay: isMulti,
-        startDate: prefillData.startAt?.split("T")[0] || "",
-        startTime: prefillData.startAt?.split("T")[1]?.substring(0,5) || "",
-        endDate: prefillData.endAt?.split("T")[0] || prefillData.startAt?.split("T")[0] || "",
-        endTime: prefillData.endAt?.split("T")[1]?.substring(0,5) || "",
+        startDate: prefillData.startAt?.split("T")[0] || defaultDate,
+        startTime: prefillData.startAt?.split("T")[1]?.substring(0,5) || defaultTime,
+        endDate: prefillData.endAt?.split("T")[0] || prefillData.startAt?.split("T")[0] || defaultDate,
+        endTime: prefillData.endAt?.split("T")[1]?.substring(0,5) || defaultTime,
         description: prefillData.description || "",
         coverImage: prefillData.coverImageUri || "",
         color: prefillData.color ? `#${prefillData.color.toString(16).padStart(6,"0")}` : "#E8F4FD",
         members: prefillData.members || [],
       });
+    } else if (isOpen && !prefillData) {
+      // Reset to defaults when opening for a new event
+      setFormData(prev => ({
+        ...prev,
+        title: "",
+        location: "",
+        isMultiDay: false,
+        startDate: defaultDate,
+        startTime: defaultTime,
+        endDate: defaultDate,
+        endTime: defaultTime,
+        description: "",
+        coverImage: "",
+        color: "#E8F4FD",
+        members: [],
+      }));
     }
-  }, [isOpen, prefillData]);
+  }, [isOpen, prefillData, defaultDate, defaultTime]);
 
   const handleInviteMembers = () => setInviteModalOpen(true);
   const removeMember = (member: string) => setFormData(prev => ({ ...prev, members: prev.members.filter(m => m !== member) }));
+
+  const getLabelClassName = (value: string | undefined | null) => {
+    return `flex items-center space-x-2 ${!value ? 'text-red-500' : ''}`;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,17 +156,17 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
       };
 
       onCreateEvent(newEvent);
-      toast.success("Event created successfully!");
+      // toast.success("Event created successfully!"); // Handled by useCreateEvent hook
       onClose();
 
       setFormData({
         title: "",
         location: "",
         isMultiDay: false,
-        startDate: "",
-        startTime: "",
-        endDate: "",
-        endTime: "",
+        startDate: defaultDate,
+        startTime: defaultTime,
+        endDate: defaultDate,
+        endTime: defaultTime,
         description: "",
         coverImage: "",
         color: "#E8F4FD",
@@ -160,13 +195,13 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Title */}
             <div className="space-y-2">
-              <Label htmlFor="title">Event Title</Label>
+              <Label htmlFor="title" className={!formData.title ? 'text-destructive' : ''}>Event Title*</Label>
               <Input id="title" value={formData.title} onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))} required />
             </div>
 
             {/* Location */}
             <div className="space-y-2">
-              <Label className="flex items-center space-x-2"><MapPin className="w-4 h-4" /><span>Location</span></Label>
+              <Label className={getLabelClassName(formData.location)}><MapPin className="w-4 h-4" /><span>Location*</span></Label>
               <Input value={formData.location} onChange={e => setFormData(prev => ({ ...prev, location: e.target.value }))} required />
             </div>
 
@@ -179,11 +214,11 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
             {/* Start date & time */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="flex items-center space-x-2"><Calendar className="w-4 h-4" /><span>{formData.isMultiDay ? "Start Date" : "Date"}</span></Label>
+                <Label className={getLabelClassName(formData.startDate)}><Calendar className="w-4 h-4" /><span>{formData.isMultiDay ? "Start Date" : "Date"}*</span></Label>
                 <Input type="date" value={formData.startDate} onChange={e => setFormData(prev => ({ ...prev, startDate: e.target.value }))} required />
               </div>
               <div className="space-y-2">
-                <Label className="flex items-center space-x-2"><Clock className="w-4 h-4" /><span>Start Time</span></Label>
+                <Label className={getLabelClassName(formData.startTime)}><Clock className="w-4 h-4" /><span>Start Time*</span></Label>
                 <Input type="time" value={formData.startTime} onChange={e => setFormData(prev => ({ ...prev, startTime: e.target.value }))} required />
               </div>
             </div>
@@ -192,11 +227,11 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
             {formData.isMultiDay && (
               <div className="grid grid-cols-2 gap-4 mt-2">
                 <div className="space-y-2">
-                  <Label className="flex items-center space-x-2"><Calendar className="w-4 h-4" /><span>End Date</span></Label>
+                  <Label className={getLabelClassName(formData.endDate)}><Calendar className="w-4 h-4" /><span>End Date*</span></Label>
                   <Input type="date" value={formData.endDate} onChange={e => setFormData(prev => ({ ...prev, endDate: e.target.value }))} required />
                 </div>
                 <div className="space-y-2">
-                  <Label className="flex items-center space-x-2"><Clock className="w-4 h-4" /><span>End Time (on last day)</span></Label>
+                  <Label className={getLabelClassName(formData.endTime)}><Clock className="w-4 h-4" /><span>End Time (on last day)*</span></Label>
                   <Input type="time" value={formData.endTime} onChange={e => setFormData(prev => ({ ...prev, endTime: e.target.value }))} required />
                 </div>
               </div>
@@ -204,7 +239,7 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
 
             {/* Description */}
             <div className="space-y-2">
-              <Label>Description</Label>
+              <Label className={!formData.description ? 'text-destructive' : ''}>Description*</Label>
               <Textarea value={formData.description} onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))} className="min-h-[100px]" required />
             </div>
 

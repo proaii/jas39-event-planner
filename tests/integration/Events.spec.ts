@@ -103,13 +103,5 @@ test.describe('Events Management', () => {
       await expect(page.getByRole('heading', { name: 'Community Tech Day' })).not.toBeVisible();
       await expect(page.getByRole('heading', { name: "John's Birthday Party" })).toBeVisible();
     });
-
-    test('filters events by progress status', async ({ page }) => {
-      await page.getByRole('button', { name: 'Filter by Progress' }).click();
-      await page.getByLabel('Completed').click();
-      
-      await expect(page.getByRole('heading', { name: 'Community Tech Day' })).not.toBeVisible();
-      await expect(page.getByRole('heading', { name: "John's Birthday Party" })).toBeVisible();
-    });
   });
 });

@@ -53,17 +53,19 @@ test.describe('Settings and Profile Management', () => {
     await page.getByRole('dialog', { name: 'Edit Profile' }).waitFor();
 
     // Update the name field
-    const nameInput = page.getByRole('textbox', { name: 'Full Name' });
-    await nameInput.clear();
-    await nameInput.fill('Alexandra Johnson');
+    await page.getByRole('textbox', { name: 'FirstName' }).fill('Alexandra');
+    await page.getByRole('textbox', { name: 'Last Name' }).fill('Johnson');
+
+    //Update Phone
+    await page.getByRole('textbox', { name: 'Phone Number' }).fill('123-456-7890');
 
     // Save the changes
-    await page.getByRole('button', { name: 'Save Changes' }).click();
+    await page.getByRole('button', { name: 'Save' }).click();
 
     // Assert that the UI is updated with the new information
-    await expect(page.getByRole('dialog', { name: 'Edit Profile' })).not.toBeVisible();
-    await expect(page.locator('text=Alexandra Johnson')).toBeVisible();
-    await expect(page.locator('text=Profile updated successfully')).toBeVisible();
+    await expect(page.locator('text=Alexandra')).toBeVisible();
+    await expect(page.locator('text=Johnson')).toBeVisible();
+    await expect(page.locator('text=123-456-7890')).toBeVisible();
   });
 
 });

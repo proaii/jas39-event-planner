@@ -30,13 +30,14 @@ test.describe('Task Management Integration', () => {
     });
 
     await page.goto('/tasks');
-    await page.getByRole('button', { name: 'Add Task' }).click();
+    await page.getByRole('button', { name: 'Create Task' }).click();
 
     // Fill out the form in the modal
-    await page.getByRole('dialog', { name: 'Add Task' }).waitFor();
-    await page.getByRole('textbox', { name: 'Task Title' }).fill('New Marketing Proposal');
+    await page.getByRole('dialog', { name: 'Add New Task' }).waitFor();
+    await page.getByRole('textbox', { name: 'Task Name *' }).fill('New Marketing Proposal');
     await page.getByRole('textbox', { name: 'Description' }).fill('Create a proposal for the new campaign.');
-    await page.getByRole('button', { name: 'Save Task' }).click();
+    await page.getByLabel('Due Date').fill('1999-01-01T23:59');
+    await page.getByRole('button', { name: 'Add Task' }).click();
 
     // Verify the modal is closed and the new task is visible
     await expect(page.getByRole('dialog', { name: 'Add Task' })).not.toBeVisible();

@@ -5,6 +5,23 @@ import type { ApiError } from '@/lib/errors';
 import type { UserLite } from '@/lib/types';
 import { MINUTES } from '@/lib/constants'
 
+export function useFetchCurrentUser() {
+  return useQuery<UserLite, ApiError>({
+    queryKey: ['current-user'],
+    staleTime: MINUTES.FIVE,
+    refetchOnWindowFocus: false,
+    retry: 1,
+    queryFn: async () => {
+      const r = await fetch(`/api/users/me`);
+      if (!r.ok) {
+        const err = (await r.json()) as unknown;
+        throw err as ApiError;
+      }
+      return (await r.json()) as UserLite;
+    },
+  });
+}
+
 type UseAllUsersOpts = {
   q?: string;
   enabled?: boolean;

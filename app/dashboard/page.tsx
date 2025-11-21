@@ -10,24 +10,26 @@ import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { CustomizeDashboardModal } from "@/components/dashboard/CustomizeDashboardModal";
 import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
 
-import { useFetchEvents, useCreateEvent } from "@/stores/useEventStore";
+import { useFetchEvents, useCreateEvent } from "@/lib/client/features/events/hooks";
 import { useTaskStore } from "@/stores/task-store"; 
 import { TemplateData } from "@/schemas/template";
 import type { Event, UserLite } from "@/lib/types";
-import { useFetchUsers } from "@/lib/client/features/users/hooks";
+import { useFetchUsers, useFetchCurrentUser } from "@/lib/client/features/users/hooks";
 
 // -------------------------------------------------
 // Dashboard Page — Main landing page for the user
 // -------------------------------------------------
 export default function DashboardPage() {
   // ------------------- USERS -------------------
+  // Fetch the currently authenticated user
+  const { data: currentUser, isLoading: isCurrentUserLoading } = useFetchCurrentUser();
+
+  // Fetch a list of all users for assigning tasks in the modal
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const { data: allUsers = [], isLoading: isUsersLoading } = useFetchUsers({
     q: userSearchQuery,
     enabled: true,
   });
-
-  const currentUser: UserLite | null = allUsers[0] ?? null;
 
   // ---------------- UI Store ----------------
   const {
@@ -70,6 +72,7 @@ export default function DashboardPage() {
   const handleCreateEvent = (
     payload: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members">
   ) => {
+    console.log("handleCreateEvent: Mutation triggered with payload:", payload);
     createEventMutation.mutate(
       {
         title: payload.title,
@@ -150,13 +153,15 @@ export default function DashboardPage() {
       />
 
       {/* ---------------- Add Task Modal (use store, API users) ---------------- */}
-      <AddTaskModal
-        isOpen={isAddTaskModalOpen}
-        onClose={closeAddTaskModal}
-        eventMembers={allUsers} 
-        currentUser={currentUser} 
-        isPersonal={true}
-      />
+      {currentUser && (
+        <AddTaskModal
+          isOpen={isAddTaskModalOpen}
+          onClose={closeAddTaskModal}
+          eventMembers={allUsers}
+          currentUser={currentUser}
+          isPersonal={true}
+        />
+      )}
 
       {/* ---------------- Customize Dashboard Modal ---------------- */}
       <CustomizeDashboardModal

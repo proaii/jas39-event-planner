@@ -11,18 +11,12 @@ import { Separator } from "@/components/ui/separator";
 import { User, Bell, Palette, Shield, Edit } from "lucide-react";
 import { useTheme } from "next-themes"; 
 import { EditProfileModal } from "@/components/settings/EditProfileModal";
-import { useFetchUsers } from "@/lib/client/features/users/hooks";
+import { useFetchCurrentUser } from "@/lib/client/features/users/hooks";
 import type { UserLite } from "@/lib/types";
 
 export default function SettingsPage() {
   // ------------------- USERS -------------------
-  const [userSearchQuery, setUserSearchQuery] = useState("");
-  const { data: allUsers = [], isLoading: isUsersLoading } = useFetchUsers({
-    q: userSearchQuery,
-    enabled: true,
-  });
-
-  const currentUser: UserLite | null = allUsers[0] ?? null;
+  const { data: currentUser, isLoading: isCurrentUserLoading } = useFetchCurrentUser();
 
   // ---------- Notification Settings ----------
   const [emailNotifications, setEmailNotifications] = useState(true);

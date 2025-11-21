@@ -10,7 +10,7 @@ type EventsPage = { items: Event[]; nextPage: number | null };
 
 // ---------- Events ----------
 
-export function useFetchEvents(f: { q?: string; pageSize?: number }) {
+export function useFetchEvents(f: { q?: string; pageSize?: number } = {}) {
   const pageSize = f.pageSize ?? 10;
 
   return useInfiniteQuery<EventsPage, ApiError, EventsPage, ReturnType<typeof queryKeys.events>, number>({

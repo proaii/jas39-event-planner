@@ -22,12 +22,12 @@ import type { Event, EventMember, UpdateEventInput, UserLite } from "@/lib/types
 import NextImage from "next/image";
 import { InviteTeamMembersModal } from "./InviteTeamMembersModal";
 import { toast } from "react-hot-toast";
-import { useEventStore } from "@/stores/useEventStore";
+import { useUpdateEvent } from "@/stores/useEventStore";
 import { useFetchUsers } from "@/lib/client/features/users/hooks";
 
 export function EditEventModal({ events }: { events: Event[] }) {
   const { isEditEventModalOpen, currentEventId, closeEditEventModal } = useUiStore();
-  const { updateEvent } = useEventStore();
+  const { mutate: updateEvent, isPending: isUpdating } = useUpdateEvent();
 
   const event = events.find((e) => e.eventId === currentEventId) || null;
 
@@ -135,9 +135,7 @@ export function EditEventModal({ events }: { events: Event[] }) {
       })),
     };
 
-    updateEvent(event.eventId, normalizedData);
-    toast.success("Event updated successfully!");
-    closeEditEventModal();
+    updateEvent({ eventId: event.eventId, data: normalizedData });
   };
 
   if (!event) return null;
@@ -360,8 +358,12 @@ export function EditEventModal({ events }: { events: Event[] }) {
               <Button type="button" variant="outline" onClick={closeEditEventModal}>
                 Cancel
               </Button>
-              <Button type="submit" className="bg-primary hover:bg-primary/90">
-                Update Event
+              <Button
+                type="submit"
+                className="bg-primary hover:bg-primary/90"
+                disabled={isUpdating}
+              >
+                {isUpdating ? "Updating..." : "Update Event"}
               </Button>
             </div>
           </form>

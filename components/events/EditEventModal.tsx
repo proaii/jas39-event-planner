@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
+import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,9 @@ export function EditEventModal({ events }: { events: Event[] }) {
 
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [updateInGoogleCalendar, setUpdateInGoogleCalendar] = useState(false);
+  const session = useSession();
+  const supabase = useSupabaseClient();
 
   // ------------------- USERS -------------------
   // Fetch all users once, filtered only when typing
@@ -114,6 +118,65 @@ export function EditEventModal({ events }: { events: Event[] }) {
     }));
   };
 
+  const updateCalendarEvent = async (accessToken?: string) => {
+    // @ts-ignore
+    if (!event?.googleCalendarEventId) {
+      toast.error("This event is not synced with Google Calendar.");
+      return;
+    }
+
+    try {
+      if (!accessToken && session) {
+        // @ts-ignore
+        accessToken = session.provider_token || session.access_token;
+      }
+
+      if (!accessToken) {
+        toast.error("No Google access token available.");
+        return;
+      }
+
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const start = formData.startAt ? new Date(formData.startAt) : new Date();
+      const end = formData.endAt ? new Date(formData.endAt) : new Date(start.getTime() + 60 * 60 * 1000);
+
+      const calendarEvent = {
+        summary: formData.title,
+        description: formData.description,
+        start: {
+          dateTime: start.toISOString(),
+          timeZone: tz,
+        },
+        end: {
+          dateTime: end.toISOString(),
+          timeZone: tz,
+        },
+        location: formData.location || undefined,
+      };
+
+      const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${event.googleCalendarEventId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: "Bearer " + accessToken,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(calendarEvent),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("Google Calendar API error:", text);
+        toast.error("Failed to update event in Google Calendar.");
+        return;
+      }
+
+      toast.success("Event updated in your Google Calendar.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Error while updating Google Calendar event.");
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!event) return;
@@ -136,6 +199,12 @@ export function EditEventModal({ events }: { events: Event[] }) {
     };
 
     updateEvent({ eventId: event.eventId, data: normalizedData });
+
+    if (updateInGoogleCalendar) {
+        // @ts-ignore
+        const providerToken = session?.provider_token || session?.access_token;
+        updateCalendarEvent(providerToken);
+    }
   };
 
   if (!event) return null;
@@ -351,7 +420,16 @@ export function EditEventModal({ events }: { events: Event[] }) {
               </Button>
             </div>
 
-
+            {/* Google Calendar Checkbox */}
+            <div className="flex items-center mt-2 space-x-3 pt-4 border-t">
+              <Input
+                type="checkbox"
+                className="w-5 h-5 inline-block mr-2 accent-primary focus:ring-primary"
+                checked={updateInGoogleCalendar}
+                onChange={e => setUpdateInGoogleCalendar((e.target as HTMLInputElement).checked)}
+              />
+              <span className="text">Update event in Google Calendar</span>
+            </div>
 
             {/* Actions */}
             <div className="flex justify-end space-x-3 pt-4 border-t">
@@ -383,7 +461,6 @@ export function EditEventModal({ events }: { events: Event[] }) {
           }))
         }
       />
-
     </>
   );
 }

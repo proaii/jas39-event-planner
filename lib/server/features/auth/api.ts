@@ -14,14 +14,47 @@ export async function signInWithEmail({
   return data;
 }
 
+// export async function signInWithOAuth(provider: Provider) {
+//   const supabase = createClient();
+//   const { error } = await supabase.auth.signInWithOAuth({
+//     provider,
+//     options: {
+//       redirectTo: `${location.origin}/api/auth/callback?next=/dashboard`,
+//     },
+//   });
+//   if (error) throw new Error(error.message);
+// }
+
 export async function signInWithOAuth(provider: Provider) {
   const supabase = createClient();
+  
+  // 1. Define default options
+  const options: {
+    redirectTo: string;
+    scopes?: string;
+    queryParams?: { [key: string]: string };
+  } = {
+    redirectTo: `${location.origin}/api/auth/callback?next=/dashboard`,
+  };
+
+  // 2. Add Google-Specific Options (The Phase 3 Requirement)
+  if (provider === 'google') {
+    // Request access to manage the calendar
+    options.scopes = 'https://www.googleapis.com/auth/calendar';
+    
+    options.queryParams = {
+      // 'offline' is required to get a Refresh Token (crucial for background sync)
+      access_type: 'offline', 
+      // 'consent' forces the user to approve access again (ensures we get the refresh token)
+      prompt: 'consent', 
+    };
+  }
+
   const { error } = await supabase.auth.signInWithOAuth({
     provider,
-    options: {
-      redirectTo: `${location.origin}/api/auth/callback?next=/dashboard`,
-    },
+    options,
   });
+
   if (error) throw new Error(error.message);
 }
 

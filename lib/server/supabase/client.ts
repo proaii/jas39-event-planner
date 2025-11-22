@@ -9,6 +9,8 @@ export function createClient() {
   );
 }
 
+export const supabaseClient = createClient();
+
 export function createDb() {
   return createClient().schema(SCHEMA);
 }

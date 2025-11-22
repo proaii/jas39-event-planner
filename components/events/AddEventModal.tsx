@@ -23,7 +23,7 @@ import { InviteTeamMembersModal } from "./InviteTeamMembersModal";
 interface AddEventModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreateEvent: (eventData: Omit<Event, 'eventId' | 'ownerId' | 'createdAt'>) => void;
+  onCreateEvent: (eventData: Omit<Event, 'eventId' | 'ownerId' | 'createdAt'>) => Promise<void>;
   eventId?: string;
   prefillData?: Partial<Omit<Event, 'eventId' | 'ownerId' | 'createdAt'>>;
 }
@@ -72,7 +72,7 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
     startDate: defaultDate,
     startTime: defaultTime,
     endDate: defaultDate,
-    endTime: defaultTime,
+    endTime: "", // Default to empty string for optional end time
     description: "",
     coverImage: "",
     color: "#E8F4FD",
@@ -92,7 +92,7 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
         startDate: prefillData.startAt?.split("T")[0] || defaultDate,
         startTime: prefillData.startAt?.split("T")[1]?.substring(0,5) || defaultTime,
         endDate: prefillData.endAt?.split("T")[0] || prefillData.startAt?.split("T")[0] || defaultDate,
-        endTime: prefillData.endAt?.split("T")[1]?.substring(0,5) || defaultTime,
+        endTime: prefillData.endAt?.split("T")[1]?.substring(0,5) || "", // Set to empty string if no endAt
         description: prefillData.description || "",
         coverImage: prefillData.coverImageUri || "",
         color: prefillData.color ? `#${prefillData.color.toString(16).padStart(6,"0")}` : "#E8F4FD",
@@ -108,7 +108,7 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
         startDate: defaultDate,
         startTime: defaultTime,
         endDate: defaultDate,
-        endTime: defaultTime,
+        endTime: "", // Reset to empty string
         description: "",
         coverImage: "",
         color: "#E8F4FD",
@@ -124,7 +124,7 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
     return `flex items-center space-x-2 ${!value ? 'text-red-500' : ''}`;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title.trim()) return toast.error("Please enter an event title.");
     if (!formData.startDate || !formData.startTime) return toast.error("Please select a start date and time.");
@@ -155,8 +155,9 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
         members: formData.members,
       };
 
-      onCreateEvent(newEvent);
-      // toast.success("Event created successfully!"); // Handled by useCreateEvent hook
+      console.log("AddEventModal: Calling onCreateEvent with newEvent:", newEvent);
+      await onCreateEvent(newEvent);
+      console.log("AddEventModal: onCreateEvent resolved successfully.");
       onClose();
 
       setFormData({

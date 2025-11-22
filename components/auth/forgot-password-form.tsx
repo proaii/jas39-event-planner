@@ -14,39 +14,69 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useState } from "react";
+import { useAuthUiStore } from "@/stores/auth-ui-store";
+import { useToast } from "@/components/ui/use-toast";
 
 export function ForgotPasswordForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
   const [email, setEmail] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+
+  // Zustand store
+  const {
+    forgotPassword,
+    setForgotPasswordLoading,
+    setForgotPasswordError,
+    setForgotPasswordSuccess,
+    resetForgotPasswordState,
+  } = useAuthUiStore();
+
+  const { toast } = useToast();
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     const supabase = createClient();
-    setIsLoading(true);
-    setError(null);
+
+    setForgotPasswordLoading(true);
+    setForgotPasswordError(null);
 
     try {
-      // The url which will be included in the email. This URL needs to be configured in your redirect URLs in the Supabase dashboard at https://supabase.com/dashboard/project/_/auth/url-configuration
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/update-password`,
       });
       if (error) throw error;
-      setSuccess(true);
+
+      setForgotPasswordSuccess(true);
+      setEmail(""); // clear input
+      toast({
+        title: "Success",
+        description: "Password reset email sent!",
+        variant: "default",
+      });
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
+      const message =
+        error instanceof Error ? error.message : "An error occurred";
+      setForgotPasswordError(message);
+
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
     } finally {
-      setIsLoading(false);
+      setForgotPasswordLoading(false);
     }
+  };
+
+  const handleResetForm = () => {
+    resetForgotPasswordState();
+    setEmail("");
   };
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      {success ? (
+      {forgotPassword.success ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">Check Your Email</CardTitle>
@@ -57,6 +87,9 @@ export function ForgotPasswordForm({
               If you registered using your email and password, you will receive
               a password reset email.
             </p>
+            <Button className="mt-4" onClick={handleResetForm}>
+              Reset Another Password
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -80,13 +113,22 @@ export function ForgotPasswordForm({
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    disabled={forgotPassword.isLoading}
                   />
+                  {forgotPassword.error && (
+                    <p className="text-sm text-red-500">{forgotPassword.error}</p>
+                  )}
                 </div>
-                {error && <p className="text-sm text-red-500">{error}</p>}
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Sending..." : "Send reset email"}
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  loading={forgotPassword.isLoading} 
+                >
+                  Send reset email
                 </Button>
               </div>
+
               <div className="mt-4 text-center text-sm">
                 Already have an account?{" "}
                 <Link

@@ -6,19 +6,41 @@ import type { Event } from "@/lib/types";
 import { formatDate, cn } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useFetchEvents } from "@/lib/client/features/events/hooks";
 
 interface UpcomingEventsWidgetProps {
-  events: Event[];
   onEventClick: (eventId: string) => void;
   onNavigateToAllEvents?: () => void;
 }
 
 const COLOR_PALETTE = ["#6366F1", "#22C55E", "#F59E0B", "#EF4444", "#06B6D4", "#A855F7"];
 
-export function UpcomingEventsWidget({ events, onEventClick, onNavigateToAllEvents }: UpcomingEventsWidgetProps) {
+export function UpcomingEventsWidget({ onEventClick, onNavigateToAllEvents }: UpcomingEventsWidgetProps) {
   const router = useRouter();
+  const { data, isLoading, error } = useFetchEvents({ pageSize: 10 });
+
+  const events: Event[] = data?.items ?? [];
+
   const dateOf = (e: Event) => e.startAt ?? e.endAt ?? e.createdAt;
-  const sortedEvents = [...events].sort((a, b) => new Date(dateOf(a)).getTime() - new Date(dateOf(b)).getTime());
+  const sortedEvents = [...events].sort(
+    (a, b) => new Date(dateOf(a)).getTime() - new Date(dateOf(b)).getTime()
+  );
+
+  if (isLoading) {
+    return (
+      <Card className="lg:col-span-1">
+        <CardContent className="p-6 text-center text-muted-foreground">Loading events...</CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="lg:col-span-1">
+        <CardContent className="p-6 text-center text-red-500">{error.message}</CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="lg:col-span-1">
@@ -30,7 +52,7 @@ export function UpcomingEventsWidget({ events, onEventClick, onNavigateToAllEven
             size="sm"
             className="text-primary"
             onClick={() => {
-              if (onNavigateToAllEvents) onNavigateToAllEvents();
+              onNavigateToAllEvents?.();
               router.push("/events");
             }}
           >

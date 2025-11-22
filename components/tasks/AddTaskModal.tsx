@@ -40,6 +40,25 @@ import {
   UserLite,
 } from "@/lib/types"
 import { useTaskStore } from "@/stores/task-store"
+import { toast } from "react-hot-toast"
+
+function getDateTimeDefaults() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+
+  return {
+    date: `${year}-${month}-${day}`,
+    time: `${hours}:${minutes}`,
+  };
+}
+
+const getLabelClassName = (value: string | undefined | null) => {
+  return `flex items-center space-x-2 ${!value ? 'text-destructive' : ''}`;
+};
 
 interface AddTaskModalProps {
   isOpen: boolean
@@ -62,12 +81,15 @@ export function AddTaskModal({
 }: AddTaskModalProps) {
   const addTask = useTaskStore((state) => state.addTask)
 
+  const { date: defaultDate, time: defaultTime } = getDateTimeDefaults();
+  const defaultDateTimeISO = new Date(`${defaultDate}T${defaultTime}`).toISOString();
+
   const [taskData, setTaskData] = useState({
     title: "",
     description: "",
     assignees: [] as UserLite[],
     startAt: null as string | null,
-    endAt: null as string | null,
+    endAt: defaultDateTimeISO as string | null, // Default to current datetime
     taskStatus: "To Do" as TaskStatus,
     taskPriority: "Normal" as TaskPriority,
     subtasks: [] as Subtask[],
@@ -89,15 +111,22 @@ export function AddTaskModal({
 
   // Ensure current user is always assigned in personal mode (even if modal reopens)
   useEffect(() => {
-    if (isOpen && isPersonal && currentUser) {
-      setTaskData((prev) => {
-        const alreadyAssigned = prev.assignees.some(
-          (a) => a.userId === currentUser.userId
-        )
-        return alreadyAssigned ? prev : { ...prev, assignees: [currentUser] }
-      })
+    if (isOpen) {
+      if (isPersonal && currentUser) {
+        setTaskData((prev) => {
+          const alreadyAssigned = prev.assignees.some(
+            (a) => a.userId === currentUser.userId
+          )
+          return alreadyAssigned ? prev : { ...prev, assignees: [currentUser] }
+        })
+      }
+      // Initialize endAt with defaultDateTimeISO if it's null when modal opens
+      setTaskData(prev => ({
+        ...prev,
+        endAt: prev.endAt || defaultDateTimeISO,
+      }));
     }
-  }, [isOpen, isPersonal, currentUser])
+  }, [isOpen, isPersonal, currentUser, defaultDateTimeISO])
 
   // Validate form state using useMemo to avoid unnecessary re-renders
   const isFormValid = useMemo(() => {
@@ -114,7 +143,34 @@ export function AddTaskModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isFormValid) return
+
+    if (!taskData.title.trim()) {
+      toast.error("Please enter a task name.");
+      return;
+    }
+    if (!isPersonal && taskData.assignees.length === 0) {
+      toast.error("Please assign at least one team member.");
+      return;
+    }
+    if (hasTimePeriod) {
+      if (!taskData.startAt) {
+        toast.error("Please select a start date and time.");
+        return;
+      }
+      if (!taskData.endAt) {
+        toast.error("Please select an end date and time.");
+        return;
+      }
+      if (taskData.startAt && taskData.endAt && new Date(taskData.startAt) >= new Date(taskData.endAt)) {
+        toast.error("Start date and time must be before end date and time.");
+        return;
+      }
+    } else {
+      if (!taskData.endAt) {
+        toast.error("Please select a due date and time.");
+        return;
+      }
+    }
 
     const finalTask: Omit<Task, "taskId" | "createdAt"> = {
       title: taskData.title.trim(),
@@ -138,7 +194,7 @@ export function AddTaskModal({
       description: "",
       assignees: isPersonal ? [currentUser] : [],
       startAt: null,
-      endAt: null,
+      endAt: defaultDateTimeISO, // Reset to default datetime
       taskStatus: "To Do",
       taskPriority: "Normal",
       subtasks: [],
@@ -242,7 +298,7 @@ export function AddTaskModal({
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Task Name */}
           <div className="space-y-2">
-            <Label htmlFor="taskName">Task Name *</Label>
+            <Label htmlFor="taskName" className={!taskData.title ? 'text-destructive' : ''}>Task Name *</Label>
             <Input
               id="taskName"
               value={taskData.title}
@@ -293,10 +349,10 @@ export function AddTaskModal({
                 <div className="space-y-2">
                   <Label
                     htmlFor="startAt"
-                    className="flex items-center space-x-2"
+                    className={getLabelClassName(taskData.startAt)}
                   >
                     <Calendar className="w-4 h-4" />
-                    <span>Start Date</span>
+                    <span>Start Date *</span>
                   </Label>
                   <Input
                     id="startAt"
@@ -311,15 +367,15 @@ export function AddTaskModal({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="endAt" className="flex items-center space-x-2">
+                  <Label htmlFor="endAt" className={getLabelClassName(taskData.endAt)}>
                     <Calendar className="w-4 h-4" />
-                    <span>End Date</span>
+                    <span>End Date *</span>
                   </Label>
                   <Input
                     id="endAt"
                     type="datetime-local"
                     value={taskData.endAt ? taskData.endAt.substring(0, 16) : ""}
-                    min={taskData.startAt?.substring(0, 16) || ""}
+                    min={taskData.startAt ? taskData.startAt.substring(0, 16) : ""}
                     onChange={(e) =>
                       setTaskData((prev) => ({
                         ...prev,
@@ -331,9 +387,9 @@ export function AddTaskModal({
               </div>
             ) : (
               <div className="space-y-2">
-                <Label htmlFor="endAt" className="flex items-center space-x-2">
+                <Label htmlFor="endAt" className={getLabelClassName(taskData.endAt)}>
                   <Calendar className="w-4 h-4" />
-                  <span>Due Date</span>
+                  <span>Due Date *</span>
                 </Label>
                 <Input
                   id="endAt"
@@ -494,7 +550,7 @@ export function AddTaskModal({
 
           {/* Assignees */}
           <div className="space-y-2">
-            <Label className="flex items-center space-x-2">
+            <Label className={getLabelClassName(isPersonal || taskData.assignees.length > 0 ? "assigned" : null)}>
               <Users className="w-4 h-4" />
               <span>Assignees *</span>
             </Label>

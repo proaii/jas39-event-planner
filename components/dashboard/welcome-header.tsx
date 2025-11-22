@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,7 +11,7 @@ import {
 import { ChevronDown, FileText, Layout, Plus } from "lucide-react";
 
 interface WelcomeHeaderProps {
-  currentUser: string;
+  currentUser: string | null; 
   onCreateEvent: () => void;
   onCreateFromTemplate?: () => void;
   onOpenCustomizeDashboard?: () => void;
@@ -22,11 +23,27 @@ export function WelcomeHeader({
   onCreateFromTemplate,
   onOpenCustomizeDashboard,
 }: WelcomeHeaderProps) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!currentUser) {
+        setError("Failed to load user");
+      }
+      setLoading(false);
+    }, 300); // simulate delay
+    return () => clearTimeout(timer);
+  }, [currentUser]);
+
+  if (loading) return <p>Loading user...</p>;
+  if (error) return <p className="text-red-500">{error}</p>;
+
   return (
     <div className="flex items-center justify-between mb-8">
       <div>
         <h1 className="text-foreground mb-2">
-          Welcome back, {currentUser.split(" ")[0]}! 👋
+          Welcome back, {currentUser!.split(" ")[0]}! 👋
         </h1>
       </div>
 

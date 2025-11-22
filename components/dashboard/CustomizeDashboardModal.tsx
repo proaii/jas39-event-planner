@@ -9,50 +9,53 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { create } from "zustand";
 import { useToast } from "@/components/ui/use-toast";
+import { useDashboardUiStore, DEFAULT_WIDGETS, type DashboardWidget } from "@/stores/dashboard-ui-store";
 
 interface CustomizeDashboardModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-interface CustomizeDashboardUiState {
-  tempWidgets: string[];
-  setTempWidgets: (widgets: string[] | ((prev: string[]) => string[])) => void;
-  isPending: boolean;
-  setIsPending: (pending: boolean) => void;
-  error: string | null;
-  setError: (err: string | null) => void;
-}
-
-const useCustomizeDashboardUiStore = create<CustomizeDashboardUiState>((set) => ({
-  tempWidgets: ["upcomingEvents", "upcomingDeadlines", "recentActivity", "progressOverview"],
-  setTempWidgets: (widgets) =>
-    typeof widgets === "function"
-      ? set((state) => ({ tempWidgets: widgets(state.tempWidgets) }))
-      : set({ tempWidgets: widgets }),
-  isPending: false,
-  setIsPending: (pending) => set({ isPending: pending }),
-  error: null,
-  setError: (err) => set({ error: err }),
-}));
-
-export function CustomizeDashboardModal({ isOpen, onClose }: CustomizeDashboardModalProps) {
-  const defaultWidgets = ["upcomingEvents", "upcomingDeadlines", "recentActivity", "progressOverview"];
-
-  const widgetInfo: Record<string, { label: string; desc: string }> = {
-    upcomingEvents: { label: "Upcoming Events", desc: "Show your upcoming events overview" },
-    upcomingDeadlines: { label: "Upcoming Deadlines", desc: "Show tasks with upcoming due dates" },
-    recentActivity: { label: "Recent Activity", desc: "Show team activity and updates" },
-    progressOverview: { label: "Progress Overview", desc: "Show event progress charts" },
-  };
-
-  const { tempWidgets, setTempWidgets, isPending, setIsPending, error, setError } =
-    useCustomizeDashboardUiStore();
+export function CustomizeDashboardModal({
+  isOpen,
+  onClose,
+}: CustomizeDashboardModalProps) {
   const { toast } = useToast();
 
-  const toggleWidget = (name: string) => {
+  const {
+    tempWidgets,
+    setTempWidgets,
+    saveWidgetConfig,
+    resetWidgetConfig,
+    isLoading,
+    error,
+    setLoading,
+    setError,
+  } = useDashboardUiStore();
+
+  const widgetInfo: Record<DashboardWidget, { label: string; desc: string }> = {
+    upcomingEvents: {
+      label: "Upcoming Events",
+      desc: "Show your upcoming events overview",
+    },
+    upcomingDeadlines: {
+      label: "Upcoming Deadlines",
+      desc: "Show tasks with upcoming due dates",
+    },
+    recentActivity: {
+      label: "Recent Activity",
+      desc: "Show team activity and updates",
+    },
+    progressOverview: {
+      label: "Progress Overview",
+      desc: "Show event progress charts",
+    },
+  };
+
+  const widgetKeys = Object.keys(widgetInfo) as DashboardWidget[];
+
+  const toggleWidget = (name: DashboardWidget) => {
     setTempWidgets((prev) =>
       prev.includes(name) ? prev.filter((w) => w !== name) : [...prev, name]
     );
@@ -60,23 +63,31 @@ export function CustomizeDashboardModal({ isOpen, onClose }: CustomizeDashboardM
 
   const handleSave = async () => {
     setError(null);
-    setIsPending(true);
+    setLoading(true);
+
     try {
-      // Front-end only: simulate async save
+      // mock async save
       await new Promise((res) => setTimeout(res, 500));
-      toast({ title: "Success", description: "Dashboard updated!" });
+      saveWidgetConfig();
+
+      toast({
+        title: "Success",
+        description: "Dashboard updated!",
+      });
+
       onClose();
     } catch (err: any) {
-      const msg = err?.message || "Failed to save settings";
+      const msg = err?.message ?? "Failed to save settings";
       setError(msg);
-      toast({ title: "Error", description: msg, variant: "destructive" });
-    } finally {
-      setIsPending(false);
-    }
-  };
 
-  const handleReset = () => {
-    setTempWidgets(defaultWidgets);
+      toast({
+        title: "Error",
+        description: msg,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -90,29 +101,40 @@ export function CustomizeDashboardModal({ isOpen, onClose }: CustomizeDashboardM
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
-          {defaultWidgets.map((widget) => (
+          {widgetKeys.map((widget) => (
             <div key={widget} className="flex items-start space-x-3">
               <Checkbox
                 checked={tempWidgets.includes(widget)}
                 onCheckedChange={() => toggleWidget(widget)}
-                disabled={isPending}
+                disabled={isLoading}
               />
               <div>
-                <span className="font-medium text-sm">{widgetInfo[widget].label}</span>
-                <p className="text-xs text-muted-foreground">{widgetInfo[widget].desc}</p>
+                <span className="font-medium text-sm">
+                  {widgetInfo[widget].label}
+                </span>
+                <p className="text-xs text-muted-foreground">
+                  {widgetInfo[widget].desc}
+                </p>
               </div>
             </div>
           ))}
         </div>
 
-        {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
+        {error && (
+          <p className="text-sm text-red-500 mt-2">{error}</p>
+        )}
 
         <div className="flex justify-between mt-6">
-          <Button variant="outline" onClick={handleReset} disabled={isPending}>
+          <Button
+            variant="outline"
+            onClick={resetWidgetConfig}
+            disabled={isLoading}
+          >
             Reset to Default
           </Button>
-          <Button onClick={handleSave} disabled={isPending}>
-            {isPending ? "Saving..." : "Save"}
+
+          <Button onClick={handleSave} disabled={isLoading}>
+            {isLoading ? "Saving..." : "Save"}
           </Button>
         </div>
       </DialogContent>

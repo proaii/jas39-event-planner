@@ -5,6 +5,7 @@ import type { Task } from "@/lib/types";
 import { formatDueDate } from "@/lib/utils";
 import { getEffectiveDueDate } from "@/lib/server/supabase/utils";
 import { Clock } from "lucide-react";
+import { useDashboardUiStore } from "@/stores/dashboard-ui-store";
 
 interface UpcomingDeadlinesWidgetProps {
   tasks: Task[];
@@ -15,12 +16,34 @@ function effectiveDueDateOf(t: Task): string | undefined {
   const dateish: Dateish = {
     startDate: t.startAt ?? undefined,
     endDate: t.endAt ?? undefined,
-    dueDate: t.endAt ?? undefined, 
+    dueDate: t.endAt ?? undefined,
   };
   return getEffectiveDueDate(dateish) ?? undefined;
 }
 
 export function UpcomingDeadlinesWidget({ tasks }: UpcomingDeadlinesWidgetProps) {
+  const { isLoading, error } = useDashboardUiStore();
+
+  if (isLoading) {
+    return (
+      <Card className="lg:col-span-1">
+        <CardContent className="p-6 text-center text-muted-foreground">
+          Loading deadlines...
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="lg:col-span-1">
+        <CardContent className="p-6 text-center text-red-500">
+          {error}
+        </CardContent>
+      </Card>
+    );
+  }
+
   const upcomingTasks = tasks
     .filter(task => {
       const effectiveDueDate = effectiveDueDateOf(task);
@@ -51,6 +74,7 @@ export function UpcomingDeadlinesWidget({ tasks }: UpcomingDeadlinesWidgetProps)
           {upcomingTasks.map(task => {
             const due = effectiveDueDateOf(task)!;
             const dueInfo = formatDueDate(due);
+
             return (
               <div
                 key={task.taskId}
@@ -91,7 +115,9 @@ export function UpcomingDeadlinesWidget({ tasks }: UpcomingDeadlinesWidgetProps)
           })}
 
           {upcomingTasks.length === 0 && (
-            <div className="text-center py-4 text-muted-foreground text-sm">No upcoming deadlines</div>
+            <div className="text-center py-4 text-muted-foreground text-sm">
+              No upcoming deadlines
+            </div>
           )}
         </div>
       </CardContent>

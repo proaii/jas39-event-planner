@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Event, Task } from "@/lib/types";
@@ -9,13 +9,13 @@ import { getEffectiveDueDate } from "@/lib/server/supabase/utils";
 import { CheckSquare, Plus } from "lucide-react";
 import { SearchAndFilter, FilterOptions } from "@/components/search-and-filter";
 import { TaskCard } from "@/components/task-card";
+import { useFetchEvents } from "@/lib/client/features/events/hooks";
+import { useFetchAllTasks } from "@/lib/client/features/tasks/hooks";
 
 interface MyTasksSectionProps {
-  events: Event[];
-  tasks: Task[];
   currentUser: string;
   onStatusChange?: (taskId: string, newStatus: Task["taskStatus"]) => void;
-  onSubTaskToggle?: (taskId:string, subTaskId: string) => void;
+  onSubTaskToggle?: (taskId: string, subTaskId: string) => void;
   onNavigateToAllTasks?: (filterContext?: "my" | "all") => void;
   onCreatePersonalTask: () => void;
 }
@@ -31,14 +31,18 @@ function effectiveDueDateOf(t: Task): string | undefined {
 }
 
 export function MyTasksSection({
-  events,
-  tasks,
   currentUser,
   onStatusChange,
   onSubTaskToggle,
   onNavigateToAllTasks,
   onCreatePersonalTask,
 }: MyTasksSectionProps) {
+  const { data: eventsData, isLoading: loadingEvents, error: errorEvents } = useFetchEvents({ pageSize: 50 });
+  const { data: tasksData, isLoading: loadingTasks, error: errorTasks } = useFetchAllTasks({ pageSize: 200 });
+
+  const [events, setEvents] = useState<Event[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<FilterOptions>({
     status: [],
@@ -50,6 +54,31 @@ export function MyTasksSection({
     showPersonalTasks: true,
   });
   const [taskSortBy, setTaskSortBy] = useState<"dueDate" | "priority" | "recent">("dueDate");
+
+  const isLoading = loadingEvents || loadingTasks;
+  const error = errorEvents?.message || errorTasks?.message || null;
+
+  // Flatten paginated data safely
+  useEffect(() => {
+    const flatEvents: Event[] = eventsData
+      ? "pages" in eventsData && Array.isArray(eventsData.pages)
+        ? eventsData.pages.flatMap(p => Array.isArray(p.items) ? p.items : [])
+        : Array.isArray(eventsData.items)
+          ? eventsData.items
+          : []
+      : [];
+
+    const flatTasks: Task[] = tasksData
+      ? "pages" in tasksData && Array.isArray(tasksData.pages)
+        ? tasksData.pages.flatMap(p => Array.isArray(p.items) ? p.items : [])
+        : Array.isArray(tasksData.items)
+          ? tasksData.items
+          : []
+      : [];
+
+    setEvents(flatEvents);
+    setTasks(flatTasks);
+  }, [eventsData, tasksData]);
 
   const userTasks = useMemo(() => {
     const isAssignedToCurrentUser = (t: Task) =>
@@ -102,6 +131,22 @@ export function MyTasksSection({
     today.setHours(0, 0, 0, 0);
     return dueDate < today && t.taskStatus !== "Done";
   }).length;
+
+  if (isLoading) {
+    return (
+      <Card className="p-8 text-center">
+        <CardContent>Loading tasks...</CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="p-8 text-center">
+        <CardContent className="text-red-500">{error}</CardContent>
+      </Card>
+    );
+  }
 
   return (
     <section className="space-y-4">

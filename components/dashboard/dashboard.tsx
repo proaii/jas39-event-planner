@@ -4,6 +4,7 @@ import { WelcomeHeader } from "./welcome-header";
 import { DashboardWidgets } from "./dashboard-widgets";
 import { MyTasksSection } from "./my-tasks-section";
 import { Event, Task } from "@/lib/types";
+import { useDashboardUiStore } from "@/stores/dashboard-ui-store";
 
 interface DashboardProps {
   events: Event[];
@@ -13,17 +14,11 @@ interface DashboardProps {
   onCreateFromTemplate?: () => void;
   onEventClick: (eventId: string) => void;
   onCreatePersonalTask: () => void;
-  visibleWidgets?: string[];
   onStatusChange?: (taskId: string, newStatus: Task["taskStatus"]) => void;
   onSubTaskToggle?: (taskId: string, subTaskId: string) => void;
   onNavigateToAllEvents?: () => void;
   onNavigateToAllTasks?: (filterContext?: "my" | "all") => void;
   onCustomize?: () => void;
-  onStyleGuide?: () => void;
-  onNotifications?: () => void;
-  onEditEvent?: (eventId: string) => void;
-  onDeleteEvent?: (eventId: string) => void;
-  onAddTask?: (eventId: string) => void;
 }
 
 export function Dashboard({
@@ -34,13 +29,15 @@ export function Dashboard({
   onCreateFromTemplate,
   onEventClick,
   onCreatePersonalTask,
-  visibleWidgets = ["upcomingEvents","recentActivity","upcomingDeadlines","progressOverview"],
   onStatusChange,
   onSubTaskToggle,
   onNavigateToAllEvents,
   onNavigateToAllTasks,
   onCustomize,
 }: DashboardProps) {
+  // ดึง visibleWidgets จาก store แทนการส่ง props
+  const { visibleWidgets } = useDashboardUiStore();
+
   return (
     <main className="flex-1 p-8 bg-muted/20 overflow-hidden">
       <div className="max-w-7xl mx-auto w-full">
@@ -50,17 +47,15 @@ export function Dashboard({
           onCreateFromTemplate={onCreateFromTemplate}
           onOpenCustomizeDashboard={onCustomize}
         />
+
         <div className="space-y-8">
           <DashboardWidgets
-            events={events}
-            tasks={tasks}
+            visibleWidgets={visibleWidgets}
             onEventClick={onEventClick}
             onNavigateToAllEvents={onNavigateToAllEvents}
-            visibleWidgets={visibleWidgets}
           />
+
           <MyTasksSection
-            events={events}
-            tasks={tasks}
             currentUser={currentUser}
             onStatusChange={onStatusChange}
             onSubTaskToggle={onSubTaskToggle}

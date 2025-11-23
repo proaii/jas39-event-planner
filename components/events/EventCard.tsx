@@ -1,34 +1,72 @@
+"use client";
+
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { ImageWithFallback } from '@/components/ImageWithFallback';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { MoreVertical, Eye, Edit3, Trash2, Calendar, Plus, Clock, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatEventDateRange, isCurrentlyActive, calculateDuration, extractDateAndTime } from '@/lib/timeUtils';
 import { Event, Task } from '@/lib/types';
-
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface EventCardProps {
-  event: Event;
+  event?: Event; 
   tasks?: Task[];
   onClick: (eventId: string) => void;
   onEdit?: (eventId: string) => void;
   onDelete?: (eventId: string) => void;
   onAddTask?: (eventId: string) => void;
+  isLoading?: boolean;
+  error?: string;
 }
 
-export function EventCard({ event, tasks = [], onClick, onEdit, onDelete, onAddTask }: EventCardProps) {
+export function EventCard({ event, tasks = [], onClick, onEdit, onDelete, onAddTask, isLoading, error }: EventCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  
-  const getInitials = (name: string) => {
-    return name.split(' ').map(part => part[0]).join('').toUpperCase();
-  };
+
+  // Loading skeleton
+  if (isLoading) {
+    return (
+      <Card className="w-full p-4">
+        <Skeleton className="h-48 w-full mb-4" />
+        <Skeleton className="h-6 w-3/4 mb-2" />
+        <Skeleton className="h-4 w-1/2 mb-2" />
+        <Skeleton className="h-4 w-1/3" />
+      </Card>
+    );
+  }
+
+  // Error display
+  if (error || !event) {
+    return (
+      <Card className="w-full p-4 text-center text-red-500">
+        {error ?? 'Failed to load event.'}
+      </Card>
+    );
+  }
+
+  const getInitials = (name: string) => name.split(' ').map(p => p[0]).join('').toUpperCase();
 
   const { date: startDate, time: startTime } = extractDateAndTime(event.startAt);
   const { date: endDate, time: endTime } = extractDateAndTime(event.endAt);
@@ -40,24 +78,23 @@ export function EventCard({ event, tasks = [], onClick, onEdit, onDelete, onAddT
     endTime: endTime || undefined,
     isMultiDay: startDate !== endDate,
   });
+
   const isActive = isCurrentlyActive({
     date: startDate || '',
     endDate: endDate || undefined,
     time: startTime || '',
     endTime: endTime || undefined,
   });
-  const duration = calculateDuration(event.startAt || "", event.endAt || undefined, startTime, endTime);
 
-  // Calculate task completion progress from tasks prop
+  const duration = calculateDuration(event.startAt || '', event.endAt || undefined, startTime, endTime);
+
   const eventTasks = tasks.filter(task => task.eventId === event.eventId);
   const totalTasks = eventTasks.length;
   const completedTasks = eventTasks.filter(task => task.taskStatus === 'Done').length;
   const progressPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   const handleCardClick = (e: React.MouseEvent) => {
-    if ((e.target as Element).closest('[data-dropdown-trigger]')) {
-      return;
-    }
+    if ((e.target as Element).closest('[data-dropdown-trigger]')) return;
     onClick(event.eventId);
   };
 

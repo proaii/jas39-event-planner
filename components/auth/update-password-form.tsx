@@ -14,6 +14,18 @@ import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useUpdatePassword } from "@/lib/client/features/auth/hooks";
+import { create } from "zustand";
+import { useToast } from "@/components/ui/use-toast";
+
+interface UpdatePasswordUiState {
+  error: string | null;
+  setError: (err: string | null) => void;
+}
+
+const useUpdatePasswordUiStore = create<UpdatePasswordUiState>((set) => ({
+  error: null,
+  setError: (err) => set({ error: err }),
+}));
 
 export function UpdatePasswordForm({
   className,
@@ -21,14 +33,32 @@ export function UpdatePasswordForm({
 }: React.ComponentPropsWithoutRef<"div">) {
   const [password, setPassword] = useState("");
   const router = useRouter();
+  const { toast } = useToast();
+  const { error, setError } = useUpdatePasswordUiStore();
 
-  const { mutate, isPending, isError, error } = useUpdatePassword();
+  const { mutate, isPending } = useUpdatePassword();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
+    // --- Basic validation ---
+    if (password.length < 8) {
+      const msg = "Password must be at least 8 characters";
+      setError(msg);
+      toast({ title: "Error", description: msg, variant: "destructive" });
+      return;
+    }
+
     mutate(password, {
       onSuccess: () => {
-        router.push("/dashboard"); 
+        toast({ title: "Success", description: "Password updated!" });
+        router.push("/dashboard");
+      },
+      onError: (err: any) => {
+        const msg = err.message || "Failed to update password";
+        setError(msg);
+        toast({ title: "Error", description: msg, variant: "destructive" });
       },
     });
   };
@@ -45,6 +75,7 @@ export function UpdatePasswordForm({
         <CardContent>
           <form onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
+              {/* Input */}
               <div className="grid gap-2">
                 <Label htmlFor="password">New password</Label>
                 <Input
@@ -53,19 +84,27 @@ export function UpdatePasswordForm({
                   placeholder="New password"
                   required
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError(null); // Clear error on typing
+                  }}
                   disabled={isPending}
                 />
               </div>
 
-              {isError && (
-                <p className="text-sm text-red-500">
-                  {(error as Error).message}
-                </p>
+              {/* Error */}
+              {error && (
+                <p className="text-sm text-red-500">{error}</p>
               )}
 
-              <Button type="submit" className="w-full" disabled={isPending}>
-                {isPending ? "Saving..." : "Save new password"}
+              {/* Submit */}
+              <Button
+                type="submit"
+                className="w-full"
+                loading={isPending}
+                disabled={isPending}
+              >
+                Save new password
               </Button>
             </div>
           </form>

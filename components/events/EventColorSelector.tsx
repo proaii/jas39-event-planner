@@ -3,11 +3,7 @@ import React from 'react';
 import { Label } from '@/components/ui/label';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-interface EventColorSelectorProps {
-  selectedColor?: string;
-  onColorSelect: (color: string) => void;
-}
+import { useEventColorStore } from '@/stores/eventColorStore';
 
 const colorOptions = [
   { name: 'Chart 1', value: 'bg-chart-1' },
@@ -20,7 +16,9 @@ const colorOptions = [
   { name: 'Accent', value: 'bg-accent' },
 ];
 
-export function EventColorSelector({ selectedColor, onColorSelect }: EventColorSelectorProps) {
+export function EventColorSelector() {
+  const { selectedColor, setColor } = useEventColorStore();
+
   return (
     <div className="space-y-3">
       <Label>Event Color</Label>
@@ -39,7 +37,7 @@ export function EventColorSelector({ selectedColor, onColorSelect }: EventColorS
                 : 'border-border hover:border-primary/50',
               color.value
             )}
-            onClick={() => onColorSelect(color.value)}
+            onClick={() => setColor(color.value)}
             title={color.name}
           >
             {selectedColor === color.value && (

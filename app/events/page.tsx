@@ -33,7 +33,9 @@ import { AddEventModal } from "@/components/events/AddEventModal";
 import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
 import { TemplateData } from "@/schemas/template";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-
+import { createClient } from "@/lib/server/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 export default function AllEventsPage() {
   const router = useRouter();
@@ -145,6 +147,27 @@ export default function AllEventsPage() {
 
     return filtered;
   }, [events, searchQuery]);
+
+   // ------------------- REALTIME -------------------
+  const supabase = createClient();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("events-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["events"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient, supabase]);
 
   // ------------------- RENDER -------------------
   return (

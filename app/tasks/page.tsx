@@ -23,6 +23,9 @@ import { TaskCard } from "@/components/task-card";
 import { EditTaskModal } from "@/components/tasks/EditTaskModal";
 import { useFetchUsers } from "@/lib/client/features/users/hooks";
 
+import { createClient } from "@/lib/server/supabase/client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
 export default function AllTasksPage() {
   // ------------------- UI STORE -------------------
   const {
@@ -44,6 +47,9 @@ export default function AllTasksPage() {
   const [tempProgressFilters, setTempProgressFilters] = useState(progressFilters);
   const [tempDateFilters, setTempDateFilters] = useState(dateFilters);
 
+  const queryClient = useQueryClient();
+  const supabase = createClient();
+
   useEffect(() => {
     if (isFilterOpen) {
       setTempProgressFilters(progressFilters);
@@ -62,7 +68,18 @@ export default function AllTasksPage() {
   const currentUser: UserLite | null = allUsers[0] ?? null;
 
   // ------------------- TASKS STORE -------------------
-  const { tasks: allTasks } = useTaskStore();
+  const { data: allTasks = [] } = useQuery({
+    queryKey: ["tasks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .order("createdAt", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    }
+  });
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
@@ -73,6 +90,77 @@ export default function AllTasksPage() {
       setIsEditModalOpen(true);
     }
   };
+
+  // ------------------- REALTIME -------------------
+  useEffect(() => {
+    const channel = supabase
+      .channel("tasks-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "tasks",
+        },
+        (payload) => {
+          console.log("Realtime task change:", payload);
+          // Refresh cache
+          queryClient.invalidateQueries({
+            queryKey: ["tasks"],
+          });
+        }
+      )
+      .subscribe();
+
+      return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient, supabase]);
+
+  const createTaskMutation = useMutation({
+    mutationFn: async (newTask: Partial<Task>) => {
+      const { data, error } = await supabase.from("tasks").insert([newTask]);
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["tasks"],
+      });
+ // sync cache
+    },
+  });
+
+  const updateTaskMutation = useMutation({
+    mutationFn: async ({ taskId, updatedData }: { taskId: string, updatedData: Partial<Task> }) => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .update(updatedData)
+        .eq("task_id", taskId);
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["tasks"],
+      });
+    },
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const { data, error } = await supabase.from("tasks").delete().eq("task_id", taskId);
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["tasks"],
+      });
+    },
+  });
+
+
 
   // ------------------- HANDLERS -------------------
   // const handleCreateTask = (taskData: Omit<Task, "taskId" | "createdAt">) => {

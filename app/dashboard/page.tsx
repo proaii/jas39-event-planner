@@ -15,6 +15,9 @@ import { useTaskStore } from "@/stores/task-store";
 import { TemplateData } from "@/schemas/template";
 import type { Event, UserLite } from "@/lib/types";
 import { useFetchUsers } from "@/lib/client/features/users/hooks";
+import { createClient } from "@/lib/server/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+
 
 // -------------------------------------------------
 // Dashboard Page — Main landing page for the user
@@ -63,6 +66,28 @@ export default function DashboardPage() {
   const [prefillData, setPrefillData] = useState<
     Omit<Event, "eventId" | "ownerId" | "createdAt" | "members"> | null
   >(null);
+
+  // ------------------- REALTIME -------------------
+  const supabase = createClient();
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    const channel = supabase
+      .channel("events-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["events"] });
+        }
+      )
+      .subscribe();
+
+    // cleanup
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient, supabase]);
+
 
   // -------------------------------------------------
   // Create Event Handler — Uses React Query Mutation

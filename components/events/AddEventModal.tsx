@@ -26,6 +26,7 @@ interface AddEventModalProps {
   onCreateEvent: (eventData: Omit<Event, 'eventId' | 'ownerId' | 'createdAt'>) => void;
   eventId?: string;
   prefillData?: Partial<Omit<Event, 'eventId' | 'ownerId' | 'createdAt'>>;
+  defaultDate?: Date | null;
 }
 
 const hexToNumber = (hex: string) => parseInt(hex.replace("#", ""), 16);
@@ -49,14 +50,23 @@ function formatDateTimeWithTZ(dateStr: string, timeStr: string): string {
   return `${yyyy}-${MM}-${dd} ${hh}:${mm}:${ss}${offsetSign}${offsetHr}:${offsetM}`;
 }
 
-export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefillData }: AddEventModalProps) {
+export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefillData, defaultDate }: AddEventModalProps) {
+  const toYYYYMMDD = (date: Date | null) => {
+    if (!date) return "";
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   const [formData, setFormData] = useState({
     title: "",
     location: "",
     isMultiDay: false,
-    startDate: "",
+    startDate: toYYYYMMDD(defaultDate),
     startTime: "",
-    endDate: "",
+    endDate: toYYYYMMDD(defaultDate),
     endTime: "",
     description: "",
     coverImage: "",
@@ -68,23 +78,31 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
 
   useEffect(() => {
-    if (isOpen && prefillData) {
-      const isMulti = !!prefillData.endAt && prefillData.startAt?.split("T")[0] !== prefillData.endAt?.split("T")[0];
-      setFormData({
-        title: prefillData.title || "",
-        location: prefillData.location || "",
-        isMultiDay: isMulti,
-        startDate: prefillData.startAt?.split("T")[0] || "",
-        startTime: prefillData.startAt?.split("T")[1]?.substring(0,5) || "",
-        endDate: prefillData.endAt?.split("T")[0] || prefillData.startAt?.split("T")[0] || "",
-        endTime: prefillData.endAt?.split("T")[1]?.substring(0,5) || "",
-        description: prefillData.description || "",
-        coverImage: prefillData.coverImageUri || "",
-        color: prefillData.color ? `#${prefillData.color.toString(16).padStart(6,"0")}` : "#E8F4FD",
-        members: prefillData.members || [],
-      });
+    if (isOpen) {
+      if (prefillData) {
+        const isMulti = !!prefillData.endAt && prefillData.startAt?.split("T")[0] !== prefillData.endAt?.split("T")[0];
+        setFormData({
+          title: prefillData.title || "",
+          location: prefillData.location || "",
+          isMultiDay: isMulti,
+          startDate: prefillData.startAt?.split("T")[0] || "",
+          startTime: prefillData.startAt?.split("T")[1]?.substring(0,5) || "",
+          endDate: prefillData.endAt?.split("T")[0] || prefillData.startAt?.split("T")[0] || "",
+          endTime: prefillData.endAt?.split("T")[1]?.substring(0,5) || "",
+          description: prefillData.description || "",
+          coverImage: prefillData.coverImageUri || "",
+          color: prefillData.color ? `#${prefillData.color.toString(16).padStart(6,"0")}` : "#E8F4FD",
+          members: prefillData.members || [],
+        });
+      } else if (defaultDate) {
+        setFormData(prev => ({
+          ...prev,
+          startDate: toYYYYMMDD(defaultDate),
+          endDate: toYYYYMMDD(defaultDate),
+        }));
+      }
     }
-  }, [isOpen, prefillData]);
+  }, [isOpen, prefillData, defaultDate]);
 
   const handleInviteMembers = () => setInviteModalOpen(true);
   const removeMember = (member: string) => setFormData(prev => ({ ...prev, members: prev.members.filter(m => m !== member) }));

@@ -25,25 +25,23 @@ import {
   FileText,
 } from "lucide-react";
 import { Event } from "@/lib/types";
-import { useFetchUsers } from "@/lib/client/features/users/hooks";
 import { useUiStore } from "@/stores/ui-store";
-import { useEventStore, useFetchEvents } from "@/stores/useEventStore";
-import { toast } from "react-hot-toast";
+import { useEventStore, useFetchEvents, useCreateEvent, useDeleteEvent } from "@/stores/useEventStore";
 import { AddEventModal } from "@/components/events/AddEventModal";
 import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
 import { TemplateData } from "@/schemas/template";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+// import { useUser } from "@/lib/client/features/auth/hooks";
+// import { useFetchUser } from "@/lib/client/features/users/hooks";
 
 
 export default function AllEventsPage() {
   const router = useRouter();
-  const [userSearchQuery, setUserSearchQuery] = useState("");
 
-  // ------------------- USERS -------------------
-  const { data: allUsers = [], isLoading: isUsersLoading } = useFetchUsers({
-    q: userSearchQuery,
-    enabled: true,
-  });
+  // const { data: authUser } = useUser();
+  // const { data: currentUser } = useFetchUser(
+  //   authUser?.id ?? ""
+  // );
 
   // ------------------- UI STORE -------------------
   const {
@@ -65,9 +63,10 @@ export default function AllEventsPage() {
     setDateFilters,
   } = useUiStore();
 
-  // ------------------- EVENT STORE -------------------
   const { events, setEvents } = useEventStore();
   const { data: fetchedEvents } = useFetchEvents();
+  const createEventMutation = useCreateEvent();
+  const deleteEventMutation = useDeleteEvent();
 
   React.useEffect(() => {
     if (fetchedEvents && fetchedEvents.items) {
@@ -93,16 +92,13 @@ export default function AllEventsPage() {
   const handleCreateEvent = (
     eventData: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members">
   ) => {
-    const newEvent: Event = {
-      eventId: `event-${Date.now()}`,
+    createEventMutation.mutate({
       ...eventData,
-      ownerId: "currentUser", 
-      createdAt: new Date().toISOString(),
-      members: [],
-    };
-    setEvents([...events, newEvent]);
-    closeAddEventModal();
-    toast.success(`Event "${eventData.title}" created successfully!`);
+    });
+  };
+
+  const handleDeleteEvent = (eventId: string) => {
+    deleteEventMutation.mutate(eventId);
   };
 
   const handleUseTemplate = (data: TemplateData) => {
@@ -231,8 +227,8 @@ export default function AllEventsPage() {
                           {key === "notStarted"
                             ? "Not Started (0%)"
                             : key === "inProgress"
-                            ? "In Progress (1-99%)"
-                            : "Completed (100%)"}
+                              ? "In Progress (1-99%)"
+                              : "Completed (100%)"}
                         </label>
                       </div>
                     ))}
@@ -259,10 +255,10 @@ export default function AllEventsPage() {
                           {key === "past"
                             ? "Past Events"
                             : key === "thisWeek"
-                            ? "This Week"
-                            : key === "thisMonth"
-                            ? "This Month"
-                            : "Future Events"}
+                              ? "This Week"
+                              : key === "thisMonth"
+                                ? "This Month"
+                                : "Future Events"}
                         </label>
                       </div>
                     ))}
@@ -331,9 +327,9 @@ export default function AllEventsPage() {
               key={event.eventId}
               event={event}
               onClick={() => router.push(`/events/${event.eventId}`)}
-              onEdit={() => {}}
-              onDelete={() => {}}
-              onAddTask={() => {}}
+              onEdit={() => { }}
+              onDelete={handleDeleteEvent}
+              onAddTask={() => { }}
             />
           ))}
         </div>

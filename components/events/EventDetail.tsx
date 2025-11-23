@@ -61,6 +61,7 @@ interface EventDetailProps {
   event: Event;
   tasks: Task[];
   currentUser: UserLite;
+  allUsers: UserLite[];
   onBack: () => void;
   onTaskStatusChange: (taskId: string, newStatus: TaskStatus) => void;
   onAddTask: (task: Omit<Task, "taskId" | "createdAt">) => void;
@@ -84,6 +85,7 @@ export function EventDetail({
   event,
   tasks: allTasks,
   currentUser,
+  allUsers,
   onBack,
   onTaskStatusChange,
   onAddTask,
@@ -573,9 +575,9 @@ export function EventDetail({
           onAddTask(t);
           setShowAddTaskModal(false);
         }}
-        eventMembers={[]}
+        eventMembers={allUsers.filter(user => event.members.includes(user.userId))}
         currentUser={currentUser}
-        isPersonal
+        isPersonal={false}
       />
 
       <SaveTemplateModal
@@ -603,7 +605,6 @@ export function EventDetail({
               onClick={() => {
                 onDeleteEvent?.(event.eventId);
                 setShowDeleteDialog(false);
-                onBack();
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >

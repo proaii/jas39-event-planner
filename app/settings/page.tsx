@@ -9,20 +9,16 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { User, Bell, Palette, Shield, Edit } from "lucide-react";
-import { useTheme } from "next-themes"; 
+import { useTheme } from "next-themes";
 import { EditProfileModal } from "@/components/settings/EditProfileModal";
-import { useFetchUsers } from "@/lib/client/features/users/hooks";
-import type { UserLite } from "@/lib/types";
+import { useUser } from "@/lib/client/features/auth/hooks";
+import { useFetchUser } from "@/lib/client/features/users/hooks";
 
 export default function SettingsPage() {
-  // ------------------- USERS -------------------
-  const [userSearchQuery, setUserSearchQuery] = useState("");
-  const { data: allUsers = [], isLoading: isUsersLoading } = useFetchUsers({
-    q: userSearchQuery,
-    enabled: true,
-  });
-
-  const currentUser: UserLite | null = allUsers[0] ?? null;
+  const { data: authUser } = useUser();
+  const { data: currentUser } = useFetchUser(
+    authUser?.id ?? ""
+  );
 
   // ---------- Notification Settings ----------
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -124,9 +120,9 @@ export default function SettingsPage() {
                 <User className="w-5 h-5" /> Profile Information
               </CardTitle>
 
-              <Button variant="outline" onClick={() => setOpenEditModal(true)}>
-                <Edit className="w-4 h-4 mr-1" /> Edit Profile
-              </Button>
+                <Button variant="outline" onClick={() => setOpenEditModal(true)}>
+                  <Edit className="w-4 h-4 mr-1" /> Edit Profile
+                </Button>
             </CardHeader>
 
             <CardContent className="space-y-6">

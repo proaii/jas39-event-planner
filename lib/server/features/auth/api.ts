@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/server/supabase/client';
-import { useSession } from '@supabase/auth-helpers-react';
 import { Provider, type PostgrestError } from '@supabase/supabase-js';
 
 export async function signInWithEmail({
@@ -27,7 +26,6 @@ export async function signInWithEmail({
 // }
 
 export async function signInWithOAuth(provider: Provider) {
-  const session = useSession();
   const supabase = createClient();
   
   // 1. Define default options
@@ -42,7 +40,7 @@ export async function signInWithOAuth(provider: Provider) {
   // 2. Add Google-Specific Options (The Phase 3 Requirement)
   if (provider === 'google') {
     // Request access to manage the calendar
-    options.scopes = 'https://www.googleapis.com/auth/calendar';
+    // options.scopes = 'https://www.googleapis.com/auth/calendar';
     
     options.queryParams = {
       // 'offline' is required to get a Refresh Token (crucial for background sync)

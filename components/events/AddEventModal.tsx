@@ -1,6 +1,6 @@
 'use client';
 
-import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
+// import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import React, { useState, useEffect } from "react";
 import {
   Dialog,
@@ -68,8 +68,8 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [addToGoogleCalendar, setAddToGoogleCalendar] = useState(false);
-  const session = useSession();
-  const supabase = useSupabaseClient();
+  // const session = useSession();
+  // const supabase = useSupabaseClient();
 
   useEffect(() => {
     if (isOpen && prefillData) {

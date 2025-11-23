@@ -9,7 +9,6 @@ import { useUiStore } from "@/stores/ui-store";
 interface DashboardProps {
   events: Event[];
   tasks: Task[];
-  // ลบ currentUser prop
   onCreateEvent: () => void;
   onCreateFromTemplate?: () => void;
   onEventClick: (eventId: string) => void;

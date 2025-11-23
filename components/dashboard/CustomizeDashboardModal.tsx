@@ -9,8 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useToast } from "@/components/ui/use-toast";
-import { useDashboardUiStore, DEFAULT_WIDGETS, type DashboardWidget } from "@/stores/dashboard-ui-store";
+import { toast } from "react-hot-toast";
+import { useUiStore, DEFAULT_WIDGETS, type DashboardWidget } from "@/stores/ui-store";
 
 interface CustomizeDashboardModalProps {
   isOpen: boolean;
@@ -21,18 +21,12 @@ export function CustomizeDashboardModal({
   isOpen,
   onClose,
 }: CustomizeDashboardModalProps) {
-  const { toast } = useToast();
-
   const {
     tempWidgets,
     setTempWidgets,
     saveWidgetConfig,
-    resetWidgetConfig,
-    isLoading,
-    error,
-    setLoading,
-    setError,
-  } = useDashboardUiStore();
+    resetWidgets,
+  } = useUiStore();
 
   const widgetInfo: Record<DashboardWidget, { label: string; desc: string }> = {
     upcomingEvents: {
@@ -61,33 +55,15 @@ export function CustomizeDashboardModal({
     );
   };
 
-  const handleSave = async () => {
-    setError(null);
-    setLoading(true);
+  const handleSave = () => {
+    saveWidgetConfig();
+    toast.success("Dashboard updated!");
+    onClose();
+  };
 
-    try {
-      // mock async save
-      await new Promise((res) => setTimeout(res, 500));
-      saveWidgetConfig();
-
-      toast({
-        title: "Success",
-        description: "Dashboard updated!",
-      });
-
-      onClose();
-    } catch (err: any) {
-      const msg = err?.message ?? "Failed to save settings";
-      setError(msg);
-
-      toast({
-        title: "Error",
-        description: msg,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+  const handleReset = () => {
+    resetWidgets();
+    toast.success("Dashboard reset to default!");
   };
 
   return (
@@ -106,7 +82,6 @@ export function CustomizeDashboardModal({
               <Checkbox
                 checked={tempWidgets.includes(widget)}
                 onCheckedChange={() => toggleWidget(widget)}
-                disabled={isLoading}
               />
               <div>
                 <span className="font-medium text-sm">
@@ -120,22 +95,11 @@ export function CustomizeDashboardModal({
           ))}
         </div>
 
-        {error && (
-          <p className="text-sm text-red-500 mt-2">{error}</p>
-        )}
-
         <div className="flex justify-between mt-6">
-          <Button
-            variant="outline"
-            onClick={resetWidgetConfig}
-            disabled={isLoading}
-          >
+          <Button variant="outline" onClick={handleReset}>
             Reset to Default
           </Button>
-
-          <Button onClick={handleSave} disabled={isLoading}>
-            {isLoading ? "Saving..." : "Save"}
-          </Button>
+          <Button onClick={handleSave}>Save</Button>
         </div>
       </DialogContent>
     </Dialog>

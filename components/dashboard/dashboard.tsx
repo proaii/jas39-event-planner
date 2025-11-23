@@ -4,12 +4,12 @@ import { WelcomeHeader } from "./welcome-header";
 import { DashboardWidgets } from "./dashboard-widgets";
 import { MyTasksSection } from "./my-tasks-section";
 import { Event, Task } from "@/lib/types";
-import { useDashboardUiStore } from "@/stores/dashboard-ui-store";
+import { useUiStore } from "@/stores/ui-store"; 
 
 interface DashboardProps {
   events: Event[];
   tasks: Task[];
-  currentUser: string;
+  // ลบ currentUser prop
   onCreateEvent: () => void;
   onCreateFromTemplate?: () => void;
   onEventClick: (eventId: string) => void;
@@ -19,12 +19,12 @@ interface DashboardProps {
   onNavigateToAllEvents?: () => void;
   onNavigateToAllTasks?: (filterContext?: "my" | "all") => void;
   onCustomize?: () => void;
+  visibleWidgets?: string[]; 
 }
 
 export function Dashboard({
   events,
   tasks,
-  currentUser,
   onCreateEvent,
   onCreateFromTemplate,
   onEventClick,
@@ -34,15 +34,12 @@ export function Dashboard({
   onNavigateToAllEvents,
   onNavigateToAllTasks,
   onCustomize,
+  visibleWidgets, 
 }: DashboardProps) {
-  // ดึง visibleWidgets จาก store แทนการส่ง props
-  const { visibleWidgets } = useDashboardUiStore();
-
   return (
     <main className="flex-1 p-8 bg-muted/20 overflow-hidden">
       <div className="max-w-7xl mx-auto w-full">
         <WelcomeHeader
-          currentUser={currentUser}
           onCreateEvent={onCreateEvent}
           onCreateFromTemplate={onCreateFromTemplate}
           onOpenCustomizeDashboard={onCustomize}
@@ -56,7 +53,6 @@ export function Dashboard({
           />
 
           <MyTasksSection
-            currentUser={currentUser}
             onStatusChange={onStatusChange}
             onSubTaskToggle={onSubTaskToggle}
             onNavigateToAllTasks={onNavigateToAllTasks}

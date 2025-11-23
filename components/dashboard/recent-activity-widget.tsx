@@ -1,24 +1,36 @@
 'use client';
 
-import React from "react";
+import React, { useMemo } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { getInitials } from "@/lib/utils";
 import { Activity } from "lucide-react";
-import { useDashboardUiStore } from "@/stores/dashboard-ui-store";
+import { useUiStore } from "@/stores/ui-store";
 import { useFetchRecentActivity } from "@/lib/client/features/activities/hooks";
+import { useFetchEvents } from "@/stores/useEventStore";
 
-interface RecentActivityWidgetProps {
-  eventId: string;
+// ---- HELPER: flatten events ----
+function flattenEventsData(data?: { pages?: { items: any[] }[]; items?: any[] }): any[] {
+  if (!data) return [];
+  if (Array.isArray(data.items)) return data.items;
+  if (data.pages && Array.isArray(data.pages)) {
+    return data.pages.flatMap(p => Array.isArray(p.items) ? p.items : []);
+  }
+  return [];
 }
 
-export function RecentActivityWidget({ eventId }: RecentActivityWidgetProps) {
-  const { isLoading: storeLoading, setLoading, error: storeError, setError } = useDashboardUiStore();
+export function RecentActivityWidget() {
+  const { setLoading, setError } = useUiStore();
 
-  // Fetch activities using React Query hook
-  const { data: activities = [], isLoading, isError, error } = useFetchRecentActivity(eventId);
+  // Fetch events to get first eventId
+  const { data: eventsData } = useFetchEvents();
+  const events = useMemo(() => flattenEventsData(eventsData), [eventsData]);
+  const firstEventId = events[0]?.eventId || "";
 
-  // Sync Zustand UI state
+  // Fetch activities using first event
+  const { data: activities = [], isLoading, isError, error } = useFetchRecentActivity(firstEventId);
+
+  // Sync UI state
   React.useEffect(() => {
     setLoading(isLoading);
   }, [isLoading, setLoading]);
@@ -31,7 +43,8 @@ export function RecentActivityWidget({ eventId }: RecentActivityWidgetProps) {
     }
   }, [isError, error, setError]);
 
-  if (storeLoading) {
+  // Loading state
+  if (isLoading) {
     return (
       <Card className="lg:col-span-1">
         <CardContent className="p-6 text-center text-muted-foreground">
@@ -41,16 +54,29 @@ export function RecentActivityWidget({ eventId }: RecentActivityWidgetProps) {
     );
   }
 
-  if (storeError) {
+  // Error state
+  if (isError) {
     return (
       <Card className="lg:col-span-1">
         <CardContent className="p-6 text-center text-red-500">
-          {storeError}
+          {error instanceof Error ? error.message : 'Failed to load activities'}
         </CardContent>
       </Card>
     );
   }
 
+  // No events (can't fetch activities)
+  if (!firstEventId) {
+    return (
+      <Card className="lg:col-span-1">
+        <CardContent className="p-6 text-center text-muted-foreground">
+          No events to show activities for
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // No activities
   if (activities.length === 0) {
     return (
       <Card className="lg:col-span-1">
@@ -61,6 +87,7 @@ export function RecentActivityWidget({ eventId }: RecentActivityWidgetProps) {
     );
   }
 
+  // Render activities
   return (
     <Card className="lg:col-span-1">
       <CardContent className="p-6">

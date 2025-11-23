@@ -7,9 +7,9 @@ import { RecentActivityWidget } from "./recent-activity-widget";
 import { UpcomingDeadlinesWidget } from "./upcoming-deadlines-widget";
 import { ProgressOverviewWidget } from "./progress-overview-widget";
 
-import { useFetchEvents } from "@/lib/client/features/events/hooks";
+import { useFetchEvents } from "@/stores/useEventStore"; 
 import { useFetchAllTasks } from "@/lib/client/features/tasks/hooks";
-import { useDashboardUiStore } from "@/stores/dashboard-ui-store";
+import { useUiStore } from "@/stores/ui-store"; 
 
 interface DashboardWidgetsProps {
   visibleWidgets?: string[];
@@ -37,19 +37,17 @@ export function DashboardWidgets({
   onEventClick,
   onNavigateToAllEvents,
 }: DashboardWidgetsProps) {
-  const { isLoading, error, setLoading, setError } = useDashboardUiStore();
+  const { isLoading, error, setLoading, setError } = useUiStore();
 
-  // ---- FETCH EVENTS ----
-  const { data: eventsData, isLoading: loadingEvents, error: errorEvents } = useFetchEvents({ pageSize: 10 });
-
-  // ---- FETCH TASKS ----
+  // ---- FETCH DATA ----
+  const { data: eventsData, isLoading: loadingEvents, error: errorEvents } = useFetchEvents();
   const { data: tasksData, isLoading: loadingTasks, error: errorTasks } = useFetchAllTasks({ pageSize: 20 });
 
   // ---- FLATTEN DATA ----
   const events: Event[] = useMemo(() => flattenInfiniteData<Event>(eventsData), [eventsData]);
   const tasks: Task[] = useMemo(() => flattenInfiniteData<Task>(tasksData), [tasksData]);
 
-  // ---- SYNC UI STATE (Zustand) ----
+  // ---- SYNC UI STATE ----
   useEffect(() => {
     setLoading(loadingEvents || loadingTasks);
     const mergedError = errorEvents?.message || errorTasks?.message || null;
@@ -58,15 +56,11 @@ export function DashboardWidgets({
 
   // ---- RENDER ----
   if (isLoading) {
-    return (
-      <p>Loading widgets...</p>
-    );
+    return <p>Loading widgets...</p>;
   }
 
   if (error) {
-    return (
-      <p className="text-red-500">{error}</p>
-    );
+    return <p className="text-red-500">{error}</p>;
   }
 
   return (
@@ -79,9 +73,13 @@ export function DashboardWidgets({
         />
       )}
 
-      {visibleWidgets.includes("recentActivity") && <RecentActivityWidget />}
+      {visibleWidgets.includes("recentActivity") && (
+        <RecentActivityWidget />
+      )}
 
-      {visibleWidgets.includes("upcomingDeadlines") && <UpcomingDeadlinesWidget tasks={tasks} />}
+      {visibleWidgets.includes("upcomingDeadlines") && (
+        <UpcomingDeadlinesWidget tasks={tasks} />
+      )}
 
       {visibleWidgets.includes("progressOverview") && (
         <ProgressOverviewWidget

@@ -9,11 +9,11 @@ import { getEffectiveDueDate } from "@/lib/server/supabase/utils";
 import { CheckSquare, Plus } from "lucide-react";
 import { SearchAndFilter, FilterOptions } from "@/components/search-and-filter";
 import { TaskCard } from "@/components/task-card";
-import { useFetchEvents } from "@/lib/client/features/events/hooks";
+import { useFetchEvents } from "@/stores/useEventStore";
 import { useFetchAllTasks } from "@/lib/client/features/tasks/hooks";
+import { useFetchCurrentUser } from "@/lib/client/features/users/hooks"; 
 
 interface MyTasksSectionProps {
-  currentUser: string;
   onStatusChange?: (taskId: string, newStatus: Task["taskStatus"]) => void;
   onSubTaskToggle?: (taskId: string, subTaskId: string) => void;
   onNavigateToAllTasks?: (filterContext?: "my" | "all") => void;
@@ -31,13 +31,15 @@ function effectiveDueDateOf(t: Task): string | undefined {
 }
 
 export function MyTasksSection({
-  currentUser,
   onStatusChange,
   onSubTaskToggle,
   onNavigateToAllTasks,
   onCreatePersonalTask,
 }: MyTasksSectionProps) {
-  const { data: eventsData, isLoading: loadingEvents, error: errorEvents } = useFetchEvents({ pageSize: 50 });
+  // Fetch current user
+  const { data: currentUser, isLoading: loadingUser } = useFetchCurrentUser();
+  
+  const { data: eventsData, isLoading: loadingEvents, error: errorEvents } = useFetchEvents();
   const { data: tasksData, isLoading: loadingTasks, error: errorTasks } = useFetchAllTasks({ pageSize: 200 });
 
   const [events, setEvents] = useState<Event[]>([]);
@@ -55,14 +57,14 @@ export function MyTasksSection({
   });
   const [taskSortBy, setTaskSortBy] = useState<"dueDate" | "priority" | "recent">("dueDate");
 
-  const isLoading = loadingEvents || loadingTasks;
+  const isLoading = loadingUser || loadingEvents || loadingTasks;
   const error = errorEvents?.message || errorTasks?.message || null;
 
   // Flatten paginated data safely
   useEffect(() => {
     const flatEvents: Event[] = eventsData
       ? "pages" in eventsData && Array.isArray(eventsData.pages)
-        ? eventsData.pages.flatMap(p => Array.isArray(p.items) ? p.items : [])
+        ? eventsData.pages.flatMap((p: any) => Array.isArray(p?.items) ? p.items : [])
         : Array.isArray(eventsData.items)
           ? eventsData.items
           : []
@@ -70,7 +72,7 @@ export function MyTasksSection({
 
     const flatTasks: Task[] = tasksData
       ? "pages" in tasksData && Array.isArray(tasksData.pages)
-        ? tasksData.pages.flatMap(p => Array.isArray(p.items) ? p.items : [])
+        ? tasksData.pages.flatMap((p: any) => Array.isArray(p?.items) ? p.items : [])
         : Array.isArray(tasksData.items)
           ? tasksData.items
           : []
@@ -81,12 +83,14 @@ export function MyTasksSection({
   }, [eventsData, tasksData]);
 
   const userTasks = useMemo(() => {
+    if (!currentUser) return [];
+    
     const isAssignedToCurrentUser = (t: Task) =>
       t.assignees?.some(
         (a) =>
-          a?.username === currentUser ||
-          a?.userId === currentUser ||
-          a?.email === currentUser
+          a?.username === currentUser.username ||
+          a?.userId === currentUser.userId ||
+          a?.email === currentUser.email
       ) ?? false;
 
     const eventMap = new Map(events.map((e) => [e.eventId, e.title]));
@@ -148,6 +152,14 @@ export function MyTasksSection({
     );
   }
 
+  if (!currentUser) {
+    return (
+      <Card className="p-8 text-center">
+        <CardContent>Please log in to view your tasks</CardContent>
+      </Card>
+    );
+  }
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
@@ -175,7 +187,7 @@ export function MyTasksSection({
         availableAssignees={availableAssignees}
         showTaskFilters
         placeholder="Search your tasks..."
-        currentUser={currentUser}
+        currentUser={currentUser.username}
         sortBy={taskSortBy}
         onSortChange={setTaskSortBy}
         showSort

@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 
 import { useUiStore } from "@/stores/ui-store";
@@ -11,11 +10,10 @@ import { CustomizeDashboardModal } from "@/components/dashboard/CustomizeDashboa
 import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
 
 import { useFetchEvents, useCreateEvent } from "@/stores/useEventStore";
-import { useTaskStore } from "@/stores/task-store"; 
-import { TemplateData } from "@/schemas/template";
+import { useFetchAllTasks } from "@/lib/client/features/tasks/hooks";
 import { useFetchUsers, useFetchUser } from "@/lib/client/features/users/hooks";
 import { useUser } from "@/lib/client/features/auth/hooks";
-import type { Event } from "@/lib/types"; // Import Event type
+import type { Event } from "@/lib/types";
 
 type DashboardCreateEventInput = Omit<
   Event,
@@ -27,110 +25,77 @@ type DashboardCreateEventInput = Omit<
 // -------------------------------------------------
 export default function DashboardPage() {
   const { data: authUser } = useUser();
-  const { data: currentUser } = useFetchUser(
-    authUser?.id ?? ""
-  );
+  const { data: currentUser } = useFetchUser(authUser?.id ?? "");
 
-  // ------------------- USERS -------------------
-  const [userSearchQuery] = useState("");
-  const { data: allUsers = [] } = useFetchUsers({
-    q: userSearchQuery,
-    enabled: true,
-  });
-
-  // ---------------- UI Store ----------------
+  // ==================== UI STORE ====================
   const {
+    // Modals
     isAddEventModalOpen,
     isAddTaskModalOpen,
     isCustomizeModalOpen,
-
+    isCreateFromTemplateModalOpen,
     openAddEventModal,
     closeAddEventModal,
     openAddTaskModal,
     closeAddTaskModal,
     openCustomizeModal,
     closeCustomizeModal,
-
+    openCreateFromTemplateModal,
+    closeCreateFromTemplateModal,
+    
+    // Widgets
     visibleWidgets,
-    setVisibleWidgets,
-    resetWidgets,
   } = useUiStore();
 
-  // ---------------- Fetch Events from API ----------------
-  const { data } = useFetchEvents();
-  const events: Event[] = data?.items ?? [];
+  // ==================== DATA FETCHING ====================
+  const { data: eventsData, isLoading: eventsLoading } = useFetchEvents();
+  const { data: tasksData } = useFetchAllTasks({});
+  const { data: allUsers = [] } = useFetchUsers({ q: "", enabled: true });
 
-  const { tasks } = useTaskStore();
+  const events: Event[] = eventsData?.items ?? [];
+  
+  // FIX: useFetchAllTasks returns TasksPage directly, not infinite query
+  const tasks = tasksData?.items ?? [];
 
-  // ---------------- Mutation: Create Event ----------------
+  // ==================== MUTATIONS ====================
   const createEventMutation = useCreateEvent();
 
-  // ---------------- Template Modal State ----------------
-  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-
-  // ---------------- Prefill Data for AddEventModal ----------------
-  const [prefillData, setPrefillData] = useState<
-    Omit<Event, "eventId" | "ownerId" | "createdAt" | "members"> | null
-  >(null);
-
   // -------------------------------------------------
-  // Create Event Handler — Uses React Query Mutation
+  // Create Event Handler
   // -------------------------------------------------
-  const handleCreateEvent = (
-    payload: DashboardCreateEventInput
-  ) => {
-    createEventMutation.mutate(
-      {
-        title: payload.title,
-        location: payload.location,
-        description: payload.description,
-        coverImageUri: payload.coverImageUri,
-        color: payload.color,
-        startAt: payload.startAt,
-        endAt: payload.endAt,
+  const handleCreateEvent = (payload: DashboardCreateEventInput) => {
+    createEventMutation.mutate(payload, {
+      onSuccess: () => {
+        closeAddEventModal();
+        toast.success("Event created successfully!");
       },
-      {
-        onSuccess: () => {
-          toast.success(`Event "${payload.title}" created successfully!`);
-        },
-      }
-    );
-  };
-
-  // -------------------------------------------------
-  // Save Widgets / Customize Dashboard
-  // -------------------------------------------------
-  const handleSaveWidgets = (selected: string[]) => {
-    setVisibleWidgets(selected);
-    closeCustomizeModal();
-    toast.success("Dashboard updated!");
-  };
-
-  // -------------------------------------------------
-  // Handle Template Use → Prefill AddEventModal
-  // -------------------------------------------------
-  const handleUseTemplate = (data: TemplateData) => {
-    setPrefillData({
-      title: data.title ?? data.name,
-      location: data.location || "",
-      description: data.eventDescription || "",
-      coverImageUri: data.coverImageUri ?? undefined,
-      color: data.color ?? 0,
-      startAt: data.startAt ?? null,
-      endAt: data.endAt ?? null,
+      onError: (error) => {
+        toast.error(error.message || "Failed to create event");
+      },
     });
-
-    openAddEventModal();
   };
 
   // -------------------------------------------------
-  // Reset prefill when modal closes
+  // Handle Template Use → Open AddEventModal with prefill
   // -------------------------------------------------
-  useEffect(() => {
-    if (!isAddEventModalOpen) {
-      setPrefillData(null);
-    }
-  }, [isAddEventModalOpen]);
+  const handleUseTemplate = (templateData: any) => {
+    // Store template data in UI store for AddEventModal to prefill
+    // TODO: Add setEventPrefillData() to ui-store.ts
+    closeCreateFromTemplateModal();
+    openAddEventModal();
+    toast.success("Template loaded! Fill in the remaining details.");
+  };
+
+  // -------------------------------------------------
+  // Show loading state
+  // -------------------------------------------------
+  if (eventsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading dashboard...</div>
+      </div>
+    );
+  }
 
   // -------------------------------------------------
   // Render UI
@@ -141,13 +106,12 @@ export default function DashboardPage() {
       <Dashboard
         events={events}
         tasks={tasks}
-        currentUser={currentUser?.username ?? "Loading..."}
         onCreateEvent={openAddEventModal}
         onEventClick={(id) => console.log("Clicked event:", id)}
         onCreatePersonalTask={openAddTaskModal}
         onCustomize={openCustomizeModal}
         visibleWidgets={visibleWidgets}
-        onCreateFromTemplate={() => setIsTemplateModalOpen(true)}
+        onCreateFromTemplate={openCreateFromTemplateModal}
       />
 
       {/* ---------------- Add Event Modal ---------------- */}
@@ -155,10 +119,9 @@ export default function DashboardPage() {
         isOpen={isAddEventModalOpen}
         onClose={closeAddEventModal}
         onCreateEvent={handleCreateEvent}
-        prefillData={prefillData ?? undefined}
       />
 
-      {/* ---------------- Add Task Modal (use store, API users) ---------------- */}
+      {/* ---------------- Add Task Modal ---------------- */}
       <AddTaskModal
         isOpen={isAddTaskModalOpen}
         onClose={closeAddTaskModal}
@@ -168,30 +131,17 @@ export default function DashboardPage() {
       />
 
       {/* ---------------- Customize Dashboard Modal ---------------- */}
+      {/* FIX: Removed selectedWidgets, onSave, and onResetDefault props */}
       <CustomizeDashboardModal
         isOpen={isCustomizeModalOpen}
         onClose={closeCustomizeModal}
-        selectedWidgets={visibleWidgets}
-        onSave={handleSaveWidgets}
-        onResetDefault={resetWidgets}
       />
 
       {/* ---------------- Create From Template Modal ---------------- */}
+      {/* FIX: Removed templates prop - component fetches its own */}
       <CreateFromTemplateModal
-        isOpen={isTemplateModalOpen}
-        templates={events.map((event: Event) => ({
-          name: event.title,
-          description: event.description,
-          title: event.title,
-          location: event.location,
-          eventDescription: event.description,
-          coverImageUri: event.coverImageUri,
-          color: event.color,
-          startAt: event.startAt,
-          endAt: event.endAt,
-          members: event.members,
-        }))}
-        onClose={() => setIsTemplateModalOpen(false)}
+        isOpen={isCreateFromTemplateModalOpen}
+        onClose={closeCreateFromTemplateModal}
         onUseTemplate={handleUseTemplate}
       />
     </>

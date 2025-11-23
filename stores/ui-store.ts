@@ -1,6 +1,7 @@
-// stores/ui-store.ts (refactored)
+// stores/ui-store.ts (improved)
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { Event } from "@/lib/types";
 
 // Widget identifiers
 export const DEFAULT_WIDGETS = [
@@ -60,6 +61,11 @@ interface UiStore {
   openCreateFromTemplateModal: () => void;
   closeCreateFromTemplateModal: () => void;
 
+  // ==================== TEMPLATE PREFILL DATA ====================
+  eventPrefillData: Partial<Event> | null;
+  setEventPrefillData: (data: Partial<Event> | null) => void;
+  clearEventPrefillData: () => void;
+
   // ==================== DASHBOARD WIDGETS ====================
   visibleWidgets: DashboardWidget[];
   tempWidgets: DashboardWidget[];
@@ -78,6 +84,9 @@ interface UiStore {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
+
+  // ==================== UTILITY ====================
+  resetAllModals: () => void;
 }
 
 export const useUiStore = create<UiStore>()(
@@ -111,7 +120,11 @@ export const useUiStore = create<UiStore>()(
       // ==================== MODALS ====================
       isAddEventModalOpen: false,
       openAddEventModal: () => set({ isAddEventModalOpen: true }),
-      closeAddEventModal: () => set({ isAddEventModalOpen: false }),
+      closeAddEventModal: () => set({ 
+        isAddEventModalOpen: false,
+        // Clear prefill data when closing modal
+        eventPrefillData: null,
+      }),
 
       isEditEventModalOpen: false,
       openEditEventModal: () => set({ isEditEventModalOpen: true }),
@@ -138,6 +151,11 @@ export const useUiStore = create<UiStore>()(
       isCreateFromTemplateModalOpen: false,
       openCreateFromTemplateModal: () => set({ isCreateFromTemplateModalOpen: true }),
       closeCreateFromTemplateModal: () => set({ isCreateFromTemplateModalOpen: false }),
+
+      // ==================== TEMPLATE PREFILL DATA ====================
+      eventPrefillData: null,
+      setEventPrefillData: (data) => set({ eventPrefillData: data }),
+      clearEventPrefillData: () => set({ eventPrefillData: null }),
 
       // ==================== DASHBOARD WIDGETS ====================
       visibleWidgets: [...DEFAULT_WIDGETS],
@@ -171,9 +189,22 @@ export const useUiStore = create<UiStore>()(
       setLoading: (loading) => set({ isLoading: loading }),
       setError: (error) => set({ error }),
       clearError: () => set({ error: null }),
+
+      // ==================== UTILITY ====================
+      resetAllModals: () =>
+        set({
+          isAddEventModalOpen: false,
+          isEditEventModalOpen: false,
+          isAddTaskModalOpen: false,
+          isCustomizeModalOpen: false,
+          isSaveTemplateModalOpen: false,
+          isCreateFromTemplateModalOpen: false,
+          eventPrefillData: null,
+        }),
     }),
     {
       name: "ui-store",
+      // Only persist user preferences, not modal states or temporary data
       partialize: (state) => ({
         currentView: state.currentView,
         visibleWidgets: state.visibleWidgets,

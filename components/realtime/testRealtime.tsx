@@ -9,8 +9,8 @@ type LogEntry = {
   id: string;
   no: number;
   time: string;
-  eventType: string;   // ex. INSERT / UPDATE / DELETE
-  crudType: CrudType;  // change to CREATE / UPDATE / DELETE
+  eventType: string;   // raw เช่น INSERT / UPDATE / DELETE
+  crudType: CrudType;  // แปลงเป็น CREATE / UPDATE / DELETE
   name: string;
   rowId: string;
 };
@@ -26,8 +26,8 @@ function mapEventTypeToCrud(eventType: string): CrudType {
 type RealtimeLoggerProps = {
   table: string;
   title: string;
-  codeLabel: string;        // ex. "tasks" or "events"
-  nameColumnLabel: string;  // header ex. "Task", "Event"
+  codeLabel: string;        // เช่น "tasks" หรือ "events"
+  nameColumnLabel: string;  // header ของคอลัมน์ชื่อ เช่น "Task", "Event"
   emptyMessage: string;
 };
 
@@ -327,16 +327,16 @@ function RealtimeLoggerBase({
   );
 }
 
-/* --------- Wrappers for Real Use --------- */
+/* --------- Wrappers สำหรับใช้จริง --------- */
 
 export function RealtimeLoggerTasks() {
   return (
     <RealtimeLoggerBase
       table="tasks"
-      title="Realtime Tasks"
+      title="Realtime Task Events"
       codeLabel="tasks"
       nameColumnLabel="Task"
-      emptyMessage="ยังไม่มีการเปลี่ยนแปลง ลองเพิ่ม / แก้ไข / ลบ task ดูนะ 🙂"
+      emptyMessage="ยังไม่มี event ลองเพิ่ม / แก้ไข / ลบ task ดูนะ 🙂"
     />
   );
 }
@@ -348,7 +348,7 @@ export function RealtimeLoggerEvents() {
       title="Realtime Events"
       codeLabel="events"
       nameColumnLabel="Event"
-      emptyMessage="ยังไม่มีการเปลี่ยนแปลง ลองเพิ่ม / แก้ไข / ลบ event ดูนะ 🙂"
+      emptyMessage="ยังไม่มี event ลองเพิ่ม / แก้ไข / ลบ event ดูนะ 🙂"
     />
   );
 }

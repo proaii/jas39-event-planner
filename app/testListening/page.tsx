@@ -5,8 +5,9 @@ export default async function TestPage() {
         <div>
             
             <div><RealtimeLoggerEvents /></div>
-            <div><RealtimeLoggerTasks /></div>
         
         </div>
     )
 }
+
+// app/test/page.tsx --- IGNORE ---

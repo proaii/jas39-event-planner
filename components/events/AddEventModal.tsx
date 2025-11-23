@@ -296,20 +296,10 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
       if (addToGoogleCalendar) {
         console.debug("addToGoogleCalendar is true. session:", session);
         
-        // --- FIX STARTS HERE ---
-        // 1. Only grab the provider_token (Google). Never use access_token (Supabase).
-        // @ts-ignore
-        // const providerToken = session?.provider_token;
+        await createCalendarEvent();
         
-        // console.debug("providerToken to be used for Google API:", providerToken);
-
-        if (providerToken) {
-            // dont need to pass token as parameter anymore
-            await createCalendarEvent();
-        } else {
-            // Optional: Alert the user if the token is missing
-            toast.error("Could not connect to Google Calendar. Please sign out and sign in again.");
-        }
+            // Do try catch error later
+            
         // --- FIX ENDS HERE ---
       }
       onClose();

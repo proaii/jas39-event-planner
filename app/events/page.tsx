@@ -27,22 +27,21 @@ import {
 import { Event } from "@/lib/types";
 import { useUiStore } from "@/stores/ui-store";
 import { useEventStore, useFetchEvents, useCreateEvent, useDeleteEvent } from "@/stores/useEventStore";
-import { toast } from "react-hot-toast";
 import { AddEventModal } from "@/components/events/AddEventModal";
 import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
 import { TemplateData } from "@/schemas/template";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { useUser } from "@/lib/client/features/auth/hooks";
-import { useFetchUser } from "@/lib/client/features/users/hooks";
+// import { useUser } from "@/lib/client/features/auth/hooks";
+// import { useFetchUser } from "@/lib/client/features/users/hooks";
 
 
 export default function AllEventsPage() {
   const router = useRouter();
 
-  const { data: authUser } = useUser();
-  const { data: currentUser } = useFetchUser(
-    authUser?.id ?? ""
-  );
+  // const { data: authUser } = useUser();
+  // const { data: currentUser } = useFetchUser(
+  //   authUser?.id ?? ""
+  // );
 
   // ------------------- UI STORE -------------------
   const {
@@ -64,43 +63,43 @@ export default function AllEventsPage() {
     setDateFilters,
   } = useUiStore();
 
-    const { events, setEvents } = useEventStore();
-    const { data: fetchedEvents } = useFetchEvents();
-    const createEventMutation = useCreateEvent();
-    const deleteEventMutation = useDeleteEvent();
-  
-    React.useEffect(() => {
-      if (fetchedEvents && fetchedEvents.items) {
-        setEvents(fetchedEvents.items);
-      }
-    }, [fetchedEvents, setEvents]);
-  
-  
-    const [prefillData, setPrefillData] = useState<Partial<Event> | null>(null);
-  
-    // ------------------- FILTER STATE -------------------
-    const [tempProgressFilters, setTempProgressFilters] = useState(progressFilters);
-    const [tempDateFilters, setTempDateFilters] = useState(dateFilters);
-  
-    React.useEffect(() => {
-      if (isFilterOpen) {
-        setTempProgressFilters(progressFilters);
-        setTempDateFilters(dateFilters);
-      }
-    }, [isFilterOpen, progressFilters, dateFilters]);
-  
-    // ------------------- HANDLERS -------------------
-    const handleCreateEvent = (
-      eventData: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members">
-    ) => {
-          createEventMutation.mutate({
-            ...eventData,
-          });
-    };
+  const { events, setEvents } = useEventStore();
+  const { data: fetchedEvents } = useFetchEvents();
+  const createEventMutation = useCreateEvent();
+  const deleteEventMutation = useDeleteEvent();
 
-    const handleDeleteEvent = (eventId: string) => {
-      deleteEventMutation.mutate(eventId);
-    };
+  React.useEffect(() => {
+    if (fetchedEvents && fetchedEvents.items) {
+      setEvents(fetchedEvents.items);
+    }
+  }, [fetchedEvents, setEvents]);
+
+
+  const [prefillData, setPrefillData] = useState<Partial<Event> | null>(null);
+
+  // ------------------- FILTER STATE -------------------
+  const [tempProgressFilters, setTempProgressFilters] = useState(progressFilters);
+  const [tempDateFilters, setTempDateFilters] = useState(dateFilters);
+
+  React.useEffect(() => {
+    if (isFilterOpen) {
+      setTempProgressFilters(progressFilters);
+      setTempDateFilters(dateFilters);
+    }
+  }, [isFilterOpen, progressFilters, dateFilters]);
+
+  // ------------------- HANDLERS -------------------
+  const handleCreateEvent = (
+    eventData: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members">
+  ) => {
+    createEventMutation.mutate({
+      ...eventData,
+    });
+  };
+
+  const handleDeleteEvent = (eventId: string) => {
+    deleteEventMutation.mutate(eventId);
+  };
 
   const handleUseTemplate = (data: TemplateData) => {
     setPrefillData({
@@ -228,8 +227,8 @@ export default function AllEventsPage() {
                           {key === "notStarted"
                             ? "Not Started (0%)"
                             : key === "inProgress"
-                            ? "In Progress (1-99%)"
-                            : "Completed (100%)"}
+                              ? "In Progress (1-99%)"
+                              : "Completed (100%)"}
                         </label>
                       </div>
                     ))}
@@ -256,10 +255,10 @@ export default function AllEventsPage() {
                           {key === "past"
                             ? "Past Events"
                             : key === "thisWeek"
-                            ? "This Week"
-                            : key === "thisMonth"
-                            ? "This Month"
-                            : "Future Events"}
+                              ? "This Week"
+                              : key === "thisMonth"
+                                ? "This Month"
+                                : "Future Events"}
                         </label>
                       </div>
                     ))}
@@ -328,9 +327,9 @@ export default function AllEventsPage() {
               key={event.eventId}
               event={event}
               onClick={() => router.push(`/events/${event.eventId}`)}
-              onEdit={() => {}}
+              onEdit={() => { }}
               onDelete={handleDeleteEvent}
-              onAddTask={() => {}}
+              onAddTask={() => { }}
             />
           ))}
         </div>

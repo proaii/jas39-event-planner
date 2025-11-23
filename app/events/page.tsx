@@ -24,8 +24,7 @@ import {
   ChevronDown,
   FileText,
 } from "lucide-react";
-import { Event } from "@/lib/types";
-import { useFetchUsers } from "@/lib/client/features/users/hooks";
+import { Event, Task } from "@/lib/types";
 import { useUiStore } from "@/stores/ui-store";
 import { useEventStore, useFetchEvents, useCreateEvent } from "@/stores/useEventStore";
 import { toast } from "react-hot-toast";
@@ -33,18 +32,17 @@ import { AddEventModal } from "@/components/events/AddEventModal";
 import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
 import { TemplateData } from "@/schemas/template";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { EditEventModal } from "@/components/events/EditEventModal";
+import { AddTaskModal } from "@/components/tasks/AddTaskModal";
+import { useDeleteEvent } from "@/lib/client/features/events/hooks";
+import { useTaskStore } from "@/stores/task-store";
 
 
 export default function AllEventsPage() {
   const router = useRouter();
-  const [userSearchQuery, setUserSearchQuery] = useState("");
   const { mutate: createEvent } = useCreateEvent();
-
-  // ------------------- USERS -------------------
-  const { data: allUsers = [], isLoading: isUsersLoading } = useFetchUsers({
-    q: userSearchQuery,
-    enabled: true,
-  });
+  const { mutate: deleteEventMutate } = useDeleteEvent();
+  const { addTask } = useTaskStore();
 
   // ------------------- UI STORE -------------------
   const {
@@ -64,6 +62,7 @@ export default function AllEventsPage() {
     setProgressFilters,
     dateFilters,
     setDateFilters,
+    openEditEventModal,
   } = useUiStore();
 
   // ------------------- EVENT STORE -------------------
@@ -78,6 +77,9 @@ export default function AllEventsPage() {
 
 
   const [prefillData, setPrefillData] = useState<Partial<Event> | null>(null);
+  const [selectedEventIdForEdit, setSelectedEventIdForEdit] = useState<string | null>(null);
+  const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+  const [selectedEventIdForAddTask, setSelectedEventIdForAddTask] = useState<string | null>(null);
 
   // ------------------- FILTER STATE -------------------
   const [tempProgressFilters, setTempProgressFilters] = useState(progressFilters);
@@ -91,11 +93,22 @@ export default function AllEventsPage() {
   }, [isFilterOpen, progressFilters, dateFilters]);
 
   // ------------------- HANDLERS -------------------
-  const handleCreateEvent = (
-    eventData: Omit<Event, "eventId" | "ownerId" | "createdAt">
+  const handleCreateEvent = async (
+    eventData: Omit<Event, "eventId" | "ownerId" | "createdAt" | "tasks" | "members">
   ) => {
-    const { members, ...rest } = eventData;
-    createEvent(rest);
+    return new Promise<void>((resolve, reject) => {
+      createEvent(eventData, {
+        onSuccess: () => {
+          toast.success("Event created successfully!");
+          closeAddEventModal();
+          resolve();
+        },
+        onError: (error) => {
+          toast.error(`Failed to create event: ${error.message}`);
+          reject(error);
+        },
+      });
+    });
   };
 
   const handleUseTemplate = (data: TemplateData) => {

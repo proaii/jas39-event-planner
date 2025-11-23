@@ -11,12 +11,11 @@ import { Separator } from "@/components/ui/separator";
 import { User, Bell, Palette, Shield, Edit } from "lucide-react";
 import { useTheme } from "next-themes"; 
 import { EditProfileModal } from "@/components/settings/EditProfileModal";
-import { useFetchCurrentUser } from "@/lib/client/features/users/hooks";
-import type { UserLite } from "@/lib/types";
-
+import { useFetchCurrentUser, useUpdateUser } from "@/lib/client/features/users/hooks";
 export default function SettingsPage() {
   // ------------------- USERS -------------------
-  const { data: currentUser, isLoading: isCurrentUserLoading } = useFetchCurrentUser();
+  const { data: currentUser } = useFetchCurrentUser();
+  const { mutate: updateUser } = useUpdateUser();
 
   // ---------- Notification Settings ----------
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -45,9 +44,6 @@ export default function SettingsPage() {
   const [profileData, setProfileData] = useState({
     ...parseFullName(currentUser?.username ?? ""),
     email: currentUser?.email ?? "",
-    phone: "",
-    location: "",
-    bio: "",
   });
 
   const [editProfileData, setEditProfileData] = useState(profileData);
@@ -57,16 +53,10 @@ export default function SettingsPage() {
       setProfileData({
         ...parseFullName(currentUser.username),
         email: currentUser.email,
-        phone: "",
-        location: "",
-        bio: "",
       });
       setEditProfileData({
         ...parseFullName(currentUser.username),
         email: currentUser.email,
-        phone: "",
-        location: "",
-        bio: "",
       });
     }
   }, [currentUser]);
@@ -78,8 +68,32 @@ export default function SettingsPage() {
     [first, middle, last].filter(Boolean).join(" ");
 
   const handleSaveProfile = () => {
-    setProfileData(editProfileData);
-    setOpenEditModal(false);
+    if (!currentUser?.userId) {
+      console.error("User ID not found. Cannot update profile.");
+      return;
+    }
+
+    updateUser(
+      {
+        userId: currentUser.userId,
+        patch: {
+          username: getFullName(
+            editProfileData.firstName,
+            editProfileData.middleName,
+            editProfileData.lastName
+          ),
+        },
+      },
+      {
+        onSuccess: () => {
+          setProfileData(editProfileData);
+          setOpenEditModal(false);
+        },
+        onError: (error) => {
+          console.error("Failed to update profile:", error);
+        },
+      }
+    );
   };
 
   const handleCancelProfile = () => {
@@ -154,20 +168,6 @@ export default function SettingsPage() {
                     </Label>
                     <p>{profileData.email}</p>
                   </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-sm text-muted-foreground">
-                      Phone Number
-                    </Label>
-                    <p>{profileData.phone}</p>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-sm text-muted-foreground">
-                      Location
-                    </Label>
-                    <p>{profileData.location}</p>
-                  </div>
                 </div>
               </div>
 
@@ -176,7 +176,7 @@ export default function SettingsPage() {
               {/* About */}
               <div>
                 <Label className="text-sm text-muted-foreground">About Me</Label>
-                <p className="text-foreground mt-1">{profileData.bio}</p>
+                <p className="text-foreground mt-1">{currentUser?.bio || "No bio provided."}</p>
               </div>
 
               <Separator />

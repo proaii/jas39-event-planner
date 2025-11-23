@@ -29,37 +29,25 @@ function getAdminDb() {
 }
 
 export async function getCurrentUser(): Promise<UserLite> {
-  console.log("getCurrentUser: Function start");
   const supabase = await createClient();
 
   try {
     const { data: { user }, error: uerr } = await supabase.auth.getUser();
     if (uerr) {
-      console.error("getCurrentUser: Error getting auth user", uerr);
       throw uerr;
     }
     if (!user) {
-      console.error("getCurrentUser: No authenticated user found");
       throw new Error('UNAUTHORIZED');
     }
-    console.log("getCurrentUser: Authenticated user ID:", user.id);
 
-    console.log("getCurrentUser: Attempting to fetch user profile...");
     let { data, error } = await supabase
       .from(TABLE)
       .select('userId:user_id, username, email, avatarUrl:avatar_url')
       .eq('user_id', user.id)
       .single();
-    console.log("getCurrentUser: Fetch profile result - data:", data, "error:", error);
-
-    if (error) {
-      console.log("getCurrentUser: An error object exists. Code:", error.code);
-      console.log("getCurrentUser: Comparison result (error.code === 'PGRST116'):", error.code === 'PGRST116');
-    }
 
     // If user profile doesn't exist, create it.
     if (error && error.code === 'PGRST116') { // PGRST116: "exact one row not found"
-      console.log("getCurrentUser: Profile not found (PGRST116), attempting to create it.");
       const adminDb = getAdminDb();
       const profileToInsert = {
         user_id: user.id,
@@ -67,7 +55,6 @@ export async function getCurrentUser(): Promise<UserLite> {
         username: user.user_metadata?.full_name ?? user.email?.split('@')[0],
         avatar_url: user.user_metadata?.avatar_url ?? null,
       };
-      console.log("getCurrentUser: Inserting new profile:", profileToInsert);
 
       const { data: newUser, error: createError } = await adminDb
         .from(TABLE)
@@ -75,24 +62,18 @@ export async function getCurrentUser(): Promise<UserLite> {
         .select('userId:user_id, username, email, avatarUrl:avatar_url')
         .single();
       
-      console.log("getCurrentUser: Create profile result - newUser:", newUser, "createError:", createError);
-
       if (createError) {
-        console.error("Error auto-creating user profile:", createError);
         throw createError;
       }
       data = newUser;
     } else if (error) {
-      console.error("getCurrentUser: Error fetching profile (non-PGRST116):", error);
       throw error;
     }
     
     if (!data) {
-      console.error("getCurrentUser: User profile not found and could not be created.");
       throw new Error('USER_NOT_FOUND');
     }
 
-    console.log("getCurrentUser: Profile found or created, mapping data.");
     const r = data as DbUserRow;
 
     const userId = r.userId?.toString() ?? '';
@@ -106,7 +87,6 @@ export async function getCurrentUser(): Promise<UserLite> {
     };
 
   } catch (e) {
-    console.error("getCurrentUser: Caught final error:", e);
     throw toApiError(e, 'GET_USER_FAILED');
   }
 }

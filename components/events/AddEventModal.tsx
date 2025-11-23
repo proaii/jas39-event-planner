@@ -20,11 +20,12 @@ import { toast } from "react-hot-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { Event, EventMember } from "@/lib/types";
 import { InviteTeamMembersModal } from "./InviteTeamMembersModal";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface AddEventModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreateEvent: (eventData: Omit<Event, 'eventId' | 'ownerId' | 'createdAt'>) => void;
+  onCreateEvent: (eventData: Omit<Event, 'eventId' | 'ownerId' | 'createdAt'>) => Promise<void>;
   eventId?: string;
   prefillData?: Partial<Omit<Event, 'eventId' | 'ownerId' | 'createdAt'>>;
 }
@@ -55,10 +56,17 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
     title: "",
     location: "",
     isMultiDay: false,
+<<<<<<< HEAD
     startDate: "",
     startTime: "",
     endDate: "",
     endTime: "",
+=======
+    startDate: defaultDate,
+    startTime: defaultTime,
+    endDate: defaultDate,
+    endTime: "", // Default to empty string for optional end time
+>>>>>>> 5fa78a85b22ea09cc1d4c4a3fa8b391e603e4c76
     description: "",
     coverImage: "",
     color: "#E8F4FD",
@@ -78,15 +86,41 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
         title: prefillData.title || "",
         location: prefillData.location || "",
         isMultiDay: isMulti,
+<<<<<<< HEAD
         startDate: prefillData.startAt?.split("T")[0] || "",
         startTime: prefillData.startAt?.split("T")[1]?.substring(0,5) || "",
         endDate: prefillData.endAt?.split("T")[0] || prefillData.startAt?.split("T")[0] || "",
         endTime: prefillData.endAt?.split("T")[1]?.substring(0,5) || "",
+=======
+        startDate: prefillData.startAt?.split("T")[0] || defaultDate,
+        startTime: prefillData.startAt?.split("T")[1]?.substring(0,5) || defaultTime,
+        endDate: prefillData.endAt?.split("T")[0] || prefillData.startAt?.split("T")[0] || defaultDate,
+        endTime: prefillData.endAt?.split("T")[1]?.substring(0,5) || "", // Set to empty string if no endAt
+>>>>>>> 5fa78a85b22ea09cc1d4c4a3fa8b391e603e4c76
         description: prefillData.description || "",
         coverImage: prefillData.coverImageUri || "",
         color: prefillData.color ? `#${prefillData.color.toString(16).padStart(6,"0")}` : "#E8F4FD",
         members: prefillData.members || [],
       });
+<<<<<<< HEAD
+=======
+    } else if (isOpen && !prefillData) {
+      // Reset to defaults when opening for a new event
+      setFormData(prev => ({
+        ...prev,
+        title: "",
+        location: "",
+        isMultiDay: false,
+        startDate: defaultDate,
+        startTime: defaultTime,
+        endDate: defaultDate,
+        endTime: "", // Reset to empty string
+        description: "",
+        coverImage: "",
+        color: "#E8F4FD",
+        members: [],
+      }));
+>>>>>>> 5fa78a85b22ea09cc1d4c4a3fa8b391e603e4c76
     }
   }, [isOpen, prefillData]);
 
@@ -223,6 +257,7 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
     },
   };
 
+<<<<<<< HEAD
   // 3. FETCH
   try {
     const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
@@ -258,6 +293,79 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
     toast.error("Network error connecting to Google.");
   }
 };
+=======
+  const createCalendarEvent = async (accessToken?: string) => {
+    try {
+      console.debug("createCalendarEvent called. incoming accessToken:", accessToken);
+      console.debug("session at createCalendarEvent:", session);
+
+      if (!accessToken && session) {
+        // try to read a provider token from session if available
+        // structure may vary depending on auth provider; check session object in runtime
+        // common fields: provider_token or access_token
+        // We'll prefer provider_token then access_token
+        // @ts-ignore
+        accessToken = accessToken || session.provider_token || (session as any)?.access_token;
+      }
+
+      if (!accessToken) {
+        console.debug("No accessToken available in createCalendarEvent; session:", session);
+        toast.error("No Google access token available. Connect your Google account to add events to Google Calendar.");
+        return;
+      }
+
+      // Build start and end Date objects from formData
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const start = new Date(`${formData.startDate}T${formData.startTime}:00`);
+      let end: Date;
+      if (formData.isMultiDay) {
+        end = new Date(`${formData.endDate}T${formData.endTime}:00`);
+      } else if (formData.endTime) {
+        end = new Date(`${formData.startDate}T${formData.endTime}:00`);
+      } else {
+        // default to 1 hour duration
+        end = new Date(start.getTime() + 60 * 60 * 1000);
+      }
+
+      const event = {
+        summary: formData.title,
+        description: formData.description,
+        start: {
+          dateTime: start.toISOString(),
+          timeZone: tz,
+        },
+        end: {
+          dateTime: end.toISOString(),
+          timeZone: tz,
+        },
+        location: formData.location || undefined,
+      };
+
+      const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + accessToken,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(event),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("Google Calendar API error:", text);
+        toast.error("Failed to create event in Google Calendar.");
+        return;
+      }
+
+      const data = await res.json();
+      console.debug("Google Calendar created event:", data);
+      toast.success("Event created in your Google Calendar.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Error while creating Google Calendar event.");
+    }
+  };
+>>>>>>> 5fa78a85b22ea09cc1d4c4a3fa8b391e603e4c76
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -290,11 +398,18 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
         members: formData.members,
       };
 
+<<<<<<< HEAD
       onCreateEvent(newEvent);
+=======
+      console.log("AddEventModal: Calling onCreateEvent with newEvent:", newEvent);
+      await onCreateEvent(newEvent);
+      console.log("AddEventModal: onCreateEvent resolved successfully.");
+>>>>>>> 5fa78a85b22ea09cc1d4c4a3fa8b391e603e4c76
       toast.success("Event created successfully!");
       // If the checkbox is checked, try to create the calendar event as well
       if (addToGoogleCalendar) {
         console.debug("addToGoogleCalendar is true. session:", session);
+<<<<<<< HEAD
         
         // --- FIX STARTS HERE ---
         // 1. Only grab the provider_token (Google). Never use access_token (Supabase).
@@ -311,6 +426,13 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
             toast.error("Could not connect to Google Calendar. Please sign out and sign in again.");
         }
         // --- FIX ENDS HERE ---
+=======
+        // prefer a provider token from Supabase session if available
+        // @ts-ignore
+        const providerToken = session?.provider_token || (session as any)?.access_token;
+        console.debug("providerToken (from session) to be used for Google API:", providerToken);
+        await createCalendarEvent(providerToken);
+>>>>>>> 5fa78a85b22ea09cc1d4c4a3fa8b391e603e4c76
       }
       onClose();
 
@@ -445,6 +567,10 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
               </Button>
             </div>
 
+<<<<<<< HEAD
+=======
+            {/* Google Calendar Checkbox */}
+>>>>>>> 5fa78a85b22ea09cc1d4c4a3fa8b391e603e4c76
             <div className="flex items-center mt-2 space-x-3 pt-4 border-r-0">
               <Input
                 type="checkbox"
@@ -473,7 +599,7 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
         currentMembers={formData.members.map(u => ({
           eventMemberId: `demo-${u}-${Date.now()}`,
           userId: u,
-          eventId: eventId || "new-event",
+          eventId: eventId || "new-event",.
           joinedAt: new Date().toISOString(),
         }))}
         onMembersUpdated={(newMembers: EventMember[]) =>

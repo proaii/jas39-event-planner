@@ -42,6 +42,14 @@ export function UpdatePasswordForm({
     e.preventDefault();
     setError(null);
 
+    // --- Basic validation ---
+    if (password.length < 8) {
+      const msg = "Password must be at least 8 characters";
+      setError(msg);
+      toast({ title: "Error", description: msg, variant: "destructive" });
+      return;
+    }
+
     mutate(password, {
       onSuccess: () => {
         toast({ title: "Success", description: "Password updated!" });
@@ -67,6 +75,7 @@ export function UpdatePasswordForm({
         <CardContent>
           <form onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
+              {/* Input */}
               <div className="grid gap-2">
                 <Label htmlFor="password">New password</Label>
                 <Input
@@ -75,17 +84,27 @@ export function UpdatePasswordForm({
                   placeholder="New password"
                   required
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError(null); // Clear error on typing
+                  }}
                   disabled={isPending}
                 />
               </div>
 
+              {/* Error */}
               {error && (
                 <p className="text-sm text-red-500">{error}</p>
               )}
 
-              <Button type="submit" className="w-full" disabled={isPending}>
-                {isPending ? "Saving..." : "Save new password"}
+              {/* Submit */}
+              <Button
+                type="submit"
+                className="w-full"
+                loading={isPending}
+                disabled={isPending}
+              >
+                Save new password
               </Button>
             </div>
           </form>

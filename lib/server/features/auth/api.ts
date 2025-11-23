@@ -20,6 +20,7 @@ export async function signInWithOAuth(provider: Provider) {
     provider,
     options: {
       redirectTo: `${location.origin}/api/auth/callback?next=/dashboard`,
+      scopes: 'https://www.googleapis.com/auth/calendar'
     },
   });
   if (error) throw new Error(error.message);

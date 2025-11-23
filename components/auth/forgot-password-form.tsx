@@ -14,69 +14,73 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useState } from "react";
-import { useAuthUiStore } from "@/stores/auth-ui-store";
 import { useToast } from "@/components/ui/use-toast";
+import { create } from "zustand";
+
+interface ForgotPasswordUiState {
+  isLoading: boolean;
+  success: boolean;
+  setLoading: (loading: boolean) => void;
+  setSuccess: (success: boolean) => void;
+  resetState: () => void;
+}
+
+const useForgotPasswordUiStore = create<ForgotPasswordUiState>((set) => ({
+  isLoading: false,
+  success: false,
+  setLoading: (isLoading) => set({ isLoading }),
+  setSuccess: (success) => set({ success }),
+  resetState: () => set({ isLoading: false, success: false }),
+}));
 
 export function ForgotPasswordForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
   const [email, setEmail] = useState("");
-
-  // Zustand store
-  const {
-    forgotPassword,
-    setForgotPasswordLoading,
-    setForgotPasswordError,
-    setForgotPasswordSuccess,
-    resetForgotPasswordState,
-  } = useAuthUiStore();
-
+  const { isLoading, success, setLoading, setSuccess, resetState } = useForgotPasswordUiStore();
   const { toast } = useToast();
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     const supabase = createClient();
 
-    setForgotPasswordLoading(true);
-    setForgotPasswordError(null);
+    setLoading(true);
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/update-password`,
       });
+      
       if (error) throw error;
 
-      setForgotPasswordSuccess(true);
-      setEmail(""); // clear input
+      setSuccess(true);
+      setEmail("");
       toast({
         title: "Success",
         description: "Password reset email sent!",
         variant: "default",
       });
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : "An error occurred";
-      setForgotPasswordError(message);
-
+      const message = error instanceof Error ? error.message : "An error occurred";
       toast({
         title: "Error",
         description: message,
         variant: "destructive",
       });
     } finally {
-      setForgotPasswordLoading(false);
+      setLoading(false);
     }
   };
 
   const handleResetForm = () => {
-    resetForgotPasswordState();
+    resetState();
     setEmail("");
   };
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      {forgotPassword.success ? (
+      {success ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">Check Your Email</CardTitle>
@@ -113,19 +117,16 @@ export function ForgotPasswordForm({
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    disabled={forgotPassword.isLoading}
+                    disabled={isLoading}
                   />
-                  {forgotPassword.error && (
-                    <p className="text-sm text-red-500">{forgotPassword.error}</p>
-                  )}
                 </div>
 
                 <Button
                   type="submit"
                   className="w-full"
-                  loading={forgotPassword.isLoading} 
+                  disabled={isLoading}
                 >
-                  Send reset email
+                  {isLoading ? "Sending..." : "Send reset email"}
                 </Button>
               </div>
 

@@ -84,7 +84,7 @@ interface UiStore {
   // Create From Template Modal
   isCreateFromTemplateModalOpen: boolean;
   openCreateFromTemplateModal: () => void;
-  closeCreateFromTemplateModalOpen: () => void;
+  closeCreateFromTemplateModal: () => void;
 
   // Edit Profile Modal
   isEditProfileModalOpen: boolean;
@@ -222,7 +222,7 @@ export const useUiStore = create<UiStore>()(
 
       isCreateFromTemplateModalOpen: false,
       openCreateFromTemplateModal: () => set({ isCreateFromTemplateModalOpen: true }),
-      closeCreateFromTemplateModalOpen: () => set({ isCreateFromTemplateModalOpen: false }),
+      closeCreateFromTemplateModal: () => set({ isCreateFromTemplateModalOpen: false }),
 
       isEditProfileModalOpen: false,
       openEditProfileModal: () => {

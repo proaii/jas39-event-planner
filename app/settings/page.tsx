@@ -11,7 +11,6 @@ import { Separator } from "@/components/ui/separator";
 import { User, Bell, Palette, Shield, Edit } from "lucide-react";
 import { useTheme } from "next-themes";
 import { EditProfileModal } from "@/components/settings/EditProfileModal";
-import { ChangePasswordModal } from "@/components/settings/ChangePasswordModal";
 import { useUser } from "@/lib/client/features/auth/hooks";
 import { useFetchUser } from "@/lib/client/features/users/hooks";
 

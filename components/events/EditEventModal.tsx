@@ -22,12 +22,12 @@ import type { Event, EventMember, UpdateEventInput, UserLite } from "@/lib/types
 import NextImage from "next/image";
 import { InviteTeamMembersModal } from "./InviteTeamMembersModal";
 import { toast } from "react-hot-toast";
-import { useEventStore } from "@/stores/useEventStore";
+import { useUpdateEvent } from "@/stores/useEventStore";
 import { useFetchUsers } from "@/lib/client/features/users/hooks";
 
 export function EditEventModal({ events }: { events: Event[] }) {
   const { isEditEventModalOpen, currentEventId, closeEditEventModal } = useUiStore();
-  const { updateEvent } = useEventStore();
+  const updateEventMutation = useUpdateEvent();
 
   const event = events.find((e) => e.eventId === currentEventId) || null;
 
@@ -135,9 +135,7 @@ export function EditEventModal({ events }: { events: Event[] }) {
       })),
     };
 
-    updateEvent(event.eventId, normalizedData);
-    toast.success("Event updated successfully!");
-    closeEditEventModal();
+    updateEventMutation.mutate({ eventId: event.eventId, data: normalizedData });
   };
 
   if (!event) return null;
@@ -373,11 +371,11 @@ export function EditEventModal({ events }: { events: Event[] }) {
         isOpen={inviteModalOpen}
         onClose={() => setInviteModalOpen(false)}
         eventId={event.eventId}
-        currentMembers={formData.members} 
+        currentMembers={formData.members}
         onMembersUpdated={(newMembers: EventMember[]) =>
           setFormData((prev) => ({
             ...prev,
-            members: newMembers, 
+            members: newMembers,
           }))
         }
       />

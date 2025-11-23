@@ -605,7 +605,6 @@ export function EventDetail({
               onClick={() => {
                 onDeleteEvent?.(event.eventId);
                 setShowDeleteDialog(false);
-                onBack();
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >

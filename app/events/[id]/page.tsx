@@ -5,7 +5,7 @@ import { EventDetail } from "@/components/events/EventDetail";
 import { EditEventModal } from "@/components/events/EditEventModal";
 import { useUiStore } from "@/stores/ui-store";
 import { useTaskStore } from "@/stores/task-store";
-import { useSaveTemplate, useEventById } from "@/stores/useEventStore";
+import { useSaveTemplate, useEventById, useDeleteEvent } from "@/stores/useEventStore";
 import { TemplateData } from "@/schemas/template";
 import type { Task, TaskStatus } from "@/lib/types";
 import { toast } from "react-hot-toast";
@@ -22,6 +22,7 @@ export default function EventDetailPage() {
   const { openEditEventModal } = useUiStore();
   const { tasks, addTask, updateTask } = useTaskStore();
   const { mutate: saveTemplateMutate } = useSaveTemplate();
+  const deleteEventMutation = useDeleteEvent();
 
   const { data: authUser } = useUser();
   const { data: currentUser, isLoading: isCurrentUserLoading } = useFetchUser(
@@ -64,7 +65,12 @@ export default function EventDetailPage() {
   };
 
   const handleDeleteEvent = (eventId: string) => {
-    toast.error("Delete not implemented yet"); 
+    deleteEventMutation.mutate(eventId, {
+      onSuccess: () => {
+        toast.success("Event deleted successfully");
+        router.push("/events");
+      },
+    });
   };
 
   const handleSaveTemplate = (eventId: string, templateData: TemplateData) => {

@@ -6,24 +6,32 @@ import { Card, CardContent } from "@/components/ui/card";
 import { getInitials } from "@/lib/utils";
 import { Activity } from "lucide-react";
 import { useDashboardUiStore } from "@/stores/dashboard-ui-store";
+import { useFetchRecentActivity } from "@/lib/client/features/activities/hooks";
 
-// ---- Mock activity data ----
-const MOCK_ACTIVITIES = [
-  { user: "Alice Johnson", action: "created a task", item: "Design Homepage", time: "2h ago" },
-  { user: "Bob Smith", action: "completed a task", item: "Fix login bug", time: "5h ago" },
-  { user: "Charlie Lee", action: "commented on a task", item: "Update API docs", time: "1d ago" },
-];
+interface RecentActivityWidgetProps {
+  eventId: string;
+}
 
-export function RecentActivityWidget() {
-  const { isLoading, error, setLoading, setError } = useDashboardUiStore();
+export function RecentActivityWidget({ eventId }: RecentActivityWidgetProps) {
+  const { isLoading: storeLoading, setLoading, error: storeError, setError } = useDashboardUiStore();
 
-  // ---- simulate loading state ----
+  // Fetch activities using React Query hook
+  const { data: activities = [], isLoading, isError, error } = useFetchRecentActivity(eventId);
+
+  // Sync Zustand UI state
   React.useEffect(() => {
-    setLoading(false); // ไม่มี loading จริง
-    setError(null);    // ไม่มี error จริง
-  }, [setLoading, setError]);
+    setLoading(isLoading);
+  }, [isLoading, setLoading]);
 
-  if (isLoading) {
+  React.useEffect(() => {
+    if (isError) {
+      setError(error instanceof Error ? error.message : 'Failed to load activities');
+    } else {
+      setError(null);
+    }
+  }, [isError, error, setError]);
+
+  if (storeLoading) {
     return (
       <Card className="lg:col-span-1">
         <CardContent className="p-6 text-center text-muted-foreground">
@@ -33,17 +41,25 @@ export function RecentActivityWidget() {
     );
   }
 
-  if (error) {
+  if (storeError) {
     return (
       <Card className="lg:col-span-1">
         <CardContent className="p-6 text-center text-red-500">
-          {error}
+          {storeError}
         </CardContent>
       </Card>
     );
   }
 
-  const activities = MOCK_ACTIVITIES;
+  if (activities.length === 0) {
+    return (
+      <Card className="lg:col-span-1">
+        <CardContent className="p-6 text-center text-muted-foreground">
+          No recent activity
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="lg:col-span-1">
@@ -70,12 +86,6 @@ export function RecentActivityWidget() {
               </div>
             </div>
           ))}
-
-          {activities.length === 0 && (
-            <div className="text-center py-4 text-muted-foreground text-sm">
-              No recent activity
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>

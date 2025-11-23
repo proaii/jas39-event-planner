@@ -47,7 +47,7 @@ export function EditEventModal({ events }: { events: Event[] }) {
 
   // ------------------- USERS -------------------
   // Fetch all users once, filtered only when typing
-  const { data: allUsers = [], isLoading: isUsersLoading } = useFetchUsers({ q: "", enabled: true });
+  const { data: allUsers = [] } = useFetchUsers({ q: "", enabled: true });
 
   const usersMap = useMemo(() => {
     const map = new Map<string, UserLite>();

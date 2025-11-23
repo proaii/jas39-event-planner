@@ -25,7 +25,6 @@ import {
   FileText,
 } from "lucide-react";
 import { Event } from "@/lib/types";
-import { useFetchUsers } from "@/lib/client/features/users/hooks";
 import { useUiStore } from "@/stores/ui-store";
 import { useEventStore, useFetchEvents } from "@/stores/useEventStore";
 import { toast } from "react-hot-toast";
@@ -37,13 +36,6 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 
 export default function AllEventsPage() {
   const router = useRouter();
-  const [userSearchQuery, setUserSearchQuery] = useState("");
-
-  // ------------------- USERS -------------------
-  const { data: allUsers = [], isLoading: isUsersLoading } = useFetchUsers({
-    q: userSearchQuery,
-    enabled: true,
-  });
 
   // ------------------- UI STORE -------------------
   const {

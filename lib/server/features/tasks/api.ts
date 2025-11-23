@@ -2,6 +2,8 @@ import { createClient, createDb } from '@/lib/server/supabase/server';
 import { toApiError } from '@/lib/errors';
 import type { Task, Subtask, Attachment, TaskStatus, TaskPriority, UserLite } from '@/lib/types';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { logActivity } from '@/lib/server/features/activities/logger';
+
 const TABLE = 'tasks';
 
 // ---------- Tasks ----------
@@ -171,6 +173,8 @@ export async function listAllUserTasks(params: {
 
 // Create new Event Task with attachments/subtasks/assignees
 export async function createEventTask(eventId: string, input: Task): Promise<Task> {
+  const root = await createClient();
+  const { data: { user } } = await root.auth.getUser();
   const db = await createDb();
 
   try {
@@ -244,6 +248,12 @@ export async function createEventTask(eventId: string, input: Task): Promise<Tas
     if (error) throw error;
 
     const row = data as unknown as RawTaskRow;
+
+    // Log Activity
+    if (user && eventId) {
+      await logActivity(user.id, eventId, 'CREATE_TASK', 'TASK', input.title);
+    }
+
     return map(row);
   } catch (e) {
     throw toApiError(e, 'TASK_CREATE_FAILED');
@@ -338,6 +348,17 @@ export async function createPersonalTask(
     if (error) throw error;
 
     const row = data as unknown as RawTaskRow;
+
+    if (user) {
+      await logActivity(
+        user.id, 
+        null, // Personal Task doesn't has Event ID
+        'CREATE_TASK', 
+        'TASK', 
+        input.title
+      );
+    }
+
     return map(row);
   } catch (e) {
     throw toApiError(e, 'TASK_CREATE_FAILED');
@@ -349,6 +370,8 @@ export async function updateTask(
   taskId: string,
   patch: Partial<Task> & { assigneesReplace?: string[] }
 ): Promise<Task> {
+  const root = await createClient();
+  const { data: { user } } = await root.auth.getUser();
   const db = await createDb();
 
   try {
@@ -399,6 +422,18 @@ export async function updateTask(
     if (error) throw error;
 
     const fetchedRow = data as unknown as RawTaskRow;
+
+    // Log Activity 
+    if (user) {
+      await logActivity(
+        user.id, 
+        fetchedRow.event_id ?? null, 
+        'UPDATE_TASK', 
+        'TASK', 
+        fetchedRow.title
+      );
+    }
+
     return map(fetchedRow);
   } catch (e) {
     throw toApiError(e, 'TASK_UPDATE_FAILED');
@@ -432,6 +467,7 @@ export async function deleteTask(taskId: string): Promise<void> {
       .select(`
         task_id, 
         event_id,
+        title,
         event:events!tasks_event_id_fkey(owner_id),
         assignees:task_assignees(user_id)
       `)
@@ -442,6 +478,8 @@ export async function deleteTask(taskId: string): Promise<void> {
     if (!task) throw new Error('TASK_NOT_FOUND');
 
     type TaskWithOwnership = {
+      event_id: string | null;
+      title: string;
       event: { owner_id: string } | { owner_id: string }[] | null;
       assignees: { user_id: string }[];
     }
@@ -460,9 +498,22 @@ export async function deleteTask(taskId: string): Promise<void> {
       throw new Error('FORBIDDEN_DELETE');
     }
 
+    // Keep the value before deleting for Log Activity
+    const taskTitle = taskData.title;
+    const eventId = taskData.event_id;
+
     const { error: deleteError } = await adminDb.from(TABLE).delete().eq('task_id', taskId);
 
     if (deleteError) throw deleteError;
+
+    // Log Activity
+    await logActivity(
+        user.id, 
+        eventId ?? null, 
+        'DELETE_TASK', 
+        'TASK', 
+        taskTitle
+    );
 
   } catch (e) {
     throw toApiError(e, 'TASK_DELETE_FAILED');
@@ -477,18 +528,33 @@ export async function createSubtask(
   status: Subtask['subtaskStatus'] = 'To Do' // 'To Do' as Default
 ): Promise<Subtask> {
   const db = await createDb();
+
+  const root = await createClient();
+  const { data: { user } } = await root.auth.getUser();
+
   try {
+    // Pull the parent task data to find the event_id (cannot be done simultaneously with insert, must query separately or use select nested)
+    const { data: parentTask } = await db.from('tasks').select('event_id').eq('task_id', taskId).single();
+
     const { data, error } = await db
       .from('subtasks')
-      .insert({
-        task_id: taskId,
-        title: title,
-        subtask_status: status, 
-      })
+      .insert({ task_id: taskId, title: title, subtask_status: status })
       .select('subtask_id, title, subtask_status')
       .single();
 
-    if (error) throw error;
+    if (error) throw error; 
+
+    // Log Activity
+    if (user) {
+        await logActivity(
+            user.id, 
+            parentTask?.event_id ?? null, 
+            'CREATE_SUBTASK', 
+            'SUBTASK', 
+            title,
+            { parentTaskId: taskId }
+        );
+    }
 
     return {
       subtaskId: String(data.subtask_id),
@@ -506,6 +572,10 @@ export async function updateSubtask(
   patch: { title?: string; subtaskStatus?: Subtask['subtaskStatus'] }
 ): Promise<Subtask> {
   const db = await createDb();
+
+  const root = await createClient();
+  const { data: { user } } = await root.auth.getUser();
+
   try {
     const updateData: Record<string, unknown> = {};
     if (patch.title !== undefined) updateData.title = patch.title;
@@ -515,16 +585,35 @@ export async function updateSubtask(
       .from('subtasks')
       .update(updateData)
       .eq('subtask_id', subtaskId)
-      .select('subtask_id, task_id, title, subtask_status')
+      .select(`
+        subtask_id, task_id, title, subtask_status,
+        task:tasks(event_id) 
+      `)
       .single();
 
     if (error) throw error;
 
+    // Supabase return relation 'task' as object or array
+    const result = data as unknown as {
+        subtask_id: string, 
+        task_id: string, 
+        title: string, 
+        subtask_status: Subtask['subtaskStatus'],
+        task: { event_id: string | null } | { event_id: string | null }[]
+    };
+
+    const taskObj = Array.isArray(result.task) ? result.task[0] : result.task;
+    const eventId = taskObj?.event_id ?? null;
+
+    if (user) {
+        await logActivity(user.id, eventId, 'UPDATE_SUBTASK', 'SUBTASK', result.title);
+    }
+
     return {
-      subtaskId: String(data.subtask_id),
-      taskId: String(data.task_id),
-      title: data.title,
-      subtaskStatus: data.subtask_status,
+      subtaskId: String(result.subtask_id),
+      taskId: String(result.task_id),
+      title: result.title,
+      subtaskStatus: result.subtask_status,
     };
   } catch (e) {
     throw toApiError(e, 'SUBTASK_UPDATE_FAILED');
@@ -533,9 +622,34 @@ export async function updateSubtask(
 
 export async function deleteSubtask(subtaskId: string): Promise<void> {
   const db = await createDb();
+
+  const root = await createClient();
+  const { data: { user } } = await root.auth.getUser();
+
   try {
+    const { data: subtask } = await db
+        .from('subtasks')
+        .select('title, task:tasks(event_id)')
+        .eq('subtask_id', subtaskId)
+        .single();
+
     const { error } = await db.from('subtasks').delete().eq('subtask_id', subtaskId);
     if (error) throw error;
+
+    // Map type to retrieve values ​​for use in log
+    const result = subtask as unknown as {
+        title: string,
+        task: { event_id: string | null } | { event_id: string | null }[]
+    };
+
+    const taskObj = Array.isArray(result.task) ? result.task[0] : result.task;
+    const eventId = taskObj?.event_id ?? null;
+    const title = result.title || 'Unknown Subtask';
+
+    if (user) {
+        await logActivity(user.id, eventId, 'DELETE_SUBTASK', 'SUBTASK', title);
+    }
+
   } catch (e) {
     throw toApiError(e, 'SUBTASK_DELETE_FAILED');
   }

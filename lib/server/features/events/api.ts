@@ -1,6 +1,7 @@
 import { createClient, createDb } from '@/lib/server/supabase/server';
 import { toApiError } from '@/lib/errors';
 import type { Event } from '@/lib/types';
+import { logActivity } from '@/lib/server/features/activities/logger';
 
 const TABLE = 'events';
 
@@ -67,6 +68,24 @@ export async function listAllEvents(params: {
   }
 }
 
+export async function getEvent(eventId: string): Promise<Event> {
+  const db = await createDb();
+  try {
+    const { data, error } = await db
+      .from(TABLE)
+      .select(`
+        event_id, owner_id, title, location, description, cover_image_uri, color, created_at, start_at, end_at,
+        event_members!left ( user_id )
+      `)
+      .eq('event_id', eventId)
+      .single();
+    if (error) throw error;
+    return map(data as RawEventRow);
+  } catch (e) {
+    throw toApiError(e, 'EVENT_GET_FAILED');
+  }
+}
+
 export async function createEvent(input: Omit<Event, 'eventId' | 'members'>): Promise<Event> {
   const root = await createClient();
   const db = await createDb();
@@ -94,27 +113,21 @@ export async function createEvent(input: Omit<Event, 'eventId' | 'members'>): Pr
       `)
       .single();
     if (error) throw error;
-    return map(data as RawEventRow);
+
+    const eventData = map(data as RawEventRow);
+
+    // Log Activity
+    await logActivity(
+      user.id, 
+      eventData.eventId, 
+      'CREATE_EVENT', 
+      'EVENT', 
+      eventData.title
+    );
+
+    return eventData;
   } catch (e) {
     throw toApiError(e, 'EVENT_CREATE_FAILED');
-  }
-}
-
-export async function getEvent(eventId: string): Promise<Event> {
-  const db = await createDb();
-  try {
-    const { data, error } = await db
-      .from(TABLE)
-      .select(`
-        event_id, owner_id, title, location, description, cover_image_uri, color, created_at, start_at, end_at,
-        event_members!left ( user_id )
-      `)
-      .eq('event_id', eventId)
-      .single();
-    if (error) throw error;
-    return map(data as RawEventRow);
-  } catch (e) {
-    throw toApiError(e, 'EVENT_GET_FAILED');
   }
 }
 
@@ -146,7 +159,18 @@ export async function updateEvent(eventId: string, patch: Partial<Event>): Promi
       .single();
 
     if (error) throw error;
-    return map(data as RawEventRow);
+    const eventData = map(data as RawEventRow);
+
+    // Log Activity
+    await logActivity(
+        user.id, 
+        eventId, 
+        'UPDATE_EVENT' as any, 
+        'EVENT', 
+        eventData.title
+    );
+
+    return eventData;
   } catch (e) {
     throw toApiError(e, 'EVENT_UPDATE_FAILED');
   }

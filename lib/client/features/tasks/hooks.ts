@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
-import type { Task } from '@/lib/types';
+import type { Task, Subtask } from '@/lib/types';
 import type { ApiError } from '@/lib/errors';
 import { MINUTES } from '@/lib/constants';
 
@@ -86,7 +86,8 @@ export function useFetchTask(taskId: string) {
   });
 }
 
-// ---------- Mutations ----------
+// ---------- Task Mutations ----------
+
 export function useCreateEventTask(eventId: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -102,6 +103,7 @@ export function useCreateEventTask(eventId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.tasks({ eventId }) });
       qc.invalidateQueries({ queryKey: queryKeys.event(eventId) });
+      qc.invalidateQueries({ queryKey: ['event-activity', eventId] });
     },
     retry: 0,
   });
@@ -144,6 +146,7 @@ export function useEditTask() {
       qc.invalidateQueries({ queryKey: queryKeys.tasks({}) }); // All Tasks
       if (task.eventId) {
         qc.invalidateQueries({ queryKey: queryKeys.tasks({ eventId: task.eventId }) });
+        qc.invalidateQueries({ queryKey: ['event-activity', task.eventId] });
       }
     },
   });
@@ -159,6 +162,82 @@ export function useDeleteTask() {
     },
     onSuccess: (taskId) => {
       qc.removeQueries({ queryKey: queryKeys.task(taskId) });
+      qc.invalidateQueries({ queryKey: ['tasks'] }); 
+    },
+  });
+}
+
+// ---------- Subtask Mutations ----------
+
+export function useCreateSubtask(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { title: string; status?: Subtask['subtaskStatus'] }) => {
+      const r = await fetch(`/api/tasks/${taskId}/subtasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) throw await r.json();
+      return (await r.json()) as Subtask;
+    },
+    onSuccess: (newSubtask) => {
+      // Update Cache Parent Task
+      qc.setQueryData<Task>(queryKeys.task(taskId), (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          subtasks: [...(old.subtasks || []), newSubtask],
+        };
+      });
+    },
+  });
+}
+
+export function useUpdateSubtask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      subtaskId,
+      patch,
+    }: {
+      subtaskId: string;
+      patch: { title?: string; subtaskStatus?: Subtask['subtaskStatus'] };
+    }) => {
+      const r = await fetch(`/api/subtasks/${subtaskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (!r.ok) throw await r.json();
+      return (await r.json()) as Subtask;
+    },
+    onSuccess: (updatedSubtask) => {
+      // Update Cache Parent Task
+      if (updatedSubtask.taskId) {
+        qc.setQueryData<Task>(queryKeys.task(updatedSubtask.taskId), (old) => {
+          if (!old || !old.subtasks) return old;
+          return {
+            ...old,
+            subtasks: old.subtasks.map((s) =>
+              s.subtaskId === updatedSubtask.subtaskId ? updatedSubtask : s
+            ),
+          };
+        });
+      }
+    },
+  });
+}
+
+export function useDeleteSubtask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ subtaskId }: { subtaskId: string }) => {
+      const r = await fetch(`/api/subtasks/${subtaskId}`, { method: 'DELETE' });
+      if (!r.ok) throw await r.json();
+      return subtaskId;
+    },
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tasks'] }); 
     },
   });

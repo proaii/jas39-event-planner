@@ -78,6 +78,7 @@ export function useCreateEvent() {
     onSuccess: (ev) => {
       qc.setQueryData(queryKeys.event(ev.eventId), ev);
       qc.invalidateQueries({ queryKey: ['events'] });
+      qc.invalidateQueries({ queryKey: ['event-activity', ev.eventId] });
     },
     retry: 0,
   });
@@ -98,6 +99,7 @@ export function useEditEvent() {
     onSuccess: (ev) => {
       qc.setQueryData(queryKeys.event(ev.eventId), ev);
       qc.invalidateQueries({ queryKey: ['events'] });
+      qc.invalidateQueries({ queryKey: ['event-activity', ev.eventId] });
     },
     retry: 0,
   });
@@ -123,6 +125,7 @@ export function useDeleteEvent() {
         },
       });
       qc.invalidateQueries({ queryKey: queryKeys.members(eventId) });
+      qc.removeQueries({ queryKey: ['event-activity', eventId] });
     },
     retry: 0,
   });

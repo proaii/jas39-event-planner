@@ -95,8 +95,6 @@ export type UpdateEventInput = {
   members: EventMember[];
 };
 
-
-
 // ----- User -----
 export interface UserLite {
   userId: string;
@@ -105,6 +103,7 @@ export interface UserLite {
   avatarUrl?: string | null;
 }
 
+// ----- Members -----
 export interface EventMember {
   eventMemberId: string;   
   eventId: string;     
@@ -115,4 +114,14 @@ export interface EventMember {
 
 export interface MembersRes {
   items: EventMember[];
+}
+
+// ----- Activity Logs -----
+export interface ActivityItem {
+  id: string;
+  user: string;           
+  userAvatar?: string | null;
+  action: string;         // action performed (created task, joined event, etc.)
+  item: string;           // related task or event title
+  time: string;           // ISO timestamp
 }

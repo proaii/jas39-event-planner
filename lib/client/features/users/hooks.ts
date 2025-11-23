@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ApiError } from '@/lib/errors';
 import type { UserLite } from '@/lib/types';
 import { MINUTES } from '@/lib/constants'
+import { createClient } from '@/lib/client/supabase/client';
+import { useEffect, useState } from 'react';
 
 type UseAllUsersOpts = {
   q?: string;
@@ -70,6 +72,40 @@ export function useFetchUser(userId: string) {
     staleTime: MINUTES.THIRTY, 
     refetchOnWindowFocus: false,
   });
+}
+
+export function useFetchCurrentUser() {
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+
+  useEffect(() => {
+    const supabase = createClient();
+    
+    const getUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setCurrentUserId(user.id);
+        }
+      } catch (error) {
+        console.error('Failed to get current user:', error);
+      } finally {
+        setIsLoadingAuth(false);
+      }
+    };
+
+    getUser();
+  }, []);
+
+  // Use useFetchUser to fetch Profile data from the obtained ID.
+  const query = useFetchUser(currentUserId ?? '');
+
+  return {
+    ...query,
+    data: currentUserId ? query.data : null, // Return null if no ID exists.
+    isLoading: isLoadingAuth || query.isLoading, // Total Loading Status
+    isAuthenticated: !!currentUserId,
+  };
 }
 
 export function useUpdateUser() {

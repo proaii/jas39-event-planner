@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from "react"
+import React, { useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -30,213 +30,163 @@ import {
   Paperclip,
   ExternalLink,
   CheckSquare,
+  Loader2,
 } from "lucide-react"
-import {
-  Task,
-  Subtask,
-  Attachment,
-  TaskStatus,
-  TaskPriority,
-  UserLite,
-} from "@/lib/types"
-import { useTaskStore } from "@/stores/task-store"
+import { Task, TaskPriority, TaskStatus, UserLite } from "@/lib/types"
+import { useTasksStore } from "@/stores/task-store"
+import { useToast } from "@/components/ui/use-toast"
 
 interface AddTaskModalProps {
-  isOpen: boolean
   eventMembers?: UserLite[]
   currentUser?: UserLite | null
   isPersonal?: boolean
-  onClose: () => void
   eventId?: string | null
   onCreateTask?: (taskData: Omit<Task, "taskId" | "createdAt">) => void
 }
 
 export function AddTaskModal({
-  isOpen,
   eventMembers = [],
   currentUser,
   isPersonal = false,
-  onClose,
   eventId,
   onCreateTask,
 }: AddTaskModalProps) {
-  const addTask = useTaskStore((state) => state.addTask)
+  const { toast } = useToast()
 
-  const [taskData, setTaskData] = useState({
-    title: "",
-    description: "",
-    assignees: [] as UserLite[],
-    startAt: null as string | null,
-    endAt: null as string | null,
-    taskStatus: "To Do" as TaskStatus,
-    taskPriority: "Normal" as TaskPriority,
-    subtasks: [] as Subtask[],
-    attachments: [] as Attachment[],
-  })
+  // Zustand store selectors
+  const isOpen = useTasksStore((state) => state.isOpen)
+  const taskData = useTasksStore((state) => state.taskData)
+  const hasTimePeriod = useTasksStore((state) => state.hasTimePeriod)
+  const newAttachmentUrl = useTasksStore((state) => state.newAttachmentUrl)
+  const isPending = useTasksStore((state) => state.isPending)
+  const error = useTasksStore((state) => state.error)
 
-  const [hasTimePeriod, setHasTimePeriod] = useState(false)
-  const [newAttachmentUrl, setNewAttachmentUrl] = useState("")
+  // Actions
+  const closeModal = useTasksStore((state) => state.closeModal)
+  const setTitle = useTasksStore((state) => state.setTitle)
+  const setDescription = useTasksStore((state) => state.setDescription)
+  const setStartAt = useTasksStore((state) => state.setStartAt)
+  const setEndAt = useTasksStore((state) => state.setEndAt)
+  const setTaskStatus = useTasksStore((state) => state.setTaskStatus)
+  const setTaskPriority = useTasksStore((state) => state.setTaskPriority)
+  const toggleAssignee = useTasksStore((state) => state.toggleAssignee)
+  const removeAssignee = useTasksStore((state) => state.removeAssignee)
+  const addSubtask = useTasksStore((state) => state.addSubtask)
+  const updateSubtask = useTasksStore((state) => state.updateSubtask)
+  const removeSubtask = useTasksStore((state) => state.removeSubtask)
+  const addAttachment = useTasksStore((state) => state.addAttachment)
+  const removeAttachment = useTasksStore((state) => state.removeAttachment)
+  const setNewAttachmentUrl = useTasksStore((state) => state.setNewAttachmentUrl)
+  const setHasTimePeriod = useTasksStore((state) => state.setHasTimePeriod)
+  const isFormValid = useTasksStore((state) => state.isFormValid)
+  const resetForm = useTasksStore((state) => state.resetForm)
+  const setAssignees = useTasksStore((state) => state.setAssignees)
+  const setIsPending = useTasksStore((state) => state.setIsPending)
+  const setError = useTasksStore((state) => state.setError)
 
   // Automatically assign current user when personal mode is active
   useEffect(() => {
-    if (isPersonal && currentUser) {
-      setTaskData((prev) => ({
-        ...prev,
-        assignees: [currentUser],
-      }))
-    }
-  }, [isPersonal, currentUser])
-
-  // Ensure current user is always assigned in personal mode (even if modal reopens)
-  useEffect(() => {
     if (isOpen && isPersonal && currentUser) {
-      setTaskData((prev) => {
-        const alreadyAssigned = prev.assignees.some(
-          (a) => a.userId === currentUser.userId
-        )
-        return alreadyAssigned ? prev : { ...prev, assignees: [currentUser] }
-      })
+      const alreadyAssigned = taskData.assignees.some(
+        (a) => a.userId === currentUser.userId
+      )
+      if (!alreadyAssigned) {
+        setAssignees([currentUser])
+      }
     }
-  }, [isOpen, isPersonal, currentUser])
+  }, [isOpen, isPersonal, currentUser, taskData.assignees, setAssignees])
 
+  // Auto-assign current user on first open
   useEffect(() => {
     if (isOpen && currentUser && taskData.assignees.length === 0) {
-      setTaskData((prev) => ({
-        ...prev,
-        assignees: [currentUser],
-      }));
+      setAssignees([currentUser])
     }
-  }, [isOpen, currentUser]);
+  }, [isOpen, currentUser, taskData.assignees.length, setAssignees])
 
-  // Validate form state using useMemo to avoid unnecessary re-renders
-  const isFormValid = useMemo(() => {
-    if (!taskData.title.trim()) return false
-    if (!taskData.taskPriority || !taskData.taskStatus) return false
-    if (!isPersonal && taskData.assignees.length === 0) return false
-    if (hasTimePeriod) {
-      if (!taskData.startAt || !taskData.endAt) return false
-    } else {
-      if (!taskData.endAt) return false
+  // Show error toast
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Error",
+        description: error,
+        variant: "destructive",
+      })
+      setError(null)
     }
-    return true
-  }, [taskData, hasTimePeriod, isPersonal])
+  }, [error, toast, setError])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isFormValid) return
-
-    const finalTask: Omit<Task, "taskId" | "createdAt"> = {
-      title: taskData.title.trim(),
-      description: taskData.description?.trim() || undefined,
-      assignees: taskData.assignees,
-      startAt: hasTimePeriod ? taskData.startAt : null,
-      endAt: taskData.endAt,
-      taskStatus: taskData.taskStatus,
-      taskPriority: taskData.taskPriority,
-      subtasks: taskData.subtasks.length ? taskData.subtasks : undefined,
-      attachments: taskData.attachments.length ? taskData.attachments : undefined,
-      eventId: eventId ?? null,
+    
+    if (!isFormValid(isPersonal)) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
+      return
     }
 
-    if (onCreateTask) onCreateTask(finalTask)
-    else addTask(finalTask)
+    setIsPending(true)
 
-    // Reset form
-    setTaskData({
-      title: "",
-      description: "",
-      assignees: isPersonal && currentUser ? [currentUser] : [],
-      startAt: null,
-      endAt: null,
-      taskStatus: "To Do",
-      taskPriority: "Normal",
-      subtasks: [],
-      attachments: [],
-    })
-    setHasTimePeriod(false)
-    setNewAttachmentUrl("")
-    onClose()
-  }
-
-  // Handle toggle add/remove assignees (prevent removing current user in personal mode)
-  const handleAssigneeToggle = (member: UserLite) => {
-    setTaskData((prev) => {
-      const already = prev.assignees.some((a) => a.userId === member.userId)
-      if (already) {
-        if (isPersonal && member.userId === currentUser?.userId) return prev
-        return {
-          ...prev,
-          assignees: prev.assignees.filter((a) => a.userId !== member.userId),
-        }
-      } else {
-        return { ...prev, assignees: [...prev.assignees, member] }
+    try {
+      const finalTask: Omit<Task, "taskId" | "createdAt"> = {
+        title: taskData.title.trim(),
+        description: taskData.description?.trim() || undefined,
+        assignees: taskData.assignees,
+        startAt: hasTimePeriod ? taskData.startAt : null,
+        endAt: taskData.endAt,
+        taskStatus: taskData.taskStatus,
+        taskPriority: taskData.taskPriority,
+        subtasks: taskData.subtasks.length ? taskData.subtasks : undefined,
+        attachments: taskData.attachments.length ? taskData.attachments : undefined,
+        eventId: eventId ?? null,
       }
-    })
-  }
 
-  const removeAssignee = (member: UserLite) =>
-    setTaskData((prev) =>
-      isPersonal && member.userId === currentUser?.userId
-        ? prev
-        : {
-            ...prev,
-            assignees: prev.assignees.filter(
-              (a) => a.userId !== member.userId
-            ),
-          }
-    )
+      if (onCreateTask) {
+        await onCreateTask(finalTask)
+      }
 
-  const addAttachment = () => {
-    const url = newAttachmentUrl.trim()
-    if (!url) return
-    const newAttachment: Attachment = {
-      attachmentId: `att_${Date.now()}`,
-      attachmentUrl: url,
-      taskId: "",
+      toast({
+        title: "Success",
+        description: "Task created successfully",
+      })
+
+      // Reset form and close
+      if (currentUser) {
+        resetForm(currentUser, isPersonal)
+      }
+      closeModal()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create task")
+    } finally {
+      setIsPending(false)
     }
-    setTaskData((prev) => ({
-      ...prev,
-      attachments: [...prev.attachments, newAttachment],
-    }))
-    setNewAttachmentUrl("")
   }
 
-  const removeAttachment = (id: string) =>
-    setTaskData((prev) => ({
-      ...prev,
-      attachments: prev.attachments.filter((att) => att.attachmentId !== id),
-    }))
+  const handleClose = () => {
+    if (currentUser) {
+      resetForm(currentUser, isPersonal)
+    }
+    closeModal()
+  }
 
-  const addSubTask = () =>
-    setTaskData((prev) => ({
-      ...prev,
-      subtasks: [
-        ...prev.subtasks,
-        {
-          subtaskId: `st_${Date.now()}`,
-          title: "",
-          subtaskStatus: "To Do",
-          taskId: "",
-        },
-      ],
-    }))
+  const handleAssigneeToggle = (member: UserLite) => {
+    if (!currentUser) return
+    toggleAssignee(member, isPersonal, currentUser.userId)
+  }
 
-  const updateSubTask = (index: number, name: string) =>
-    setTaskData((prev) => ({
-      ...prev,
-      subtasks: prev.subtasks.map((st, i) =>
-        i === index ? { ...st, title: name } : st
-      ),
-    }))
+  const handleRemoveAssignee = (member: UserLite) => {
+    if (isPersonal && member.userId === currentUser?.userId) return
+    removeAssignee(member.userId)
+  }
 
-  const removeSubTask = (index: number) =>
-    setTaskData((prev) => ({
-      ...prev,
-      subtasks: prev.subtasks.filter((_, i) => i !== index),
-    }))
+  const handleTimePeriodToggle = (checked: boolean) => {
+    setHasTimePeriod(checked)
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
@@ -255,11 +205,10 @@ export function AddTaskModal({
             <Input
               id="taskName"
               value={taskData.title}
-              onChange={(e) =>
-                setTaskData((prev) => ({ ...prev, title: e.target.value }))
-              }
+              onChange={(e) => setTitle(e.target.value)}
               placeholder="Enter task name"
               required
+              disabled={isPending}
             />
           </div>
 
@@ -269,11 +218,10 @@ export function AddTaskModal({
             <Textarea
               id="description"
               value={taskData.description}
-              onChange={(e) =>
-                setTaskData((prev) => ({ ...prev, description: e.target.value }))
-              }
+              onChange={(e) => setDescription(e.target.value)}
               rows={3}
               placeholder="Enter task description (optional)"
+              disabled={isPending}
             />
           </div>
 
@@ -284,12 +232,8 @@ export function AddTaskModal({
                 type="checkbox"
                 id="hasTimePeriod"
                 checked={hasTimePeriod}
-                onChange={(e) => {
-                  const checked = e.target.checked
-                  setHasTimePeriod(checked)
-                  if (!checked)
-                    setTaskData((prev) => ({ ...prev, startAt: null }))
-                }}
+                onChange={(e) => handleTimePeriodToggle(e.target.checked)}
+                disabled={isPending}
                 className="w-4 h-4 text-primary border-border rounded focus:ring-primary"
               />
               <Label htmlFor="hasTimePeriod" className="text-sm">
@@ -300,41 +244,32 @@ export function AddTaskModal({
             {hasTimePeriod ? (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label
-                    htmlFor="startAt"
-                    className="flex items-center space-x-2"
-                  >
+                  <Label htmlFor="startAt" className="flex items-center space-x-2">
                     <Calendar className="w-4 h-4" />
-                    <span>Start Date</span>
+                    <span>Start Date *</span>
                   </Label>
                   <Input
                     id="startAt"
                     type="datetime-local"
                     value={taskData.startAt ? taskData.startAt.substring(0, 16) : ""}
-                    onChange={(e) =>
-                      setTaskData((prev) => ({
-                        ...prev,
-                        startAt: new Date(e.target.value).toISOString(),
-                      }))
-                    }
+                    onChange={(e) => setStartAt(new Date(e.target.value).toISOString())}
+                    disabled={isPending}
+                    required={hasTimePeriod}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="endAt" className="flex items-center space-x-2">
                     <Calendar className="w-4 h-4" />
-                    <span>End Date</span>
+                    <span>End Date *</span>
                   </Label>
                   <Input
                     id="endAt"
                     type="datetime-local"
                     value={taskData.endAt ? taskData.endAt.substring(0, 16) : ""}
                     min={taskData.startAt?.substring(0, 16) || ""}
-                    onChange={(e) =>
-                      setTaskData((prev) => ({
-                        ...prev,
-                        endAt: new Date(e.target.value).toISOString(),
-                      }))
-                    }
+                    onChange={(e) => setEndAt(new Date(e.target.value).toISOString())}
+                    disabled={isPending}
+                    required
                   />
                 </div>
               </div>
@@ -342,18 +277,15 @@ export function AddTaskModal({
               <div className="space-y-2">
                 <Label htmlFor="endAt" className="flex items-center space-x-2">
                   <Calendar className="w-4 h-4" />
-                  <span>Due Date</span>
+                  <span>Due Date *</span>
                 </Label>
                 <Input
                   id="endAt"
                   type="datetime-local"
                   value={taskData.endAt ? taskData.endAt.substring(0, 16) : ""}
-                  onChange={(e) =>
-                    setTaskData((prev) => ({
-                      ...prev,
-                      endAt: new Date(e.target.value).toISOString(),
-                    }))
-                  }
+                  onChange={(e) => setEndAt(new Date(e.target.value).toISOString())}
+                  disabled={isPending}
+                  required
                 />
               </div>
             )}
@@ -363,13 +295,12 @@ export function AddTaskModal({
           <div className="space-y-2">
             <Label className="flex items-center space-x-2">
               <Flag className="w-4 h-4" />
-              <span>Priority</span>
+              <span>Priority *</span>
             </Label>
             <Select
               value={taskData.taskPriority}
-              onValueChange={(value: TaskPriority) =>
-                setTaskData((prev) => ({ ...prev, taskPriority: value }))
-              }
+              onValueChange={(value: TaskPriority) => setTaskPriority(value)}
+              disabled={isPending}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -386,12 +317,11 @@ export function AddTaskModal({
 
           {/* Status */}
           <div className="space-y-2">
-            <Label>Status</Label>
+            <Label>Status *</Label>
             <Select
               value={taskData.taskStatus}
-              onValueChange={(value: TaskStatus) =>
-                setTaskData((prev) => ({ ...prev, taskStatus: value }))
-              }
+              onValueChange={(value: TaskStatus) => setTaskStatus(value)}
+              disabled={isPending}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -410,7 +340,13 @@ export function AddTaskModal({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Sub-tasks</Label>
-              <Button type="button" variant="outline" size="sm" onClick={addSubTask}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addSubtask}
+                disabled={isPending}
+              >
                 <Plus className="w-4 h-4 mr-1" />
                 Add sub-task
               </Button>
@@ -421,15 +357,17 @@ export function AddTaskModal({
                   <div key={subTask.subtaskId} className="flex items-center space-x-2">
                     <Input
                       value={subTask.title}
-                      onChange={(e) => updateSubTask(index, e.target.value)}
+                      onChange={(e) => updateSubtask(index, e.target.value)}
                       placeholder="Enter sub-task name"
                       className="flex-1"
+                      disabled={isPending}
                     />
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => removeSubTask(index)}
+                      onClick={() => removeSubtask(index)}
+                      disabled={isPending}
                       className="text-destructive hover:text-destructive"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -452,13 +390,14 @@ export function AddTaskModal({
                 onChange={(e) => setNewAttachmentUrl(e.target.value)}
                 placeholder="Paste a link here..."
                 className="flex-1"
+                disabled={isPending}
               />
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={addAttachment}
-                disabled={!newAttachmentUrl.trim()}
+                disabled={!newAttachmentUrl.trim() || isPending}
               >
                 Add Link
               </Button>
@@ -482,6 +421,7 @@ export function AddTaskModal({
                         size="sm"
                         onClick={() => window.open(att.attachmentUrl, "_blank")}
                         className="shrink-0"
+                        disabled={isPending}
                       >
                         <ExternalLink className="w-3 h-3" />
                       </Button>
@@ -491,6 +431,7 @@ export function AddTaskModal({
                       variant="ghost"
                       size="sm"
                       onClick={() => removeAttachment(att.attachmentId)}
+                      disabled={isPending}
                       className="text-destructive hover:text-destructive shrink-0 ml-2"
                     >
                       <X className="w-4 h-4" />
@@ -518,8 +459,9 @@ export function AddTaskModal({
                     <span>{a.username}</span>
                     <button
                       type="button"
-                      onClick={() => removeAssignee(a)}
-                      className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"
+                      onClick={() => handleRemoveAssignee(a)}
+                      disabled={isPending || (isPersonal && a.userId === currentUser?.userId)}
+                      className="ml-1 hover:bg-destructive/20 rounded-full p-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -533,21 +475,28 @@ export function AddTaskModal({
               </Label>
               <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto">
                 {eventMembers.length > 0 ? (
-                  eventMembers.map((m) => (
-                    <button
-                      key={m.userId}
-                      type="button"
-                      onClick={() => handleAssigneeToggle(m)}
-                      className={`text-left p-2 rounded-md border transition-colors ${
-                        taskData.assignees.some((a) => a.userId === m.userId) ||
-                        (isPersonal && m.userId === currentUser?.userId)
-                          ? "bg-primary/10 border-primary text-primary"
-                          : "bg-white border-border hover:bg-muted/50"
-                      }`}
-                    >
-                      {m.username}
-                    </button>
-                  ))
+                  eventMembers.map((m) => {
+                    const isAssigned = taskData.assignees.some(
+                      (a) => a.userId === m.userId
+                    )
+                    const isCurrentUserInPersonal = isPersonal && m.userId === currentUser?.userId
+
+                    return (
+                      <button
+                        key={m.userId}
+                        type="button"
+                        onClick={() => handleAssigneeToggle(m)}
+                        disabled={isPending || isCurrentUserInPersonal}
+                        className={`text-left p-2 rounded-md border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                          isAssigned || isCurrentUserInPersonal
+                            ? "bg-primary/10 border-primary text-primary"
+                            : "bg-white border-border hover:bg-muted/50"
+                        }`}
+                      >
+                        {m.username}
+                      </button>
+                    )
+                  })
                 ) : (
                   <p className="text-sm text-muted-foreground p-2">
                     No team members available
@@ -558,15 +507,27 @@ export function AddTaskModal({
           </div>
 
           <div className="flex justify-end space-x-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClose}
+              disabled={isPending}
+            >
               Cancel
             </Button>
             <Button
               type="submit"
               className="bg-primary hover:bg-primary/90"
-              disabled={!isFormValid}
+              disabled={!isFormValid(isPersonal) || isPending}
             >
-              Add Task
+              {isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Add Task"
+              )}
             </Button>
           </div>
         </form>

@@ -7,13 +7,17 @@ interface ForgotPasswordState {
   success: boolean;
 }
 
+type EventView = "list" | "kanban";
+
 interface UiStore {
   forgotPassword: ForgotPasswordState;
   setForgotPasswordLoading: (loading: boolean) => void;
   setForgotPasswordError: (error: string | null) => void;
   setForgotPasswordSuccess: (success: boolean) => void;
   resetForgotPasswordState: () => void;
-  // action/other UI state
+
+  currentView: EventView;
+  setCurrentView: (view: EventView) => void;
 }
 
 export const useUiStore = create<UiStore>()(
@@ -35,6 +39,10 @@ export const useUiStore = create<UiStore>()(
         })),
       resetForgotPasswordState: () =>
         set({ forgotPassword: { isLoading: false, error: null, success: false } }),
+
+      // Event view
+      currentView: "list",
+      setCurrentView: (view: EventView) => set({ currentView: view }),
     }),
     { name: "ui-store" }
   )

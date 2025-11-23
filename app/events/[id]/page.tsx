@@ -1,54 +1,52 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
 import { EventDetail } from "@/components/events/EventDetail";
 import { EditEventModal } from "@/components/events/EditEventModal";
 import { useUiStore } from "@/stores/ui-store";
 import { useTaskStore } from "@/stores/task-store";
-import { useSaveTemplate } from "@/stores/useEventStore";
+import { useSaveTemplate, useEventById, useDeleteEvent } from "@/stores/useEventStore";
 import { TemplateData } from "@/schemas/template";
-import type { Event, UserLite, Task, TaskStatus } from "@/lib/types";
+import type { Task, TaskStatus } from "@/lib/types";
 import { toast } from "react-hot-toast";
-import { useFetchUsers } from "@/lib/client/features/users/hooks";
-import { useFetchEvent } from "@/lib/client/features/events/hooks";
+import { useFetchUsers, useFetchUser } from "@/lib/client/features/users/hooks";
+import { useUser } from "@/lib/client/features/auth/hooks";
 
 export default function EventDetailPage() {
   const router = useRouter();
   const { id } = useParams();
 
   // --- convert id to string safely ---
-  const eventId = typeof id === "string" ? id : Array.isArray(id) ? id[0] : undefined;
-  if (!eventId) {
-    return <p className="p-8 text-center text-muted-foreground">Event ID missing</p>;
-  }
+  const eventId = typeof id === "string" ? id : Array.isArray(id) ? id[0] : null;
 
   const { openEditEventModal } = useUiStore();
   const { tasks, addTask, updateTask } = useTaskStore();
   const { mutate: saveTemplateMutate } = useSaveTemplate();
+  const deleteEventMutation = useDeleteEvent();
 
-  const [currentUserId] = useState(""); 
+  const { data: authUser } = useUser();
+  const { data: currentUser, isLoading: isCurrentUserLoading } = useFetchUser(
+    authUser?.id ?? ""
+  );
 
   // ------------------- USERS -------------------
-  const { data: users = [], isLoading: isUsersLoading } = useFetchUsers({
-    q: currentUserId,
+  const { data: allUsers = [] } = useFetchUsers({
     enabled: true,
   });
-  const currentUser: UserLite | null = users.length > 0 ? users[0] : null;
 
   // ------------------- EVENT -------------------
-  const { data: event, isLoading: isEventLoading } = useFetchEvent(eventId);
+  const event = useEventById(eventId);
 
-  if (isEventLoading) {
-    return <p className="p-8 text-center text-muted-foreground">Loading event...</p>;
+  if (!eventId) {
+    return <p className="p-8 text-center text-muted-foreground">Event ID missing</p>;
+  }
+
+  if (isCurrentUserLoading || !currentUser) {
+    return <p className="p-8 text-center text-muted-foreground">Loading user...</p>;
   }
 
   if (!event) {
     return <p className="p-8 text-center text-muted-foreground">Event not found.</p>;
-  }
-
-  if (isUsersLoading || !currentUser) {
-    return <p className="p-8 text-center text-muted-foreground">Loading user...</p>;
   }
 
   // --- Handlers ---
@@ -67,7 +65,12 @@ export default function EventDetailPage() {
   };
 
   const handleDeleteEvent = (eventId: string) => {
-    toast.error("Delete not implemented yet"); 
+    deleteEventMutation.mutate(eventId, {
+      onSuccess: () => {
+        toast.success("Event deleted successfully");
+        router.push("/events");
+      },
+    });
   };
 
   const handleSaveTemplate = (eventId: string, templateData: TemplateData) => {
@@ -82,6 +85,7 @@ export default function EventDetailPage() {
         event={event}
         tasks={eventTasks}
         currentUser={currentUser}
+        allUsers={allUsers}
         onBack={handleBack}
         onTaskStatusChange={handleTaskStatusChange}
         onAddTask={handleAddTask}

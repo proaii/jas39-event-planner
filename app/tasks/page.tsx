@@ -14,14 +14,15 @@ import { Card } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search, Filter, Plus, ArrowUpDown } from "lucide-react";
-import { Task, TaskStatus, UserLite } from "@/lib/types";
+import { Task, TaskStatus } from "@/lib/types";
 
 import { useUiStore } from "@/stores/ui-store";
 import { useTaskStore } from "@/stores/task-store"; 
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { TaskCard } from "@/components/task-card";
 import { EditTaskModal } from "@/components/tasks/EditTaskModal";
-import { useFetchUsers } from "@/lib/client/features/users/hooks";
+import { useFetchUsers, useFetchUser } from "@/lib/client/features/users/hooks";
+import { useUser } from "@/lib/client/features/auth/hooks";
 
 export default function AllTasksPage() {
   // ------------------- UI STORE -------------------
@@ -52,14 +53,14 @@ export default function AllTasksPage() {
   }, [isFilterOpen, progressFilters, dateFilters]);
 
   // ------------------- USERS -------------------
-  const [userSearchQuery, setUserSearchQuery] = useState("");
-  const { data: allUsers = [], isLoading: isUsersLoading } = useFetchUsers({
+  const [userSearchQuery] = useState("");
+  const { data: allUsers = [] } = useFetchUsers({
     q: userSearchQuery,
     enabled: true,
   });
 
-  // Select current user as first user for now (or integrate with auth)
-  const currentUser: UserLite | null = allUsers[0] ?? null;
+  const { data: authUser } = useUser();
+  const { data: currentUser } = useFetchUser(authUser?.id ?? "");
 
   // ------------------- TASKS STORE -------------------
   const { tasks: allTasks } = useTaskStore();

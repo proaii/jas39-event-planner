@@ -13,21 +13,30 @@ import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateM
 import { useFetchEvents, useCreateEvent } from "@/stores/useEventStore";
 import { useTaskStore } from "@/stores/task-store"; 
 import { TemplateData } from "@/schemas/template";
-import type { Event, UserLite } from "@/lib/types";
-import { useFetchUsers } from "@/lib/client/features/users/hooks";
+import { useFetchUsers, useFetchUser } from "@/lib/client/features/users/hooks";
+import { useUser } from "@/lib/client/features/auth/hooks";
+import type { Event } from "@/lib/types"; // Import Event type
+
+type DashboardCreateEventInput = Omit<
+  Event,
+  "eventId" | "ownerId" | "createdAt" | "members"
+>;
 
 // -------------------------------------------------
 // Dashboard Page — Main landing page for the user
 // -------------------------------------------------
 export default function DashboardPage() {
+  const { data: authUser } = useUser();
+  const { data: currentUser } = useFetchUser(
+    authUser?.id ?? ""
+  );
+
   // ------------------- USERS -------------------
-  const [userSearchQuery, setUserSearchQuery] = useState("");
-  const { data: allUsers = [], isLoading: isUsersLoading } = useFetchUsers({
+  const [userSearchQuery] = useState("");
+  const { data: allUsers = [] } = useFetchUsers({
     q: userSearchQuery,
     enabled: true,
   });
-
-  const currentUser: UserLite | null = allUsers[0] ?? null;
 
   // ---------------- UI Store ----------------
   const {
@@ -68,7 +77,7 @@ export default function DashboardPage() {
   // Create Event Handler — Uses React Query Mutation
   // -------------------------------------------------
   const handleCreateEvent = (
-    payload: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members">
+    payload: DashboardCreateEventInput
   ) => {
     createEventMutation.mutate(
       {
@@ -153,8 +162,8 @@ export default function DashboardPage() {
       <AddTaskModal
         isOpen={isAddTaskModalOpen}
         onClose={closeAddTaskModal}
-        eventMembers={allUsers} 
-        currentUser={currentUser} 
+        eventMembers={allUsers}
+        currentUser={currentUser}
         isPersonal={true}
       />
 

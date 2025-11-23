@@ -44,7 +44,7 @@ import { useTaskStore } from "@/stores/task-store"
 interface AddTaskModalProps {
   isOpen: boolean
   eventMembers?: UserLite[]
-  currentUser: UserLite
+  currentUser?: UserLite | null
   isPersonal?: boolean
   onClose: () => void
   eventId?: string | null
@@ -99,6 +99,15 @@ export function AddTaskModal({
     }
   }, [isOpen, isPersonal, currentUser])
 
+  useEffect(() => {
+    if (isOpen && currentUser && taskData.assignees.length === 0) {
+      setTaskData((prev) => ({
+        ...prev,
+        assignees: [currentUser],
+      }));
+    }
+  }, [isOpen, currentUser]);
+
   // Validate form state using useMemo to avoid unnecessary re-renders
   const isFormValid = useMemo(() => {
     if (!taskData.title.trim()) return false
@@ -136,7 +145,7 @@ export function AddTaskModal({
     setTaskData({
       title: "",
       description: "",
-      assignees: isPersonal ? [currentUser] : [],
+      assignees: isPersonal && currentUser ? [currentUser] : [],
       startAt: null,
       endAt: null,
       taskStatus: "To Do",
@@ -154,7 +163,7 @@ export function AddTaskModal({
     setTaskData((prev) => {
       const already = prev.assignees.some((a) => a.userId === member.userId)
       if (already) {
-        if (isPersonal && member.userId === currentUser.userId) return prev
+        if (isPersonal && member.userId === currentUser?.userId) return prev
         return {
           ...prev,
           assignees: prev.assignees.filter((a) => a.userId !== member.userId),
@@ -167,7 +176,7 @@ export function AddTaskModal({
 
   const removeAssignee = (member: UserLite) =>
     setTaskData((prev) =>
-      isPersonal && member.userId === currentUser.userId
+      isPersonal && member.userId === currentUser?.userId
         ? prev
         : {
             ...prev,
@@ -531,7 +540,7 @@ export function AddTaskModal({
                       onClick={() => handleAssigneeToggle(m)}
                       className={`text-left p-2 rounded-md border transition-colors ${
                         taskData.assignees.some((a) => a.userId === m.userId) ||
-                        (isPersonal && m.userId === currentUser.userId)
+                        (isPersonal && m.userId === currentUser?.userId)
                           ? "bg-primary/10 border-primary text-primary"
                           : "bg-white border-border hover:bg-muted/50"
                       }`}

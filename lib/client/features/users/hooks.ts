@@ -75,36 +75,25 @@ export function useFetchUser(userId: string) {
 }
 
 export function useFetchCurrentUser() {
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-
-  useEffect(() => {
-    const supabase = createClient();
-    
-    const getUser = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setCurrentUserId(user.id);
-        }
-      } catch (error) {
-        console.error('Failed to get current user:', error);
-      } finally {
-        setIsLoadingAuth(false);
+  const query = useQuery<UserLite, ApiError>({
+    queryKey: ['current-user'],
+    queryFn: async () => {
+      const r = await fetch('/api/users/current'); 
+      if (!r.ok) {
+        const error = await r.json();
+        throw error;
       }
-    };
-
-    getUser();
-  }, []);
-
-  // Use useFetchUser to fetch Profile data from the obtained ID.
-  const query = useFetchUser(currentUserId ?? '');
+      return (await r.json()) as UserLite;
+    },
+    retry: false,
+    staleTime: MINUTES.THIRTY, 
+    refetchOnWindowFocus: false,
+  });
 
   return {
     ...query,
-    data: currentUserId ? query.data : null, // Return null if no ID exists.
-    isLoading: isLoadingAuth || query.isLoading, // Total Loading Status
-    isAuthenticated: !!currentUserId,
+    isAuthenticated: query.isSuccess && !!query.data,
+    isLoading: query.isLoading,
   };
 }
 

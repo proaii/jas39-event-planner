@@ -13,8 +13,6 @@ import { useTheme } from "next-themes";
 import { EditProfileModal } from "@/components/settings/EditProfileModal";
 import { useFetchUsers } from "@/lib/client/features/users/hooks";
 import type { UserLite } from "@/lib/types";
-import { createClient } from "@/lib/server/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
 
 export default function SettingsPage() {
   // ------------------- USERS -------------------
@@ -25,27 +23,6 @@ export default function SettingsPage() {
   });
 
   const currentUser: UserLite | null = allUsers[0] ?? null;
-
-  // ------------------- REALTIME USERS -------------------
-  const supabase = createClient();
-  const queryClient = useQueryClient();
-  useEffect(() => {
-    const channel = supabase
-      .channel("users-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "users" },
-        (payload) => {
-          console.log("Realtime user event:", payload);
-          queryClient.invalidateQueries({ queryKey: ["users"] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase, queryClient]);
 
   // ---------- Notification Settings ----------
   const [emailNotifications, setEmailNotifications] = useState(true);

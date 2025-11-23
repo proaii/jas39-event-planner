@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/server/supabase/client';
+import { useSession } from '@supabase/auth-helpers-react';
 import { Provider, type PostgrestError } from '@supabase/supabase-js';
 
 export async function signInWithEmail({
@@ -26,6 +27,7 @@ export async function signInWithEmail({
 // }
 
 export async function signInWithOAuth(provider: Provider) {
+  const session = useSession();
   const supabase = createClient();
   
   // 1. Define default options

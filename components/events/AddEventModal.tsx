@@ -42,7 +42,7 @@ function formatDateTimeWithTZ(dateStr: string, timeStr: string): string {
   const mm = pad(localDate.getMinutes());
   const ss = pad(localDate.getSeconds());
 
-  const offsetMin = localDate.getTimezoneOffset(); 
+  const offsetMin = localDate.getTimezoneOffset();
   const offsetSign = offsetMin > 0 ? "-" : "+";
   const offsetHr = pad(Math.floor(Math.abs(offsetMin) / 60));
   const offsetM = pad(Math.abs(offsetMin) % 60);
@@ -79,12 +79,12 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
         location: prefillData.location || "",
         isMultiDay: isMulti,
         startDate: prefillData.startAt?.split("T")[0] || "",
-        startTime: prefillData.startAt?.split("T")[1]?.substring(0,5) || "",
+        startTime: prefillData.startAt?.split("T")[1]?.substring(0, 5) || "",
         endDate: prefillData.endAt?.split("T")[0] || prefillData.startAt?.split("T")[0] || "",
-        endTime: prefillData.endAt?.split("T")[1]?.substring(0,5) || "",
+        endTime: prefillData.endAt?.split("T")[1]?.substring(0, 5) || "",
         description: prefillData.description || "",
         coverImage: prefillData.coverImageUri || "",
-        color: prefillData.color ? `#${prefillData.color.toString(16).padStart(6,"0")}` : "#E8F4FD",
+        color: prefillData.color ? `#${prefillData.color.toString(16).padStart(6, "0")}` : "#E8F4FD",
         members: prefillData.members || [],
       });
     }
@@ -166,98 +166,98 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
   // };
 
   const createCalendarEvent = async () => {
-  // 1. GET THE CORRECT TOKEN
-  // We cannot use (session as any).access_token, that is for Supabase, not Google.
-  // We must use provider_token.
-  // @ts-ignore
-  const googleToken = session?.provider_token;
+    // 1. GET THE CORRECT TOKEN
+    // We cannot use (session as any).access_token, that is for Supabase, not Google.
+    // We must use provider_token.
+    // @ts-ignore
+    const googleToken = session?.provider_token;
 
-  if (!googleToken) {
-    console.error("No Google Token found. Session object:", session);
-    toast.error("Google permission missing. Please Sign Out and Sign In again.");
-    return;
-  }
-  // 2. PREPARE DATA
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const start = new Date(`${formData.startDate}T${formData.startTime}:00`);
-  let end: Date;
-  if (formData.isMultiDay) {
-    end = new Date(`${formData.endDate}T${formData.endTime}:00`);
-  } else if (formData.endTime) {
-    end = new Date(`${formData.startDate}T${formData.endTime}:00`);
-  } else {
-    // default to 1 hour duration
-    end = new Date(start.getTime() + 60 * 60 * 1000);
-  }
-
-  // Because Google Calendar API requires an end time, we need to ensure it's always provided.
-  // We'll handle two cases:
-  // CASE A: User provided an end time - use it as is.
-  // CASE B: User did NOT provide an end time - we default to 1 hour after start.
-  const startDateTime = new Date(`${formData.startDate}T${formData.startTime}:00`);
-  let endDateTime: Date;
-
-  if (formData.endTime) {
-    // CASE A: User provided an end time
-    // Use the date they provided (or start date if single day) + the time
-    const endDateStr = formData.isMultiDay ? formData.endDate : formData.startDate;
-    endDateTime = new Date(`${endDateStr}T${formData.endTime}:00`);
-  } else {
-    // CASE B: User did NOT provide an end time (Your specific requirement)
-    // Google requires an end time, so we default to 1 hour after start
-    // 60 minutes * 60 seconds * 1000 milliseconds
-    endDateTime = new Date(startDateTime.getTime() + (60 * 60 * 1000));
-  }
-
-  // 3. Send to Google
-  const event = {
-    summary: formData.title,
-    start: {
-      dateTime: startDateTime.toISOString(),
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    },
-    end: {
-      // Google will now be happy because we provided a calculated end time
-      dateTime: endDateTime.toISOString(),
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    },
-  };
-
-  // 3. FETCH
-  try {
-    const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
-      method: "POST",
-      headers: {
-        // Use the googleToken we grabbed earlier
-        Authorization: "Bearer " + googleToken, 
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(event),
-    });
-
-    if (!res.ok) {
-      const errorData = await res.json();
-      console.error("Google Error:", errorData);
-      
-      if (res.status === 401) {
-        toast.error("Your Google session expired. Please Sign Out and Sign In again.");
-      } else if (res.status === 403) {
-        toast.error("Permission denied. Did you allow Calendar access during Login?");
-      } else {
-        toast.error("Failed to create Google Event.");
-      }
+    if (!googleToken) {
+      console.error("No Google Token found. Session object:", session);
+      toast.error("Google permission missing. Please Sign Out and Sign In again.");
       return;
     }
+    // 2. PREPARE DATA
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const start = new Date(`${formData.startDate}T${formData.startTime}:00`);
+    let end: Date;
+    if (formData.isMultiDay) {
+      end = new Date(`${formData.endDate}T${formData.endTime}:00`);
+    } else if (formData.endTime) {
+      end = new Date(`${formData.startDate}T${formData.endTime}:00`);
+    } else {
+      // default to 1 hour duration
+      end = new Date(start.getTime() + 60 * 60 * 1000);
+    }
 
-    const data = await res.json();
-    console.log("Event Created:", data);
-    toast.success("Event added to Google Calendar!");
-    
-  } catch (err) {
-    console.error(err);
-    toast.error("Network error connecting to Google.");
-  }
-};
+    // Because Google Calendar API requires an end time, we need to ensure it's always provided.
+    // We'll handle two cases:
+    // CASE A: User provided an end time - use it as is.
+    // CASE B: User did NOT provide an end time - we default to 1 hour after start.
+    const startDateTime = new Date(`${formData.startDate}T${formData.startTime}:00`);
+    let endDateTime: Date;
+
+    if (formData.endTime) {
+      // CASE A: User provided an end time
+      // Use the date they provided (or start date if single day) + the time
+      const endDateStr = formData.isMultiDay ? formData.endDate : formData.startDate;
+      endDateTime = new Date(`${endDateStr}T${formData.endTime}:00`);
+    } else {
+      // CASE B: User did NOT provide an end time (Your specific requirement)
+      // Google requires an end time, so we default to 1 hour after start
+      // 60 minutes * 60 seconds * 1000 milliseconds
+      endDateTime = new Date(startDateTime.getTime() + (60 * 60 * 1000));
+    }
+
+    // 3. Send to Google
+    const event = {
+      summary: formData.title,
+      start: {
+        dateTime: startDateTime.toISOString(),
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      },
+      end: {
+        // Google will now be happy because we provided a calculated end time
+        dateTime: endDateTime.toISOString(),
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      },
+    };
+
+    // 3. FETCH
+    try {
+      const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+        method: "POST",
+        headers: {
+          // Use the googleToken we grabbed earlier
+          Authorization: "Bearer " + googleToken,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(event),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error("Google Error:", errorData);
+
+        if (res.status === 401) {
+          toast.error("Your Google session expired. Please Sign Out and Sign In again.");
+        } else if (res.status === 403) {
+          toast.error("Permission denied. Did you allow Calendar access during Login?");
+        } else {
+          toast.error("Failed to create Google Event.");
+        }
+        return;
+      }
+
+      const data = await res.json();
+      console.log("Event Created:", data);
+      toast.success("Event added to Google Calendar!");
+
+    } catch (err) {
+      console.error(err);
+      toast.error("Network error connecting to Google.");
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -295,21 +295,8 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
       // If the checkbox is checked, try to create the calendar event as well
       if (addToGoogleCalendar) {
         console.debug("addToGoogleCalendar is true. session:", session);
-        
-        // --- FIX STARTS HERE ---
-        // 1. Only grab the provider_token (Google). Never use access_token (Supabase).
-        // @ts-ignore
-        // const providerToken = session?.provider_token;
-        
-        // console.debug("providerToken to be used for Google API:", providerToken);
 
-        if (providerToken) {
-            // dont need to pass token as parameter anymore
-            await createCalendarEvent();
-        } else {
-            // Optional: Alert the user if the token is missing
-            toast.error("Could not connect to Google Calendar. Please sign out and sign in again.");
-        }
+        await createCalendarEvent();
         // --- FIX ENDS HERE ---
       }
       onClose();

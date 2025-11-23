@@ -11,7 +11,7 @@ import { CustomizeDashboardModal } from "@/components/dashboard/CustomizeDashboa
 import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
 
 import { useFetchEvents, useCreateEvent } from "@/lib/client/features/events/hooks";
-import { useTaskStore } from "@/stores/task-store"; 
+import { useTaskStore } from "@/stores/task-store";
 import { TemplateData } from "@/schemas/template";
 import type { Event, UserLite } from "@/lib/types";
 import { useFetchUsers, useFetchCurrentUser } from "@/lib/client/features/users/hooks";

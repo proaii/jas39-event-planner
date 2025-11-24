@@ -1,7 +1,9 @@
 'use client';
 
 // import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
-import React, { useState, useEffect } from "react";
+// import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/server/supabase/client";
+import React, { useState, useEffect, use } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +22,7 @@ import { toast } from "react-hot-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { Event, EventMember } from "@/lib/types";
 import { InviteTeamMembersModal } from "./InviteTeamMembersModal";
+import { se } from "date-fns/locale";
 
 interface AddEventModalProps {
   isOpen: boolean;
@@ -51,6 +54,46 @@ function formatDateTimeWithTZ(dateStr: string, timeStr: string): string {
 }
 
 export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefillData }: AddEventModalProps) {
+  const supabase = createClient();
+  const [session, setSession] = useState<any>(null);
+  const fethSession = async () => {
+    const { data } = await supabase.auth.getUser(); // it warns, kinda insecure to use getSession();
+    const session = data /*.session*/;
+    setSession(session);
+  }
+
+  useEffect(() => {
+    fethSession();
+  }, []);
+  
+  // const supabase = createClient(url, anonKey);
+  // async function getCurrentSession() {
+  //   const { data, error } = await supabase.auth.getSession();
+  //   if (error) throw error;
+  //   return data?.session ?? null;
+  // }
+  //
+  // const session = getCurrentSession();
+  //--------------------------------------------------------------
+  // const [session, setSession] = useState<any>(null);
+
+  // const fetchSession = async () => {
+  //   const currentSession = await supabase.auth.getSession();
+  //   setSession(currentSession.data);
+  // }
+
+  // useEffect(() => {
+  //   fetchSession();
+  // }, []); 
+  // ---------------------------------------------------------------
+
+  // supabase.auth.getSession()
+  //   .then(({ data, error }) => {
+  //     const session = data?.session;
+  //     if (error) console.error('getSession error', error);
+  //     // use session
+  //   });
+
   const [formData, setFormData] = useState({
     title: "",
     location: "",
@@ -68,8 +111,6 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [addToGoogleCalendar, setAddToGoogleCalendar] = useState(false);
-  // const session = useSession();
-  // const supabase = useSupabaseClient();
 
   useEffect(() => {
     if (isOpen && prefillData) {
@@ -170,7 +211,7 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, prefill
     // We cannot use (session as any).access_token, that is for Supabase, not Google.
     // We must use provider_token.
     // @ts-ignore
-    const googleToken = session?.provider_token;
+    const googleToken = session.access_token;
 
     if (!googleToken) {
       console.error("No Google Token found. Session object:", session);

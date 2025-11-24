@@ -16,9 +16,13 @@ import { useUiStore } from "@/stores/ui-store"
 import { useEditTask } from '@/lib/client/features/tasks/hooks'
 import { toast } from 'sonner'
 
-export interface EditTaskModalProps {
-  availableAssignees: UserLite[]
+interface EditTaskModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  availableAssignees: UserLite[];
+  taskId?: string | null;
 }
+
 
 export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
   const { 

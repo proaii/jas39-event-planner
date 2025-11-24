@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,17 +15,26 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search, Filter, Plus, ArrowUpDown } from "lucide-react";
 import { Task, TaskStatus } from "@/lib/types";
-
 import { useUiStore } from "@/stores/ui-store";
-import { useTaskStore } from "@/stores/task-store"; 
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { TaskCard } from "@/components/task-card";
 import { EditTaskModal } from "@/components/tasks/EditTaskModal";
 import { useFetchUsers, useFetchUser } from "@/lib/client/features/users/hooks";
 import { useUser } from "@/lib/client/features/auth/hooks";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { cn, filterTasks, sortTasks, getEffectiveDueDate } from "@/lib/utils";
 
+// ------------------- API Helpers -------------------
+async function fetchTasks(): Promise<Task[]> {
+  const res = await fetch("/api/tasks");
+  if (!res.ok) throw new Error("Failed to fetch tasks");
+  return res.json();
+}
+
+// ------------------- Main Component -------------------
 export default function AllTasksPage() {
-  // ------------------- UI STORE (แทน local state ทั้งหมด) -------------------
+  const queryClient = useQueryClient();
+
   const {
     isAddTaskModalOpen,
     openAddTaskModal,
@@ -44,78 +53,48 @@ export default function AllTasksPage() {
     setProgressFilters,
   } = useUiStore();
 
-  // Temp filters for popover (ใช้ local state เฉพาะใน popover)
-  const [tempProgressFilters, setTempProgressFilters] = React.useState(progressFilters);
+  const [tempProgressFilters, setTempProgressFilters] = useState(progressFilters);
 
-  React.useEffect(() => {
-    if (isFilterOpen) {
-      setTempProgressFilters(progressFilters);
-    }
+  useEffect(() => {
+    if (isFilterOpen) setTempProgressFilters(progressFilters);
   }, [isFilterOpen, progressFilters]);
 
   // ------------------- USERS -------------------
-  const [userSearchQuery] = React.useState("");
-  const { data: allUsers = [] } = useFetchUsers({
+  const [userSearchQuery] = useState("");
+  const { data: authUser } = useUser();
+  const { data: currentUser } = useFetchUser(authUser?.id ?? "");
+  const { data: allUsers = [], isLoading: usersLoading } = useFetchUsers({
     q: userSearchQuery,
     enabled: true,
   });
 
-  const { data: authUser } = useUser();
-  const { data: currentUser } = useFetchUser(authUser?.id ?? "");
-
-  // ------------------- TASKS STORE -------------------
-  const { tasks: allTasks } = useTaskStore();
-
-  const handleTaskClick = (taskId: string) => {
-    openEditTaskModal(taskId);
-  };
+  // ------------------- TASKS -------------------
+  const { data: allTasks = [], isLoading: tasksLoading, isError: tasksError } = useQuery<Task[]>({
+    queryKey: ["tasks"],
+    queryFn: fetchTasks,
+  });
 
   // ------------------- HANDLERS -------------------
+  const handleTaskClick = (taskId: string) => openEditTaskModal(taskId);
+
   const applyTempFilters = () => {
     setProgressFilters(tempProgressFilters);
     setIsFilterOpen(false);
   };
 
-  const clearTempFilters = () => {
+  const clearTempFilters = () =>
     setTempProgressFilters({ notStarted: true, inProgress: true, completed: true });
-  };
 
   // ------------------- FILTER & SORT -------------------
   const filteredAndSortedTasks = useMemo(() => {
-    let filtered: Task[] = allTasks;
-
-    // --- Search ---
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (task: Task) =>
-          task.title.toLowerCase().includes(query) ||
-          (task.description && task.description.toLowerCase().includes(query))
-      );
-    }
-
-    // --- Status Filter ---
-    if (!progressFilters.notStarted) filtered = filtered.filter((t) => t.taskStatus !== "To Do");
-    if (!progressFilters.inProgress) filtered = filtered.filter((t) => t.taskStatus !== "In Progress");
-    if (!progressFilters.completed) filtered = filtered.filter((t) => t.taskStatus !== "Done");
-
-    // --- Sorting ---
-    if (sortBy === "name") filtered.sort((a, b) => a.title.localeCompare(b.title));
-    else if (sortBy === "date") {
-      filtered.sort((a, b) => {
-        const dateA = a.endAt ? new Date(a.endAt).getTime() : Infinity;
-        const dateB = b.endAt ? new Date(b.endAt).getTime() : Infinity;
-        return dateA - dateB;
-      });
-    } else if (sortBy === "progress") {
-      const statusOrder: Record<TaskStatus, number> = { "To Do": 0, "In Progress": 1, "Done": 2 };
-      filtered.sort((a, b) => statusOrder[a.taskStatus] - statusOrder[b.taskStatus]);
-    }
-
-    return filtered;
+    const filtered = filterTasks(allTasks, searchQuery, progressFilters);
+    return sortTasks(filtered, sortBy);
   }, [allTasks, searchQuery, progressFilters, sortBy]);
 
   // ------------------- RENDER -------------------
+  if (tasksLoading || usersLoading) return <div className="p-8 text-center">Loading...</div>;
+  if (tasksError) return <div className="p-8 text-center text-red-500">Failed to load tasks</div>;
+
   return (
     <main className="flex-1 p-8 space-y-8 max-w-[1600px] mx-auto">
       {/* Header */}
@@ -124,7 +103,6 @@ export default function AllTasksPage() {
           <h1 className="text-foreground">All Tasks</h1>
           <p className="text-muted-foreground">View and manage all your tasks</p>
         </div>
-
         <div className="flex items-center shadow-lg rounded-lg overflow-hidden">
           <Button
             onClick={openAddTaskModal}
@@ -163,7 +141,6 @@ export default function AllTasksPage() {
                 <div className="pb-2 border-b border-border">
                   <h3 className="font-semibold text-foreground">Filter Tasks</h3>
                 </div>
-
                 {/* Progress */}
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-foreground">Filter by Status</label>
@@ -279,7 +256,10 @@ export default function AllTasksPage() {
       />
 
       <EditTaskModal
+        isOpen={isEditTaskModalOpen}
+        onClose={closeEditTaskModal}
         availableAssignees={allUsers}
+        taskId={selectedTaskIdForEdit}
       />
     </main>
   );

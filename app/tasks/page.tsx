@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,11 +25,15 @@ import { useFetchUsers, useFetchUser } from "@/lib/client/features/users/hooks";
 import { useUser } from "@/lib/client/features/auth/hooks";
 
 export default function AllTasksPage() {
-  // ------------------- UI STORE -------------------
+  // ------------------- UI STORE (แทน local state ทั้งหมด) -------------------
   const {
     isAddTaskModalOpen,
     openAddTaskModal,
     closeAddTaskModal,
+    isEditTaskModalOpen,
+    selectedTaskIdForEdit,
+    openEditTaskModal,
+    closeEditTaskModal,
     searchQuery,
     setSearchQuery,
     sortBy,
@@ -38,22 +42,19 @@ export default function AllTasksPage() {
     setIsFilterOpen,
     progressFilters,
     setProgressFilters,
-    dateFilters,
-    setDateFilters,
   } = useUiStore();
 
-  const [tempProgressFilters, setTempProgressFilters] = useState(progressFilters);
-  const [tempDateFilters, setTempDateFilters] = useState(dateFilters);
+  // Temp filters for popover (ใช้ local state เฉพาะใน popover)
+  const [tempProgressFilters, setTempProgressFilters] = React.useState(progressFilters);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (isFilterOpen) {
       setTempProgressFilters(progressFilters);
-      setTempDateFilters(dateFilters);
     }
-  }, [isFilterOpen, progressFilters, dateFilters]);
+  }, [isFilterOpen, progressFilters]);
 
   // ------------------- USERS -------------------
-  const [userSearchQuery] = useState("");
+  const [userSearchQuery] = React.useState("");
   const { data: allUsers = [] } = useFetchUsers({
     q: userSearchQuery,
     enabled: true,
@@ -64,47 +65,19 @@ export default function AllTasksPage() {
 
   // ------------------- TASKS STORE -------------------
   const { tasks: allTasks } = useTaskStore();
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const handleTaskClick = (taskId: string) => {
-    const task = allTasks.find((t) => t.taskId === taskId);
-    if (task) {
-      setSelectedTask(task);
-      setIsEditModalOpen(true);
-    }
+    openEditTaskModal(taskId);
   };
 
   // ------------------- HANDLERS -------------------
-  // const handleCreateTask = (taskData: Omit<Task, "taskId" | "createdAt">) => {
-  //   const newTask: Task = {
-  //     taskId: `task-${Date.now()}`,
-  //     createdAt: new Date().toISOString(),
-  //     ...taskData,
-  //     taskStatus: "To Do",
-  //     taskPriority: "Normal",
-  //   };
-  //   addTask(newTask); 
-  //   closeAddTaskModal();
-  //   toast.success(`Task "${taskData.title}" created successfully!`);
-  // };
-
-  // const handleUpdateTask = (taskId: string, updatedData: OnUpdateTaskPayload) => {
-  //   updateTask(taskId, updatedData); 
-  //   setIsEditModalOpen(false);
-  //   setSelectedTask(null);
-  //   toast.success(`Task "${updatedData.title}" updated successfully!`);
-  // };
-
   const applyTempFilters = () => {
     setProgressFilters(tempProgressFilters);
-    setDateFilters(tempDateFilters);
     setIsFilterOpen(false);
   };
 
   const clearTempFilters = () => {
     setTempProgressFilters({ notStarted: true, inProgress: true, completed: true });
-    setTempDateFilters({ past: true, thisWeek: true, thisMonth: true, upcoming: true });
   };
 
   // ------------------- FILTER & SORT -------------------
@@ -297,20 +270,13 @@ export default function AllTasksPage() {
         </div>
       )}
 
-      {/* Modals */}
       <AddTaskModal
-        isOpen={isAddTaskModalOpen}
-        onClose={closeAddTaskModal}
         eventMembers={allUsers}
         currentUser={currentUser}
         isPersonal={true}
       />
 
-
       <EditTaskModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        task={selectedTask}
         availableAssignees={allUsers}
       />
     </main>

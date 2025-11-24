@@ -145,10 +145,41 @@ interface TaskDetailState {
   clearDetailError: () => void
 }
 
-type TasksStoreState = AddTaskState & EditTaskState & TaskDetailState
+// ✅ เพิ่ม TaskStore interface สำหรับ tasks data
+interface TaskStore {
+  tasks: Task[]
+  addTask: (task: Task) => void
+  updateTask: (taskId: string, updates: Partial<Task>) => void
+  deleteTask: (taskId: string) => void
+  setTasks: (tasks: Task[]) => void
+}
+
+type TasksStoreState = AddTaskState & EditTaskState & TaskDetailState & TaskStore
 
 export const useTasksStore = create<TasksStoreState>()(
   (set, get) => ({
+  // ==================== TASK DATA ====================
+  tasks: [],
+  
+  addTask: (task) =>
+    set((state) => ({
+      tasks: [...state.tasks, task],
+    })),
+  
+  updateTask: (taskId, updates) =>
+    set((state) => ({
+      tasks: state.tasks.map((task) =>
+        task.taskId === taskId ? { ...task, ...updates } : task
+      ),
+    })),
+  
+  deleteTask: (taskId) =>
+    set((state) => ({
+      tasks: state.tasks.filter((task) => task.taskId !== taskId),
+    })),
+  
+  setTasks: (tasks) => set({ tasks }),
+
   // ==================== ADD TASK STATE ====================
   isOpen: false,
   taskData: {
@@ -605,3 +636,6 @@ export const useTasksStore = create<TasksStoreState>()(
   clearDetailError: () => set({ detailError: null }),
 })
 )
+
+
+export const useTaskStore = useTasksStore

@@ -39,6 +39,20 @@ interface PrivacySettings {
   activityTracking: boolean;
 }
 
+// Task Filter Types
+interface ProgressFilters {
+  notStarted: boolean;
+  inProgress: boolean;
+  completed: boolean;
+}
+
+interface DateFilters {
+  past: boolean;
+  thisWeek: boolean;
+  thisMonth: boolean;
+  upcoming: boolean;
+}
+
 interface UiStore {
   // ==================== FORGOT PASSWORD ====================
   forgotPassword: {
@@ -61,15 +75,22 @@ interface UiStore {
   openAddEventModal: () => void;
   closeAddEventModal: () => void;
 
-  // Edit Event Modal
+  // Edit Event Modal (with event selection)
   isEditEventModalOpen: boolean;
-  openEditEventModal: () => void;
+  selectedEventIdForEdit: string | null;
+  openEditEventModal: (eventId: string) => void;
   closeEditEventModal: () => void;
 
   // Add Task Modal
   isAddTaskModalOpen: boolean;
   openAddTaskModal: () => void;
   closeAddTaskModal: () => void;
+
+  // Edit Task Modal
+  isEditTaskModalOpen: boolean;
+  selectedTaskIdForEdit: string | null;
+  openEditTaskModal: (taskId: string) => void;
+  closeEditTaskModal: () => void;
 
   // Customize Dashboard Modal
   isCustomizeModalOpen: boolean;
@@ -95,6 +116,18 @@ interface UiStore {
   eventPrefillData: Partial<Event> | null;
   setEventPrefillData: (data: Partial<Event> | null) => void;
   clearEventPrefillData: () => void;
+
+  // ==================== TASK FILTERS ====================
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  sortBy: "date" | "name" | "progress";
+  setSortBy: (sort: "date" | "name" | "progress") => void;
+  isFilterOpen: boolean;
+  setIsFilterOpen: (open: boolean) => void;
+  progressFilters: ProgressFilters;
+  setProgressFilters: (filters: ProgressFilters) => void;
+  dateFilters: DateFilters;
+  setDateFilters: (filters: DateFilters) => void;
 
   // ==================== DASHBOARD WIDGETS ====================
   visibleWidgets: DashboardWidget[];
@@ -194,21 +227,37 @@ export const useUiStore = create<UiStore>()(
       openAddEventModal: () => set({ isAddEventModalOpen: true }),
       closeAddEventModal: () => set({ 
         isAddEventModalOpen: false,
-        // Clear prefill data when closing modal
         eventPrefillData: null,
       }),
 
       isEditEventModalOpen: false,
-      openEditEventModal: () => set({ isEditEventModalOpen: true }),
-      closeEditEventModal: () => set({ isEditEventModalOpen: false }),
+      selectedEventIdForEdit: null,
+      openEditEventModal: (eventId) => set({ 
+        isEditEventModalOpen: true,
+        selectedEventIdForEdit: eventId,
+      }),
+      closeEditEventModal: () => set({ 
+        isEditEventModalOpen: false,
+        selectedEventIdForEdit: null,
+      }),
 
       isAddTaskModalOpen: false,
       openAddTaskModal: () => set({ isAddTaskModalOpen: true }),
       closeAddTaskModal: () => set({ isAddTaskModalOpen: false }),
 
+      isEditTaskModalOpen: false,
+      selectedTaskIdForEdit: null,
+      openEditTaskModal: (taskId) => set({ 
+        isEditTaskModalOpen: true,
+        selectedTaskIdForEdit: taskId,
+      }),
+      closeEditTaskModal: () => set({ 
+        isEditTaskModalOpen: false,
+        selectedTaskIdForEdit: null,
+      }),
+
       isCustomizeModalOpen: false,
       openCustomizeModal: () => {
-        // Sync tempWidgets with current visibleWidgets when opening
         set((state) => ({
           isCustomizeModalOpen: true,
           tempWidgets: [...state.visibleWidgets],
@@ -226,7 +275,6 @@ export const useUiStore = create<UiStore>()(
 
       isEditProfileModalOpen: false,
       openEditProfileModal: () => {
-        // Sync tempProfileData with current profileData when opening
         set((state) => ({
           isEditProfileModalOpen: true,
           tempProfileData: { ...state.profileData },
@@ -238,6 +286,18 @@ export const useUiStore = create<UiStore>()(
       eventPrefillData: null,
       setEventPrefillData: (data) => set({ eventPrefillData: data }),
       clearEventPrefillData: () => set({ eventPrefillData: null }),
+
+      // ==================== TASK FILTERS ====================
+      searchQuery: "",
+      setSearchQuery: (query) => set({ searchQuery: query }),
+      sortBy: "date",
+      setSortBy: (sort) => set({ sortBy: sort }),
+      isFilterOpen: false,
+      setIsFilterOpen: (open) => set({ isFilterOpen: open }),
+      progressFilters: { notStarted: true, inProgress: true, completed: true },
+      setProgressFilters: (filters) => set({ progressFilters: filters }),
+      dateFilters: { past: true, thisWeek: true, thisMonth: true, upcoming: true },
+      setDateFilters: (filters) => set({ dateFilters: filters }),
 
       // ==================== DASHBOARD WIDGETS ====================
       visibleWidgets: [...DEFAULT_WIDGETS],
@@ -266,7 +326,6 @@ export const useUiStore = create<UiStore>()(
         }),
 
       // ==================== SETTINGS ====================
-      // Profile Data
       profileData: { ...DEFAULT_PROFILE_DATA },
       tempProfileData: { ...DEFAULT_PROFILE_DATA },
       
@@ -341,24 +400,29 @@ export const useUiStore = create<UiStore>()(
           isAddEventModalOpen: false,
           isEditEventModalOpen: false,
           isAddTaskModalOpen: false,
+          isEditTaskModalOpen: false,
           isCustomizeModalOpen: false,
           isSaveTemplateModalOpen: false,
           isCreateFromTemplateModalOpen: false,
           isEditProfileModalOpen: false,
+          selectedEventIdForEdit: null,
+          selectedTaskIdForEdit: null,
           eventPrefillData: null,
         }),
     }),
     {
       name: "ui-store",
-      // Only persist user preferences, not modal states or temporary data
       partialize: (state) => ({
         currentView: state.currentView,
         visibleWidgets: state.visibleWidgets,
-        // Settings
         profileData: state.profileData,
         notificationSettings: state.notificationSettings,
         appearanceSettings: state.appearanceSettings,
         privacySettings: state.privacySettings,
+        searchQuery: state.searchQuery,
+        sortBy: state.sortBy,
+        progressFilters: state.progressFilters,
+        dateFilters: state.dateFilters,
       }),
     }
   )

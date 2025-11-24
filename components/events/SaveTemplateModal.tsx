@@ -16,7 +16,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Event } from "@/lib/types";
 import { TemplateData } from "@/schemas/template";
-import { useSaveTemplate } from "@/lib/client/features/templates/hooks";
+import { useSaveTemplate } from "@/stores/useEventStore"; 
 
 interface SaveTemplateModalProps {
   isOpen: boolean;
@@ -36,7 +36,7 @@ export function SaveTemplateModal({
   const [name, setName] = useState(templateData.title || "");
   const [description, setDescription] = useState(templateData.description || "");
 
-  const saveTemplateMutation = useSaveTemplate();
+  const { mutate: saveTemplate, isPending } = useSaveTemplate();
 
   useEffect(() => {
     if (isOpen) {
@@ -47,7 +47,7 @@ export function SaveTemplateModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || saveTemplateMutation.isPending) return;
+    if (!name.trim() || isPending) return;
 
     const data: TemplateData = {
       name: name.trim(),
@@ -62,25 +62,29 @@ export function SaveTemplateModal({
       members: templateData.members || [],
     };
 
-    try {
-      await saveTemplateMutation.mutateAsync({ eventId, data });
-      
-      toast.success("Template saved successfully!");
-      
-      // Reset form
-      setName("");
-      setDescription("");
-      
-      onSave?.();
-      onClose();
-    } catch (err: any) {
-      console.error('Failed to save template:', err);
-      toast.error(err?.message || "Failed to save template. Please try again.");
-    }
+    saveTemplate(
+      { eventId, data },
+      {
+        onSuccess: () => {
+          toast.success("Template saved successfully!");
+          
+          // Reset form
+          setName("");
+          setDescription("");
+          
+          onSave?.();
+          onClose();
+        },
+        onError: (err: any) => {
+          console.error('Failed to save template:', err);
+          toast.error(err?.message || "Failed to save template. Please try again.");
+        },
+      }
+    );
   };
 
   const handleClose = () => {
-    if (!saveTemplateMutation.isPending) {
+    if (!isPending) {
       setName("");
       setDescription("");
       onClose();
@@ -108,7 +112,7 @@ export function SaveTemplateModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Weekly Study Session Template"
-              disabled={saveTemplateMutation.isPending}
+              disabled={isPending}
               required
             />
           </div>
@@ -120,7 +124,7 @@ export function SaveTemplateModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Brief description of when to use this template..."
-              disabled={saveTemplateMutation.isPending}
+              disabled={isPending}
               rows={3}
             />
           </div>
@@ -130,15 +134,15 @@ export function SaveTemplateModal({
               type="button" 
               variant="outline" 
               onClick={handleClose}
-              disabled={saveTemplateMutation.isPending}
+              disabled={isPending}
             >
               Cancel
             </Button>
             <Button 
               type="submit" 
-              disabled={!name.trim() || saveTemplateMutation.isPending}
+              disabled={!name.trim() || isPending}
             >
-              {saveTemplateMutation.isPending ? (
+              {isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Saving...

@@ -16,15 +16,37 @@ const colorOptions = [
   { name: 'Accent', value: 'bg-accent' },
 ];
 
-export function EventColorSelector() {
-  const { selectedColor, setColor } = useEventColorStore();
+interface EventColorSelectorProps {
+  // Controlled mode props (optional)
+  selectedColor?: string;
+  onColorSelect?: (color: string) => void;
+  // Option to hide label and description
+  showLabel?: boolean;
+}
+
+export function EventColorSelector({ 
+  selectedColor: controlledColor,
+  onColorSelect: controlledOnSelect,
+  showLabel = true,
+}: EventColorSelectorProps = {}) {
+  // Global store (uncontrolled mode)
+  const { selectedColor: storeColor, setColor: storeSetColor } = useEventColorStore();
+
+  // Use controlled props if provided, otherwise use store
+  const isControlled = controlledColor !== undefined && controlledOnSelect !== undefined;
+  const selectedColor = isControlled ? controlledColor : storeColor;
+  const handleColorSelect = isControlled ? controlledOnSelect : storeSetColor;
 
   return (
     <div className="space-y-3">
-      <Label>Event Color</Label>
-      <p className="text-sm text-muted-foreground">
-        Choose a color that will be displayed when no cover image is uploaded
-      </p>
+      {showLabel && (
+        <>
+          <Label>Event Color</Label>
+          <p className="text-sm text-muted-foreground">
+            Choose a color that will be displayed when no cover image is uploaded
+          </p>
+        </>
+      )}
       <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
         {colorOptions.map((color) => (
           <button
@@ -37,7 +59,7 @@ export function EventColorSelector() {
                 : 'border-border hover:border-primary/50',
               color.value
             )}
-            onClick={() => setColor(color.value)}
+            onClick={() => handleColorSelect(color.value)}
             title={color.name}
           >
             {selectedColor === color.value && (

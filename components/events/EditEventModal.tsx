@@ -26,10 +26,10 @@ import { useUpdateEvent } from "@/stores/useEventStore";
 import { useFetchUsers } from "@/lib/client/features/users/hooks";
 
 export function EditEventModal({ events }: { events: Event[] }) {
-  const { isEditEventModalOpen, currentEventId, closeEditEventModal } = useUiStore();
+  const { isEditEventModalOpen, selectedEventIdForEdit, closeEditEventModal } = useUiStore();
   const updateEventMutation = useUpdateEvent();
 
-  const event = events.find((e) => e.eventId === currentEventId) || null;
+  const event = events.find((e) => e.eventId === selectedEventIdForEdit) || null;
 
   const [formData, setFormData] = useState<UpdateEventInput>({
     title: "",
@@ -88,7 +88,9 @@ export function EditEventModal({ events }: { events: Event[] }) {
       members: membersData,
     });
 
-    if (parsed.success) setFormData(parsed.data);
+    if (parsed.success) {
+      setFormData(parsed.data);
+    }
   }, [event]);
 
   const generateCoverImage = async () => {
@@ -112,6 +114,12 @@ export function EditEventModal({ events }: { events: Event[] }) {
       ...prev,
       members: prev.members.filter((m) => m.eventMemberId !== memberId),
     }));
+  };
+
+  const handleColorSelect = (color: string) => {
+    // color format: "bg-chart-1" -> extract number and convert to 0-indexed
+    const colorNumber = parseInt(color.split("-")[2]) - 1;
+    setFormData((prev) => ({ ...prev, color: colorNumber }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -205,12 +213,10 @@ export function EditEventModal({ events }: { events: Event[] }) {
             {/* Event Color */}
             <EventColorSelector
               selectedColor={`bg-chart-${formData.color + 1}`}
-              onColorSelect={(color) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  color: parseInt(color.split("-")[2]) - 1,
-                }))
-              }
+              onColorSelect={(color) => {
+                const colorNumber = parseInt(color.split("-")[2]) - 1;
+                setFormData((prev) => ({ ...prev, color: colorNumber }));
+              }}
             />
 
             {/* Title */}

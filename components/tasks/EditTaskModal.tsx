@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CheckSquare, Calendar, Users, X, Flag, Plus, Trash2, Paperclip, ExternalLink, Loader2 } from 'lucide-react'
 import type { UserLite, TaskStatus, TaskPriority } from '@/lib/types'
-import { useTasksStore } from "@/stores/task-store"
+import { useTasksStore, useTaskStore } from "@/stores/task-store"
+import { useUiStore } from "@/stores/ui-store"
 import { useEditTask } from '@/lib/client/features/tasks/hooks'
 import { toast } from 'sonner'
 
@@ -20,16 +21,26 @@ export interface EditTaskModalProps {
 }
 
 export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
-  // Zustand store
+  const { 
+    isEditTaskModalOpen, 
+    selectedTaskIdForEdit, 
+    closeEditTaskModal 
+  } = useUiStore()
+
+  // Get task from task store using selectedTaskIdForEdit
+  const { tasks } = useTaskStore()
+  const editingTask = React.useMemo(
+    () => tasks.find((t) => t.taskId === selectedTaskIdForEdit),
+    [tasks, selectedTaskIdForEdit]
+  )
+
+  // Zustand store for form data
   const {
-    isEditOpen,
-    editingTask,
     editFormData,
     editHasTimePeriod,
     editNewAttachmentUrl,
     isEditPending,
     editError,
-    closeEditModal,
     setEditTitle,
     setEditDescription,
     setEditStartAt,
@@ -48,9 +59,17 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
     setEditIsPending,
     setEditError,
     isEditFormValid,
+    openEditModal,
   } = useTasksStore()
 
   const editTaskMutation = useEditTask()
+
+  // Initialize edit form when task is selected
+  useEffect(() => {
+    if (editingTask && isEditTaskModalOpen) {
+      openEditModal(editingTask)
+    }
+  }, [editingTask, isEditTaskModalOpen])
 
   useEffect(() => {
     setEditIsPending(editTaskMutation.isPending)
@@ -79,7 +98,7 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
       })
 
       toast.success('Task updated successfully!')
-      closeEditModal()
+      closeEditTaskModal()
     } catch (error: any) {
       console.error('Failed to update task:', error)
       const errorMsg = error?.message || 'Failed to update task. Please try again.'
@@ -90,7 +109,7 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
 
   const handleClose = () => {
     if (!isEditPending) {
-      closeEditModal()
+      closeEditTaskModal()
     }
   }
 
@@ -121,9 +140,9 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
   }
 
   // Loading skeleton when task data is being fetched
-  if (!editingTask && isEditOpen) {
+  if (!editingTask && isEditTaskModalOpen) {
     return (
-      <Dialog open={isEditOpen} onOpenChange={handleClose}>
+      <Dialog open={isEditTaskModalOpen} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <Skeleton className="h-6 w-32" />
@@ -145,7 +164,7 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
   if (!editingTask) return null
 
   return (
-    <Dialog open={isEditOpen} onOpenChange={(open) => { if (!open) handleClose() }}>
+    <Dialog open={isEditTaskModalOpen} onOpenChange={(open) => { if (!open) handleClose() }}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">

@@ -34,6 +34,7 @@ import {
 } from "lucide-react"
 import { Task, TaskPriority, TaskStatus, UserLite } from "@/lib/types"
 import { useTasksStore } from "@/stores/task-store"
+import { useUiStore } from "@/stores/ui-store"
 import { useToast } from "@/components/ui/use-toast"
 
 interface AddTaskModalProps {
@@ -53,8 +54,10 @@ export function AddTaskModal({
 }: AddTaskModalProps) {
   const { toast } = useToast()
 
-  // Zustand store selectors
-  const isOpen = useTasksStore((state) => state.isOpen)
+  // UI Store 
+  const { isAddTaskModalOpen, closeAddTaskModal } = useUiStore()
+
+  // Tasks Store for form data
   const taskData = useTasksStore((state) => state.taskData)
   const hasTimePeriod = useTasksStore((state) => state.hasTimePeriod)
   const newAttachmentUrl = useTasksStore((state) => state.newAttachmentUrl)
@@ -62,7 +65,6 @@ export function AddTaskModal({
   const error = useTasksStore((state) => state.error)
 
   // Actions
-  const closeModal = useTasksStore((state) => state.closeModal)
   const setTitle = useTasksStore((state) => state.setTitle)
   const setDescription = useTasksStore((state) => state.setDescription)
   const setStartAt = useTasksStore((state) => state.setStartAt)
@@ -86,7 +88,7 @@ export function AddTaskModal({
 
   // Automatically assign current user when personal mode is active
   useEffect(() => {
-    if (isOpen && isPersonal && currentUser) {
+    if (isAddTaskModalOpen && isPersonal && currentUser) {
       const alreadyAssigned = taskData.assignees.some(
         (a) => a.userId === currentUser.userId
       )
@@ -94,14 +96,14 @@ export function AddTaskModal({
         setAssignees([currentUser])
       }
     }
-  }, [isOpen, isPersonal, currentUser, taskData.assignees, setAssignees])
+  }, [isAddTaskModalOpen, isPersonal, currentUser, taskData.assignees, setAssignees])
 
   // Auto-assign current user on first open
   useEffect(() => {
-    if (isOpen && currentUser && taskData.assignees.length === 0) {
+    if (isAddTaskModalOpen && currentUser && taskData.assignees.length === 0) {
       setAssignees([currentUser])
     }
-  }, [isOpen, currentUser, taskData.assignees.length, setAssignees])
+  }, [isAddTaskModalOpen, currentUser, taskData.assignees.length, setAssignees])
 
   // Show error toast
   useEffect(() => {
@@ -156,7 +158,7 @@ export function AddTaskModal({
       if (currentUser) {
         resetForm(currentUser, isPersonal)
       }
-      closeModal()
+      closeAddTaskModal()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create task")
     } finally {
@@ -168,7 +170,7 @@ export function AddTaskModal({
     if (currentUser) {
       resetForm(currentUser, isPersonal)
     }
-    closeModal()
+    closeAddTaskModal()
   }
 
   const handleAssigneeToggle = (member: UserLite) => {
@@ -186,7 +188,7 @@ export function AddTaskModal({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isAddTaskModalOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">

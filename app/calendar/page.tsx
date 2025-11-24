@@ -6,7 +6,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useEventsInfinite, useCreateEvent } from "@/lib/client/features/events/hooks";
+import { useFetchEvents, useCreateEvent } from "@/lib/client/features/events/hooks";
 import { useGoogleCalendarEvents } from "@/lib/client/features/google-calendar/hooks";
 import { GoogleCalendarSync } from "@/components/google-calendar/GoogleCalendarSync";
 import { AddEventModal } from "@/components/events/AddEventModal";
@@ -30,7 +30,7 @@ export default function CalendarPage() {
     isLoading: isLoadingEvents,
     fetchNextPage,
     hasNextPage,
-  } = useEventsInfinite({ pageSize: 100 });
+  } = useFetchEvents({ pageSize: 100 });
 
   // Flatten all events from all pages
   const allEvents = useMemo(() => {

@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+// import { google } from 'googleapis';
 import { createClient } from '@/lib/server/supabase/server';
 import { toApiError } from '@/lib/errors';
 import type { Event } from '@/lib/types';

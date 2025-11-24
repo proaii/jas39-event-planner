@@ -271,6 +271,8 @@ export default function AllTasksPage() {
       )}
 
       <AddTaskModal
+        isOpen={isAddTaskModalOpen}
+        onClose={closeAddTaskModal}
         eventMembers={allUsers}
         currentUser={currentUser}
         isPersonal={true}

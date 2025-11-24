@@ -711,11 +711,11 @@ export function EventDetail({
 
       {/* MODALS */}
       <AddTaskModal
+        isOpen={isAddTaskModalOpen}
+        onClose={closeAddTaskModal}
         eventMembers={allUsers}
         currentUser={currentUser}
-        isPersonal={false}
-        eventId={event.eventId}
-        onCreateTask={handleAddTask}
+        isPersonal={true}
       />
 
       <SaveTemplateModal

@@ -43,6 +43,7 @@ export async function signInWithOAuth(provider: Provider) {
   if (provider === 'google') {
     // Request access to manage the calendar
     // options.scopes = 'https://www.googleapis.com/auth/calendar';
+    // options.scopes = 'https://www.googleapis.com/auth/calendar';
     
     options.queryParams = {
       // 'offline' is required to get a Refresh Token (crucial for background sync)

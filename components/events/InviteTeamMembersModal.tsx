@@ -39,6 +39,12 @@ function isValidUUID(str: string): boolean {
   return uuidRegex.test(str);
 }
 
+interface ErrorWithMessage {
+  message?: string;
+  error?: string;
+  code?: string;
+}
+
 export function InviteTeamMembersModal({
   isOpen,
   onClose,
@@ -131,7 +137,7 @@ export function InviteTeamMembersModal({
       setSelectedUsers([]);
       setSearchQuery("");
       onClose();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to invite members:', err);
       
       // Extract error message
@@ -140,12 +146,17 @@ export function InviteTeamMembersModal({
       if (err) {
         if (typeof err === 'string') {
           errorMessage = err;
-        } else if (err.message) {
+        } else if (err instanceof Error) {
           errorMessage = err.message;
-        } else if (err.error) {
-          errorMessage = err.error;
-        } else if (err.code === '22P02') {
-          errorMessage = "Invalid event ID. Please refresh and try again.";
+        } else if (typeof err === 'object') {
+          const errorObj = err as ErrorWithMessage;
+          if (errorObj.message) {
+            errorMessage = errorObj.message;
+          } else if (errorObj.error) {
+            errorMessage = errorObj.error;
+          } else if (errorObj.code === '22P02') {
+            errorMessage = "Invalid event ID. Please refresh and try again.";
+          }
         }
         
         console.error('Full error object:', JSON.stringify(err, null, 2));
@@ -178,7 +189,7 @@ export function InviteTeamMembersModal({
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-muted-foreground">
-              Cannot invite members to this event. The event ID is invalid or the event hasn't been created yet.
+              Cannot invite members to this event. The event ID is invalid or the event hasn&apos;t been created yet.
             </p>
             <div className="p-3 bg-muted rounded-md">
               <p className="text-xs font-mono text-muted-foreground break-all">

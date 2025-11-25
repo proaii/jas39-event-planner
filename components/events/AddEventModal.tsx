@@ -50,15 +50,6 @@ function formatDateTimeWithTZ(dateStr: string, timeStr: string): string {
   return `${yyyy}-${MM}-${dd} ${hh}:${mm}:${ss}${offsetSign}${offsetHr}:${offsetM}`;
 }
 
-const toYYYYMMDD = (date: Date | null) => {
-  if (!date) return "";
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 const DEFAULT_COLOR = "#E8F4FD";
 
 export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEventModalProps) {

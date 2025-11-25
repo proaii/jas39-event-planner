@@ -45,7 +45,7 @@ interface DashboardUiState {
 // ----------------------------------
 // Zustand Store
 // ----------------------------------
-export const useDashboardUiStore = create<DashboardUiState>((set, get) => ({
+export const useDashboardUiStore = create<DashboardUiState>((set) => ({
   // -------------------
   // Modal
   // -------------------

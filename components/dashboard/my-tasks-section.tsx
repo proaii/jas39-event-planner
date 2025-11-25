@@ -30,6 +30,14 @@ function effectiveDueDateOf(t: Task): string | undefined {
   return getEffectiveDueDate(dateish) ?? undefined;
 }
 
+interface PaginatedPage {
+  items?: Task[] | Event[];
+}
+
+interface PaginatedData {
+  pages?: PaginatedPage[];
+}
+
 export function MyTasksSection({
   onStatusChange,
   onSubTaskToggle,
@@ -63,18 +71,18 @@ export function MyTasksSection({
   // Flatten paginated data safely
   useEffect(() => {
     const flatEvents: Event[] = eventsData
-      ? "pages" in eventsData && Array.isArray(eventsData.pages)
-        ? eventsData.pages.flatMap((p: any) => Array.isArray(p?.items) ? p.items : [])
-        : Array.isArray(eventsData.items)
-          ? eventsData.items
+      ? "pages" in eventsData && Array.isArray((eventsData as PaginatedData).pages)
+        ? (eventsData as PaginatedData).pages!.flatMap((p: PaginatedPage) => Array.isArray(p?.items) ? p.items as Event[] : [])
+        : Array.isArray((eventsData as { items?: Event[] }).items)
+          ? (eventsData as { items: Event[] }).items
           : []
       : [];
 
     const flatTasks: Task[] = tasksData
-      ? "pages" in tasksData && Array.isArray(tasksData.pages)
-        ? tasksData.pages.flatMap((p: any) => Array.isArray(p?.items) ? p.items : [])
-        : Array.isArray(tasksData.items)
-          ? tasksData.items
+      ? "pages" in tasksData && Array.isArray((tasksData as PaginatedData).pages)
+        ? (tasksData as PaginatedData).pages!.flatMap((p: PaginatedPage) => Array.isArray(p?.items) ? p.items as Task[] : [])
+        : Array.isArray((tasksData as { items?: Task[] }).items)
+          ? (tasksData as { items: Task[] }).items
           : []
       : [];
 

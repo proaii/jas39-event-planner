@@ -13,9 +13,8 @@ import {
   useFetchEventTasks,
   useCreateEventTask,
   useEditTask,
-  useDeleteTask,
 } from "@/lib/client/features/tasks/hooks";
-import type { Task, TaskStatus } from "@/lib/types";
+import type { Task, TaskStatus, EventTemplateData } from "@/lib/types";
 import { toast } from "react-hot-toast";
 import { useFetchUsers, useFetchCurrentUser } from "@/lib/client/features/users/hooks";
 import { useEffect } from "react";
@@ -229,20 +228,20 @@ useEffect(() => {
     });
   };
 
-  const handleSaveTemplate = (eventId: string, templateData: any) => {
+  const handleSaveTemplate = (eventId: string, templateData: EventTemplateData) => {
 
     // Convert EventTemplateData to the expected format
     const payload = {
       name: event.title, // Use event title as template name
-      title: templateData.title || event.title,
-      description: templateData.eventDescription || event.description,
-      location: templateData.location || event.location,
-      eventDescription: templateData.eventDescription || event.description,
-      coverImageUri: templateData.coverImageUri || event.coverImageUri,
-      color: templateData.color ?? event.color,
-      startAt: templateData.startAt || event.startAt,
-      endAt: templateData.endAt || event.endAt,
-      members: templateData.members || event.members || [],
+      title: templateData.event.title || event.title,
+      description: templateData.event.description || event.description,
+      location: templateData.event.location || event.location,
+      eventDescription: templateData.event.description || event.description,
+      coverImageUri: templateData.event.cover_image_uri || event.coverImageUri,
+      color: templateData.event.color ?? event.color,
+      startAt: templateData.event.start_at || event.startAt,
+      endAt: templateData.event.end_at || event.endAt,
+      members: templateData.event.members || event.members || [],
     };
 
     saveTemplateMutate(

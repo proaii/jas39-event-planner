@@ -19,6 +19,14 @@ interface KanbanBoardProps {
   onTaskAction?: (taskId: string, action: "edit" | "reassign" | "setDueDate" | "delete") => void;
 }
 
+interface TaskPage {
+  items?: Task[];
+}
+
+interface InfiniteQueryData {
+  pages?: TaskPage[];
+}
+
 export function KanbanBoard({ eventId, onTaskAction }: KanbanBoardProps) {
   const { customization: settings } = useKanbanStore();
   
@@ -35,9 +43,9 @@ export function KanbanBoard({ eventId, onTaskAction }: KanbanBoardProps) {
 
   // Get tasks from infinite query
   const tasks = React.useMemo(() => {
-    const pages = (tasksData as any)?.pages;
+    const pages = (tasksData as InfiniteQueryData)?.pages;
     if (!pages) return [];
-    return pages.flatMap((page: any) => page?.items || []);
+    return pages.flatMap((page: TaskPage) => page?.items || []);
   }, [tasksData]);
 
   const columns: { status: TaskStatus; title: string; color: string }[] = [
@@ -77,8 +85,9 @@ export function KanbanBoard({ eventId, onTaskAction }: KanbanBoardProps) {
         patch: { taskStatus: newStatus },
       });
       toast.success("Task status updated");
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to update task status");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update task status";
+      toast.error(errorMessage);
     }
   };
 

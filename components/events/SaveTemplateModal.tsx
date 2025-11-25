@@ -75,10 +75,11 @@ export function SaveTemplateModal({
           onSave?.();
           onClose();
         },
-        onError: (err: any) => {
+        onError: (err: unknown) => {
           console.error('Failed to save template:', err);
-          toast.error(err?.message || "Failed to save template. Please try again.");
-        },
+          const msg = err instanceof Error ? err.message : 'Failed to save template. Please try again.';
+          toast.error(msg);
+        }
       }
     );
   };

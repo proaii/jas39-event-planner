@@ -55,7 +55,7 @@ import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { SaveTemplateModal } from "@/components/events/SaveTemplateModal";
 import { ViewSwitcher } from "@/components/events/ViewSwitcher";
 import { KanbanBoard } from "@/components/events/KanbanBoard";
-import type { Event, Task, TaskStatus, TaskPriority, UserLite , EventTemplateData } from "@/lib/types";
+import type { Event, Task, TaskStatus, TaskPriority, UserLite , EventTemplateData, Subtask } from "@/lib/types";
 import { useUiStore } from "@/stores/ui-store";
 import { useEventViewStore } from "@/stores/eventViewStore";
 import { useEventDetailStore } from "@/stores/Eventdetailstore";
@@ -78,6 +78,13 @@ interface EventDetailProps {
   onSaveTemplate?: (eventId: string, templateData: EventTemplateData) => void;
 }
 
+interface TaskPage {
+  items: Task[];
+}
+
+interface InfiniteTaskData {
+  pages?: TaskPage[];
+}
 
 const safeDate = (value: string | null | undefined): Date | null =>
   value ? new Date(value) : null;
@@ -138,7 +145,7 @@ export function EventDetail({
   // ==================== COMPUTED VALUES ====================
   // Use API data if available, otherwise fallback to props
   const apiTasks = tasksQuery.data ? 
-    (tasksQuery.data as any).pages?.flatMap((page: { items: Task[] }) => page.items) : 
+    (tasksQuery.data as InfiniteTaskData).pages?.flatMap((page: TaskPage) => page.items) : 
     undefined;
   const tasks = apiTasks ?? (allTasks?.filter((t: Task) => t.eventId === event.eventId) || []);
   const members = event.members || [];
@@ -340,7 +347,7 @@ export function EventDetail({
               <Card className="border-0 shadow-sm">
                 <CardContent className="p-6 text-center">
                   <div className="py-4">
-                    <Image className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
+                    <Image className="w-8 h-8 mx-auto mb-3 text-muted-foreground" aria-label="Image icon" />
                     <Button
                       variant="outline"
                       onClick={() => setShowCoverImage(true)}
@@ -648,7 +655,7 @@ export function EventDetail({
                                       ) : (
                                         <ChevronRight className="w-3 h-3 mr-1" />
                                       )}
-                                      {task.subtasks.filter((st: any) => st.subtaskStatus === "Done").length}/{task.subtasks.length} subtasks
+                                      {task.subtasks.filter((st: Subtask) => st.subtaskStatus === "Done").length}/{task.subtasks.length} subtasks
                                     </button>
                                   )}
 
@@ -659,7 +666,7 @@ export function EventDetail({
                                   task.subtasks &&
                                   task.subtasks.length > 0 && (
                                     <div className="mt-3 pt-3 border-t space-y-2">
-                                      {task.subtasks.map((sub: any) => (
+                                      {task.subtasks.map((sub: Subtask) => (
                                         <div key={sub.subtaskId} className="flex items-center space-x-2 pl-4">
                                           <Checkbox checked={sub.subtaskStatus === "Done"} className="h-4 w-4" />
                                           <span className={`text-sm ${sub.subtaskStatus === "Done" ? "line-through opacity-60" : ""}`}>

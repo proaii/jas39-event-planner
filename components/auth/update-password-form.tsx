@@ -55,8 +55,9 @@ export function UpdatePasswordForm({
         toast({ title: "Success", description: "Password updated!" });
         router.push("/dashboard");
       },
-      onError: (err: any) => {
-        const msg = err.message || "Failed to update password";
+      onError: (err: unknown) => {
+        // Use type narrowing instead of `any`
+        const msg = err instanceof Error ? err.message : "Failed to update password";
         setError(msg);
         toast({ title: "Error", description: msg, variant: "destructive" });
       },

@@ -103,9 +103,9 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
 
       toast.success('Task updated successfully!')
       closeEditTaskModal()
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to update task:', error)
-      const errorMsg = error?.message || 'Failed to update task. Please try again.'
+      const errorMsg = error instanceof Error ? error.message : 'Failed to update task. Please try again.'
       setEditError(errorMsg)
       toast.error(errorMsg)
     }

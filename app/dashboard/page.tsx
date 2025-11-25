@@ -2,7 +2,7 @@
 
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
-
+import type { TemplateData } from "@/schemas/template";
 import { useUiStore } from "@/stores/ui-store";
 import { Dashboard } from "@/components/dashboard/dashboard";
 import { AddEventModal } from "@/components/events/AddEventModal";
@@ -65,7 +65,6 @@ export default function DashboardPage() {
 
   const {
     data: allUsers = [],
-    isLoading: usersLoading,
   } = useFetchUsers({ q: "", enabled: true });
 
   const events: Event[] = eventsData?.items ?? [];
@@ -80,23 +79,22 @@ export default function DashboardPage() {
         closeAddEventModal();
         toast.success("Event created successfully!");
       },
-      onError: (error: any) => {
+      onError: (error: Error) => {
         toast.error(error?.message || "Failed to create event");
       },
     });
   };
 
   // ==================== TEMPLATE HANDLER ====================
-  const handleUseTemplate = (template: any) => {
-    // Map EventTemplate -> Partial<Event>
+  const handleUseTemplate = (template: TemplateData) => {
     setEventPrefillData({
       title: template.title,
-      location: template.location,
+      location: template.location ?? "",
       description: template.description ?? "",
       coverImageUri: template.coverImageUri ?? "",
       color: template.color,
-      startAt: template.eventData?.startAt,
-      endAt: template.eventData?.endAt,
+      startAt: template.startAt ?? undefined,
+      endAt: template.endAt ?? undefined,
       members: template.members ?? [],
     });
 
@@ -104,6 +102,8 @@ export default function DashboardPage() {
     openAddEventModal();
     toast.success("Template loaded! Fill in the remaining details.");
   };
+
+
 
   const handleEventClick = (eventId: string) => {
     router.push(`/events/${eventId}`);

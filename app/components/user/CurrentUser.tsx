@@ -1,6 +1,7 @@
 "use client";
 
 import { useFetchCurrentUser } from "@/lib/client/features/users/hooks";
+import Image from "next/image"; 
 
 export default function CurrentUser() {
   const { data: user, isLoading, error } = useFetchCurrentUser();
@@ -39,11 +40,14 @@ export default function CurrentUser() {
         {user.avatarUrl && (
           <div>
             <span className="font-medium">Avatar:</span>
-            <img 
-              src={user.avatarUrl} 
-              alt={user.username}
-              className="mt-2 h-16 w-16 rounded-full"
-            />
+            <div className="mt-2 relative h-16 w-16">
+              <Image 
+                src={user.avatarUrl} 
+                alt={user.username} 
+                fill
+                className="rounded-full object-cover"
+              />
+            </div>
           </div>
         )}
       </div>

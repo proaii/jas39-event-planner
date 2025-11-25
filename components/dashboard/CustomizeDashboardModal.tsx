@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "react-hot-toast";
-import { useUiStore, DEFAULT_WIDGETS, type DashboardWidget } from "@/stores/ui-store";
+import { useUiStore, type DashboardWidget } from "@/stores/ui-store";
 
 interface CustomizeDashboardModalProps {
   isOpen: boolean;

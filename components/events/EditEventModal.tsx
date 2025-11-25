@@ -116,12 +116,6 @@ export function EditEventModal({ events }: { events: Event[] }) {
     }));
   };
 
-  const handleColorSelect = (color: string) => {
-    // color format: "bg-chart-1" -> extract number and convert to 0-indexed
-    const colorNumber = parseInt(color.split("-")[2]) - 1;
-    setFormData((prev) => ({ ...prev, color: colorNumber }));
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!event) return;
@@ -166,18 +160,19 @@ export function EditEventModal({ events }: { events: Event[] }) {
             {/* Cover Image */}
             <div className="space-y-2">
               <Label className="flex items-center space-x-2">
-                <Image className="w-4 h-4" />
+                <Image className="w-4 h-4" aria-label="Cover image icon" />
                 <span>Cover Image</span>
               </Label>
               {formData.coverImageUri && (
                 <div className="relative">
                   <NextImage
                     src={formData.coverImageUri}
-                    alt={`Cover image for ${event.title}`}
+                    alt={`Cover image for ${event.title}`} 
                     className="w-full h-32 object-cover rounded-lg"
                     width={1080}
                     height={1080}
                   />
+
                   <Button
                     type="button"
                     variant="outline"

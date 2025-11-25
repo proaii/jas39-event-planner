@@ -8,9 +8,10 @@ import { Activity } from "lucide-react";
 import { useUiStore } from "@/stores/ui-store";
 import { useFetchRecentActivity } from "@/lib/client/features/activities/hooks";
 import { useFetchEvents } from "@/stores/useEventStore";
+import type { Event, ActivityItem } from "@/lib/types";
 
 // ---- HELPER: flatten events ----
-function flattenEventsData(data?: { pages?: { items: any[] }[]; items?: any[] }): any[] {
+function flattenEventsData(data?: { pages?: { items: Event[] }[]; items?: Event[] }): Event[] {
   if (!data) return [];
   if (Array.isArray(data.items)) return data.items;
   if (data.pages && Array.isArray(data.pages)) {
@@ -97,7 +98,7 @@ export function RecentActivityWidget() {
         </div>
 
         <div className="space-y-3">
-          {activities.map((activity, index) => (
+          {(activities as ActivityItem[]).map((activity, index) => (
             <div key={index} className="flex items-start space-x-2">
               <Avatar className="w-6 h-6">
                 <AvatarFallback className="bg-primary/10 text-primary text-xs">

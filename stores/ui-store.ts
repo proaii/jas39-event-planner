@@ -201,7 +201,7 @@ const DEFAULT_PROFILE_DATA: ProfileData = {
 
 export const useUiStore = create<UiStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       // ==================== TEMPLATE MODAL ====================
       isTemplateModalOpen: false,
       openTemplateModal: () => set({ isTemplateModalOpen: true }),

@@ -45,7 +45,8 @@ export default function AllEventsPage() {
     isTemplateModalOpen,
     openTemplateModal,
     closeTemplateModal,
-    openEditEventModal, 
+    openEditEventModal,
+    setEventPrefillData,
     searchQuery,
     setSearchQuery,
     sortBy,
@@ -63,11 +64,10 @@ export default function AllEventsPage() {
   const createEventMutation = useCreateEvent();
   const deleteEventMutation = useDeleteEvent();
 
-  // Get events from query data (server state)
-  const events = eventsData?.items ?? [];
+  // Get events from query data (server state) - memoized to prevent unnecessary recalculations
+  const events = useMemo(() => eventsData?.items ?? [], [eventsData?.items]);
 
   // ------------------- LOCAL STATE (Temporary UI State) -------------------
-  const [prefillData, setPrefillData] = useState<Partial<Event> | null>(null);
   const [tempProgressFilters, setTempProgressFilters] = useState(progressFilters);
   const [tempDateFilters, setTempDateFilters] = useState(dateFilters);
 
@@ -86,7 +86,6 @@ export default function AllEventsPage() {
     createEventMutation.mutate(eventData, {
       onSuccess: () => {
         closeAddEventModal();
-        setPrefillData(null);
       },
     });
   };
@@ -101,7 +100,7 @@ export default function AllEventsPage() {
   };
 
   const handleUseTemplate = (data: TemplateData) => {
-    setPrefillData({
+    setEventPrefillData({
       title: data.title,
       location: data.location || "",
       description: data.eventDescription || "",
@@ -381,10 +380,7 @@ export default function AllEventsPage() {
       {/* Modals */}
       <AddEventModal
         isOpen={isAddEventModalOpen}
-        onClose={() => {
-          closeAddEventModal();
-          setPrefillData(null);
-        }}
+        onClose={closeAddEventModal}
         onCreateEvent={handleCreateEvent}
       />
 

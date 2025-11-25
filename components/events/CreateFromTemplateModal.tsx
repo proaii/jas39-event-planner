@@ -1,6 +1,5 @@
 'use client';
 
-import React from "react";
 import {
   Dialog,
   DialogContent,
@@ -35,17 +34,34 @@ export function CreateFromTemplateModal({
 
   const { data: templates, isLoading, error } = useFetchTemplates();
 
-  const handleSelectTemplate = (template: EventTemplate) => {
-    const event = template.eventData;
-    if (!event) return;
-
-    
-    const merged: TemplateData = {
-      ...event,
+  // --- map EventTemplateData -> TemplateData ---
+  const mapEventTemplateToTemplateData = (template: EventTemplate): TemplateData => {
+    const e = template.eventData.event;
+    return {
       name: template.name,
-      description: template.description ?? undefined,
+      title: e.title,
+      description: template.description ?? e.description ?? "",
+      eventDescription: e.description ?? undefined,
+      location: e.location ?? undefined,
+      coverImageUri: e.cover_image_uri ?? undefined,
+      color: Number(e.color),        // <-- แปลงเป็น number
+      startAt: e.start_at ?? undefined,
+      endAt: e.end_at ?? undefined,
+      members: e.members ?? [],
+      tasks: template.eventData.tasks.map(task => ({
+        title: task.title,
+        description: task.description ?? undefined,
+        taskStatus: task.task_status,
+        taskPriority: task.task_priority,
+        startAt: task.start_at ?? undefined,
+        endAt: task.end_at ?? undefined,
+        assignees: task.assignees ?? [],
+      }))
     };
+  };
 
+  const handleSelectTemplate = (template: EventTemplate) => {
+    const merged = mapEventTemplateToTemplateData(template);
     onUseTemplate(merged);
     onClose();
   };
@@ -83,8 +99,7 @@ export function CreateFromTemplateModal({
               </div>
             ) : (
               templates!.map((template: EventTemplate) => {
-                const event = template.eventData;
-
+                const event = template.eventData.event;
                 return (
                   <Card
                     key={template.templateId}
@@ -93,15 +108,10 @@ export function CreateFromTemplateModal({
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <CardTitle className="text-lg">
-                            {template.name}
-                          </CardTitle>
-                          <CardDescription className="mt-1">
-                            {template.description}
-                          </CardDescription>
+                          <CardTitle className="text-lg">{template.name}</CardTitle>
+                          <CardDescription className="mt-1">{template.description}</CardDescription>
                         </div>
 
-                  
                         <Button size="sm" onClick={() => handleSelectTemplate(template)}>
                           Use Template
                         </Button>
@@ -117,11 +127,11 @@ export function CreateFromTemplateModal({
                           </div>
                         )}
 
-                        {event.startAt && (
+                        {event.start_at && (
                           <div className="flex justify-end text-xs text-muted-foreground pt-2 border-t border-border">
                             <div className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
-                              {new Date(event.startAt).toLocaleDateString()}
+                              {new Date(event.start_at).toLocaleDateString()}
                             </div>
                           </div>
                         )}

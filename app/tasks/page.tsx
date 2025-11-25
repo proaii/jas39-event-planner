@@ -255,12 +255,12 @@ export default function AllTasksPage() {
         isPersonal={true}
       />
 
-      <EditTaskModal
+      {/* <EditTaskModal
         isOpen={isEditTaskModalOpen}
         onClose={closeEditTaskModal}
         availableAssignees={allUsers}
         taskId={selectedTaskIdForEdit}
-      />
+      /> */}
     </main>
   );
 }

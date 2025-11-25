@@ -11,6 +11,7 @@ import {
 } from "@/stores/useEventStore";
 import { 
   useFetchEventTasks,
+  useFetchAllTasks,
   useCreateEventTask,
   useEditTask,
   useDeleteTask,
@@ -19,6 +20,12 @@ import type { Task, TaskStatus } from "@/lib/types";
 import type { InfiniteData } from '@tanstack/react-query';
 import { toast } from "react-hot-toast";
 import { useFetchUsers, useFetchCurrentUser } from "@/lib/client/features/users/hooks";
+import { useEffect } from "react";
+import { getRealtimeChannel } from "@/lib/realtime";
+// import { listAllUserTasks } from "@/lib/server/features/tasks/api";
+
+import { useQueryClient } from "@tanstack/react-query";  // ⬅ เพิ่ม
+import { queryKeys } from "@/lib/queryKeys";
 
 export default function EventDetailPage() {
   const router = useRouter();
@@ -50,6 +57,41 @@ export default function EventDetailPage() {
 
   // Flatten all pages safely
   const tasks: Task[] = tasksData ? tasksData.items : [];
+
+const queryClient = useQueryClient();
+
+// หลังจากรู้ eventId แล้ว ค่อย subscribe
+useEffect(() => {
+  if (!eventId) return;
+
+  // คำนวณ key เดียวกันกับตอนใช้ useFetchEventTasks
+  const tasksKey = queryKeys.tasks({
+    eventId,
+    status: undefined,
+    pageSize: 20,   // ให้ตรงกับ default ใน hook
+    q: undefined,
+  });
+
+  const unsubscribe = getRealtimeChannel("tasks", {
+    eventId,
+    onChange: ({ eventType, new: newRow, old }) => {
+      console.log("TASKS realtime:", eventType, { newRow, old });
+
+      // วิธีง่ายสุด: invalidate query → React Query refetch เอง
+      queryClient.invalidateQueries({ queryKey: tasksKey });
+
+      // ถ้ามีหน้า All Tasks ด้วยก็ invalidate รวมไปด้วย
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.tasks({}), // All Tasks page
+      });
+    },
+  });
+
+  return () => {
+    unsubscribe();
+  };
+}, [eventId, queryClient]);
+
 
   // --- React Query: Auth & Users ---
   const { 

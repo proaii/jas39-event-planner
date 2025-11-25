@@ -3,13 +3,11 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Dashboard : Components Present', () => {
   test.beforeEach(async ({ page }) => {
-    const email = process.env.TEST_EMAIL!;
-    const password = process.env.TEST_PASSWORD!;
 
     // login
     await page.goto('http://localhost:3000/auth/login');
-    await page.getByRole('textbox', { name: 'Email Address' }).fill(email);
-    await page.getByRole('textbox', { name: 'Password' }).fill(password);
+    await page.getByRole('textbox', { name: 'Email Address' }).fill("hikaru.kp@gmail.com");
+    await page.getByRole('textbox', { name: 'Password' }).fill("^ZYftr42D81x");
     await page.getByRole('button', { name: 'Sign In', exact: true }).click();
 
     await page.waitForURL('**/dashboard');
@@ -17,8 +15,8 @@ test.describe('Dashboard : Components Present', () => {
 
   test('dashboard main components are not missing', async ({ page }) => {
     // --- Page-level anchors ---
-    const email = process.env.TEST_EMAIL!;
-    await expect(page.getByText(email)).toBeVisible();
+
+    await expect(page.getByText("hikaru.kp@gmail.com")).toBeVisible();
 
     // --- Sidebar / nav items (from your HTML) ---
     const sidebar = page.getByRole('navigation');

@@ -23,23 +23,20 @@ test('Landing Pages : Unauthorized Path for Unauthenticated User Blocked', async
 test('Landing Pages : Unauthorized Path for Authenticated User Blocked', async ({ page }) => {
 
     // Perform a successful login
-    const email = process.env.TEST_EMAIL!;
-    const password = process.env.TEST_PASSWORD!;
-
     await page.goto('http://localhost:3000/auth/login');
 
     // Expect a title "to contain" a substring.
     await expect(page.getByText('Welcome Back')).toBeVisible();
 
     await page.getByRole('textbox', { name: 'Email Address' }).click();
-    await page.getByRole('textbox', { name: 'Email Address' }).fill(email);
+    await page.getByRole('textbox', { name: 'Email Address' }).fill("hikaru.kp@gmail.com");
     await page.getByRole('textbox', { name: 'Password' }).click();
-    await page.getByRole('textbox', { name: 'Password' }).fill(password);
+    await page.getByRole('textbox', { name: 'Password' }).fill("^ZYftr42D81x");
     await page.getByRole('button', { name: 'Sign In', exact: true }).click();
 
     await page.waitForURL('**/dashboard');
 
-    await expect(page.getByText(email)).toBeVisible();
+    await expect(page.getByText("hikaru.kp@gmail.com")).toBeVisible();
 
     // Attempt to navigate back to the login page
     await page.goto('http://localhost:3000/auth/login');

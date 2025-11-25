@@ -6,14 +6,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 import { Paperclip, CheckSquare, Clock, ChevronDown } from "lucide-react";
 
 import { Task, TaskStatus, TaskPriority, Subtask } from "@/lib/types";
 import { useKanbanStore } from "@/stores/kanban-store";
-import { AttachmentList } from "./AttachmentList";
 import { formatTaskDateRangeCompact, isCurrentlyActive, extractDateAndTime } from "@/lib/timeUtils";
 import { useFetchEventTasks, useEditTask } from "@/lib/client/features/tasks/hooks";
 

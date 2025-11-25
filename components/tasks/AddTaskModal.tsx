@@ -120,7 +120,7 @@ export function AddTaskModal({
       return
     }
 
-    const finalTask: Omit<Task, 'taskId' | 'createdAt' | 'eventTitle'> = {
+    const finalTask: Omit<Task, 'taskId' | 'createdAt' | 'eventTitle'| 'creatorId'> = {
       title: taskData.title.trim(),
       description: taskData.description?.trim() || undefined,
       assignees: taskData.assignees,

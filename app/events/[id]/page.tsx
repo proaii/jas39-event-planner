@@ -11,20 +11,18 @@ import {
 } from "@/stores/useEventStore";
 import { 
   useFetchEventTasks,
-  useFetchAllTasks,
   useCreateEventTask,
   useEditTask,
   useDeleteTask,
 } from "@/lib/client/features/tasks/hooks";
 import type { Task, TaskStatus } from "@/lib/types";
-import type { InfiniteData } from '@tanstack/react-query';
 import { toast } from "react-hot-toast";
 import { useFetchUsers, useFetchCurrentUser } from "@/lib/client/features/users/hooks";
 import { useEffect } from "react";
 import { getRealtimeChannel } from "@/lib/realtime";
 // import { listAllUserTasks } from "@/lib/server/features/tasks/api";
 
-import { useQueryClient } from "@tanstack/react-query";  // ⬅ เพิ่ม
+import { useQueryClient } from "@tanstack/react-query";  
 import { queryKeys } from "@/lib/queryKeys";
 
 export default function EventDetailPage() {
@@ -48,9 +46,6 @@ export default function EventDetailPage() {
   const { 
     data: tasksData,
     isLoading: isTasksLoading,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
   } = useFetchEventTasks({
     eventId: eventId!,
   });
@@ -109,7 +104,6 @@ useEffect(() => {
   // --- Mutations ---
   const createTaskMutation = useCreateEventTask(eventId || "");
   const editTaskMutation = useEditTask();
-  const deleteTaskMutation = useDeleteTask();
   const deleteEventMutation = useDeleteEvent();
   const { mutate: saveTemplateMutate } = useSaveTemplate();
 
@@ -236,6 +230,7 @@ useEffect(() => {
   };
 
   const handleSaveTemplate = (eventId: string, templateData: any) => {
+
     // Convert EventTemplateData to the expected format
     const payload = {
       name: event.title, // Use event title as template name

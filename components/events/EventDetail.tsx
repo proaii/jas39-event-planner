@@ -1,6 +1,5 @@
 'use client';
 
-import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -96,8 +95,6 @@ export function EventDetail({
   currentUser,
   allUsers,
   onBack,
-  onTaskStatusChange,
-  onAddTask,
   onTaskAction,
   onDeleteEvent,
   onEditEvent,
@@ -112,7 +109,7 @@ export function EventDetail({
     closeSaveTemplateModal,
   } = useUiStore();
   
-  const { currentView, setView } = useEventViewStore();
+  const { currentView } = useEventViewStore();
 
   const {
     showDeleteDialog,
@@ -166,22 +163,6 @@ export function EventDetail({
     }
   };
 
-  const handleAddTask = async (taskData: Omit<Task, "taskId" | "createdAt">) => {
-    try {
-      // Convert to the format expected by API
-      const apiPayload: Omit<Task, "taskId" | "eventTitle"> = {
-        ...taskData,
-        createdAt: new Date().toISOString(),
-      };
-      
-      await createTaskMutation.mutateAsync(apiPayload);
-      toast.success("Task created successfully");
-      closeAddTaskModal();
-    } catch (error) {
-      toast.error("Failed to create task");
-      console.error(error);
-    }
-  };
 
   const handleTaskAction = async (taskId: string, action: "edit" | "reassign" | "setDueDate" | "delete") => {
     if (action === "delete") {

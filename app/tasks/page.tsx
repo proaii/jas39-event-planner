@@ -14,15 +14,15 @@ import { Card } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search, Filter, Plus, ArrowUpDown } from "lucide-react";
-import { Task, TaskStatus } from "@/lib/types";
+import { Task } from "@/lib/types";
 import { useUiStore } from "@/stores/ui-store";
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { TaskCard } from "@/components/task-card";
 import { EditTaskModal } from "@/components/tasks/EditTaskModal";
 import { useFetchUsers, useFetchUser } from "@/lib/client/features/users/hooks";
 import { useUser } from "@/lib/client/features/auth/hooks";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { cn, filterTasks, sortTasks, getEffectiveDueDate } from "@/lib/utils";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { filterTasks, sortTasks } from "@/lib/utils";
 
 // ------------------- API Helpers -------------------
 async function fetchTasks(): Promise<Task[]> {
@@ -273,12 +273,12 @@ export default function AllTasksPage() {
         isPersonal={true}
       />
 
-      {/* <EditTaskModal
+      <EditTaskModal
         isOpen={isEditTaskModalOpen}
         onClose={closeEditTaskModal}
         availableAssignees={allUsers}
         taskId={selectedTaskIdForEdit}
-      /> */}
+      />
     </main>
   );
 }

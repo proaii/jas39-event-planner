@@ -95,6 +95,7 @@ export interface Task {
   assignees?: UserLite[]; 
   subtasks?: Subtask[];
   attachments?: Attachment[];
+  creatorId: string | null;
 }
 
 export type UpdateEventInput = {

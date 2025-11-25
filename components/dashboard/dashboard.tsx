@@ -4,7 +4,6 @@ import { WelcomeHeader } from "./welcome-header";
 import { DashboardWidgets } from "./dashboard-widgets";
 import { MyTasksSection } from "./my-tasks-section";
 import { Event, Task } from "@/lib/types";
-import { useUiStore } from "@/stores/ui-store"; 
 
 interface DashboardProps {
   events: Event[];
@@ -22,8 +21,6 @@ interface DashboardProps {
 }
 
 export function Dashboard({
-  events,
-  tasks,
   onCreateEvent,
   onCreateFromTemplate,
   onEventClick,

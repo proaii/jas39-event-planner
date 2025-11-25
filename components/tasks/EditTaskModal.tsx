@@ -17,8 +17,12 @@ import { useFetchTask, useEditTask } from '@/lib/client/features/tasks/hooks'
 import { toast } from 'sonner'
 
 interface EditTaskModalProps {
+  isOpen: boolean;
+  onClose: () => void;
   availableAssignees: UserLite[];
+  taskId: string | null;  
 }
+
 
 export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
   const { 

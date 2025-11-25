@@ -319,7 +319,10 @@ export async function createPersonalTask(
     if (!user) throw new Error('UNAUTHORIZED');
 
     // ensure creator is in assignees
-    const given = Array.isArray(input.assignees) ? input.assignees.map(String) : [];
+    const assigneesInput = input.assignees as unknown as (string | UserLite)[];
+    const given = Array.isArray(assigneesInput)
+      ? assigneesInput.map((a) => (typeof a === 'string' ? a : a.userId))
+      : [];
     const assignees = Array.from(new Set([...given, String(user.id)]));
 
     // 1) create task (no event)
@@ -378,7 +381,7 @@ export async function createPersonalTask(
       .from(TABLE)
       .select(
         `
-        task_id, event_id, title, description, task_status, task_priority, start_at, end_at, created_at,
+        task_id, event_id, creator_id, title, description, task_status, task_priority, start_at, end_at, created_at,
         attachments:attachments ( attachment_id, attachment_url ),
         subtasks:subtasks ( subtask_id, title, subtask_status ),
         assignees:task_assignees (
@@ -772,6 +775,7 @@ function map(r: RawTaskRow): Task {
     attachments: (r.attachments ?? []).map(mapAttachment),
     subtasks: (r.subtasks ?? []).map(mapSubtask),
     assignees,
+    creatorId: r.event_id ?? null,
   };
 }
 

@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import Calendar from "@/components/calendar/Calendar";
 import { useFetchEvents } from "@/lib/client/features/events/hooks";
-import { Event } from "@/lib/types";
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());

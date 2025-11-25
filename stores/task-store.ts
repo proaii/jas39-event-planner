@@ -145,41 +145,12 @@ interface TaskDetailState {
   clearDetailError: () => void
 }
 
-// ✅ เพิ่ม TaskStore interface สำหรับ tasks data
-interface TaskStore {
-  tasks: Task[]
-  addTask: (task: Task) => void
-  updateTask: (taskId: string, updates: Partial<Task>) => void
-  deleteTask: (taskId: string) => void
-  setTasks: (tasks: Task[]) => void
-}
+// Note: TaskStore should NOT contain server state (tasks array)
+// Server state should be managed by React Query
+// This store is only for UI state
+type TasksStoreState = AddTaskState & EditTaskState & TaskDetailState
 
-type TasksStoreState = AddTaskState & EditTaskState & TaskDetailState & TaskStore
-
-export const useTasksStore = create<TasksStoreState>()(
-  (set, get) => ({
-  // ==================== TASK DATA ====================
-  tasks: [],
-  
-  addTask: (task) =>
-    set((state) => ({
-      tasks: [...state.tasks, task],
-    })),
-  
-  updateTask: (taskId, updates) =>
-    set((state) => ({
-      tasks: state.tasks.map((task) =>
-        task.taskId === taskId ? { ...task, ...updates } : task
-      ),
-    })),
-  
-  deleteTask: (taskId) =>
-    set((state) => ({
-      tasks: state.tasks.filter((task) => task.taskId !== taskId),
-    })),
-  
-  setTasks: (tasks) => set({ tasks }),
-
+export const useTasksStore = create<TasksStoreState>()((set, get) => ({
   // ==================== ADD TASK STATE ====================
   isOpen: false,
   taskData: {
@@ -634,8 +605,6 @@ export const useTasksStore = create<TasksStoreState>()(
   setDetailLoading: (loading) => set({ isDetailLoading: loading }),
   setDetailError: (error) => set({ detailError: error }),
   clearDetailError: () => set({ detailError: null }),
-})
-)
-
+}))
 
 export const useTaskStore = useTasksStore

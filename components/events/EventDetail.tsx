@@ -56,7 +56,7 @@ import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { SaveTemplateModal } from "@/components/events/SaveTemplateModal";
 import { ViewSwitcher } from "@/components/events/ViewSwitcher";
 import { KanbanBoard } from "@/components/events/KanbanBoard";
-import type { Event, Task, TaskStatus, TaskPriority, UserLite } from "@/lib/types";
+import type { Event, Task, TaskStatus, TaskPriority, UserLite , EventTemplateData } from "@/lib/types";
 import { useUiStore } from "@/stores/ui-store";
 import { useEventViewStore } from "@/stores/eventViewStore";
 import { useEventDetailStore } from "@/stores/Eventdetailstore";
@@ -76,7 +76,9 @@ interface EventDetailProps {
   onTaskAction?: (taskId: string, action: "edit" | "reassign" | "setDueDate" | "delete") => void;
   onDeleteEvent?: (eventId: string) => void;
   onEditEvent?: (eventId: string) => void;
+  onSaveTemplate?: (eventId: string, templateData: EventTemplateData) => void;
 }
+
 
 const safeDate = (value: string | null | undefined): Date | null =>
   value ? new Date(value) : null;

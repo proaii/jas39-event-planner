@@ -4,14 +4,19 @@ import { useParams, useRouter } from "next/navigation";
 import { EventDetail } from "@/components/events/EventDetail";
 import { EditEventModal } from "@/components/events/EditEventModal";
 import { useUiStore } from "@/stores/ui-store";
-import { useTasksStore } from "@/stores/task-store"
 import { 
   useSaveTemplate, 
   useEventById, 
   useDeleteEvent,
 } from "@/stores/useEventStore";
-import { TemplateData } from "@/schemas/template";
+import { 
+  useFetchEventTasks,
+  useCreateEventTask,
+  useEditTask,
+  useDeleteTask,
+} from "@/lib/client/features/tasks/hooks";
 import type { Task, TaskStatus } from "@/lib/types";
+import type { InfiniteData } from '@tanstack/react-query';
 import { toast } from "react-hot-toast";
 import { useFetchUsers, useFetchCurrentUser } from "@/lib/client/features/users/hooks";
 
@@ -22,35 +27,49 @@ export default function EventDetailPage() {
   // --- Convert id to string safely ---
   const eventId = typeof id === "string" ? id : Array.isArray(id) ? id[0] : null;
 
-  // --- UI Store ---
+  // --- UI Store (UI State Only) ---
   const { openEditEventModal } = useUiStore();
-  
-  // --- Tasks Store ---
-  const { 
-    addTask, 
-    updateTaskStatus: updateTaskStatusInStore,
-    getTasksByEventId,
-  } = useTasksStore();
-  
-  // --- Mutations ---
-  const { mutate: saveTemplateMutate, isPending: isSavingTemplate } = useSaveTemplate();
-  const deleteEventMutation = useDeleteEvent();
 
-  // --- Auth & Users ---
+  // --- React Query: Event Data ---
+  const { 
+    data: event, 
+    isLoading: isEventLoading, 
+    isError: isEventError 
+  } = useEventById(eventId);
+
+  // --- React Query: Tasks Data (using infinite query) ---
+  const { 
+    data: tasksData,
+    isLoading: isTasksLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useFetchEventTasks({
+    eventId: eventId!,
+  });
+
+  // Flatten all pages safely
+  const tasks: Task[] = tasksData ? tasksData.items : [];
+
+  // --- React Query: Auth & Users ---
   const { 
     data: currentUser, 
     isLoading: isCurrentUserLoading 
   } = useFetchCurrentUser();
 
-  const { data: allUsers = [], isLoading: isUsersLoading } = useFetchUsers({
+  const { 
+    data: allUsers = [], 
+    isLoading: isUsersLoading 
+  } = useFetchUsers({
     enabled: true,
   });
 
-  // --- Event Data ---
-  const event = useEventById(eventId);
-
-  // --- Get tasks for this event ---
-  const eventTasks = eventId ? getTasksByEventId(eventId) : [];
+  // --- Mutations ---
+  const createTaskMutation = useCreateEventTask(eventId || "");
+  const editTaskMutation = useEditTask();
+  const deleteTaskMutation = useDeleteTask();
+  const deleteEventMutation = useDeleteEvent();
+  const { mutate: saveTemplateMutate } = useSaveTemplate();
 
   // --- Loading & Error States ---
   if (!eventId) {
@@ -63,7 +82,10 @@ export default function EventDetailPage() {
     );
   }
 
-  if (isCurrentUserLoading || isUsersLoading) {
+  // Combined loading state
+  const isLoading = isEventLoading || isTasksLoading || isCurrentUserLoading || isUsersLoading;
+
+  if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-2">
@@ -86,7 +108,7 @@ export default function EventDetailPage() {
     );
   }
 
-  if (!event) {
+  if (isEventError || !event) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -110,27 +132,44 @@ export default function EventDetailPage() {
   };
 
   const handleTaskStatusChange = (taskId: string, newStatus: TaskStatus) => {
-    try {
-      updateTaskStatusInStore(taskId, newStatus);
-      toast.success("Task status updated");
-    } catch (error) {
-      console.error("Failed to update task status:", error);
-      toast.error("Failed to update task status");
-    }
+    editTaskMutation.mutate(
+      { 
+        taskId, 
+        patch: { taskStatus: newStatus } 
+      },
+      {
+        onSuccess: () => {
+          toast.success("Task status updated");
+        },
+        onError: (error) => {
+          console.error("Failed to update task status:", error);
+          toast.error("Failed to update task status");
+        },
+      }
+    );
   };
 
-  const handleAddTask = (task: Omit<Task, "taskId" | "createdAt">) => {
-    try {
-      addTask({
-        ...task,
-        eventId: event.eventId,
-        eventTitle: event.title,
-      });
-      toast.success("Task added successfully");
-    } catch (error) {
-      console.error("Failed to add task:", error);
-      toast.error("Failed to add task");
-    }
+  const handleAddTask = (taskInput: Omit<Task, "taskId" | "eventId" | "eventTitle" | "createdAt">) => {
+    // useCreateEventTask expects Omit<Task, "taskId" | "eventTitle">
+    // So we need to add back eventId and createdAt will be handled by API
+    const taskPayload: Omit<Task, "taskId" | "eventTitle"> = {
+      ...taskInput,
+      eventId: event.eventId,
+      createdAt: new Date().toISOString(), // Temporary, API will override
+    };
+
+    createTaskMutation.mutate(
+      taskPayload,
+      {
+        onSuccess: () => {
+          toast.success("Task added successfully");
+        },
+        onError: (error) => {
+          console.error("Failed to add task:", error);
+          toast.error("Failed to add task");
+        },
+      }
+    );
   };
 
   const handleEditEvent = (eventId: string) => {
@@ -154,9 +193,23 @@ export default function EventDetailPage() {
     });
   };
 
-  const handleSaveTemplate = (eventId: string, templateData: TemplateData) => {
+  const handleSaveTemplate = (eventId: string, templateData: any) => {
+    // Convert EventTemplateData to the expected format
+    const payload = {
+      name: event.title, // Use event title as template name
+      title: templateData.title || event.title,
+      description: templateData.eventDescription || event.description,
+      location: templateData.location || event.location,
+      eventDescription: templateData.eventDescription || event.description,
+      coverImageUri: templateData.coverImageUri || event.coverImageUri,
+      color: templateData.color ?? event.color,
+      startAt: templateData.startAt || event.startAt,
+      endAt: templateData.endAt || event.endAt,
+      members: templateData.members || event.members || [],
+    };
+
     saveTemplateMutate(
-      { eventId, data: templateData },
+      { eventId, data: payload },
       {
         onSuccess: () => {
           toast.success("Template saved successfully");
@@ -173,7 +226,7 @@ export default function EventDetailPage() {
     <div className="min-h-screen bg-background">
       <EventDetail
         event={event}
-        tasks={eventTasks}
+        tasks={tasks}
         currentUser={currentUser}
         allUsers={allUsers}
         onBack={handleBack}

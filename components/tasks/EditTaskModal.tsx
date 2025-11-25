@@ -11,18 +11,14 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CheckSquare, Calendar, Users, X, Flag, Plus, Trash2, Paperclip, ExternalLink, Loader2 } from 'lucide-react'
 import type { UserLite, TaskStatus, TaskPriority } from '@/lib/types'
-import { useTasksStore, useTaskStore } from "@/stores/task-store"
+import { useTasksStore } from "@/stores/task-store"
 import { useUiStore } from "@/stores/ui-store"
-import { useEditTask } from '@/lib/client/features/tasks/hooks'
+import { useFetchTask, useEditTask } from '@/lib/client/features/tasks/hooks'
 import { toast } from 'sonner'
 
 interface EditTaskModalProps {
-  isOpen: boolean;
-  onClose: () => void;
   availableAssignees: UserLite[];
-  taskId?: string | null;
 }
-
 
 export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
   const { 
@@ -31,14 +27,14 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
     closeEditTaskModal 
   } = useUiStore()
 
-  // Get task from task store using selectedTaskIdForEdit
-  const { tasks } = useTaskStore()
-  const editingTask = React.useMemo(
-    () => tasks.find((t) => t.taskId === selectedTaskIdForEdit),
-    [tasks, selectedTaskIdForEdit]
-  )
+  // Fetch task data using React Query
+  const { 
+    data: editingTask, 
+    isLoading: isLoadingTask,
+    error: taskError 
+  } = useFetchTask(selectedTaskIdForEdit || '')
 
-  // Zustand store for form data
+  // Zustand store for form data (UI state only)
   const {
     editFormData,
     editHasTimePeriod,
@@ -68,12 +64,12 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
 
   const editTaskMutation = useEditTask()
 
-  // Initialize edit form when task is selected
+  // Initialize edit form when task is loaded
   useEffect(() => {
     if (editingTask && isEditTaskModalOpen) {
       openEditModal(editingTask)
     }
-  }, [editingTask, isEditTaskModalOpen])
+  }, [editingTask, isEditTaskModalOpen, openEditModal])
 
   useEffect(() => {
     setEditIsPending(editTaskMutation.isPending)
@@ -144,7 +140,7 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
   }
 
   // Loading skeleton when task data is being fetched
-  if (!editingTask && isEditTaskModalOpen) {
+  if (isLoadingTask && isEditTaskModalOpen) {
     return (
       <Dialog open={isEditTaskModalOpen} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
@@ -159,6 +155,29 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
                 <Skeleton className="h-10 w-full" />
               </div>
             ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  // Error state
+  if (taskError && isEditTaskModalOpen) {
+    return (
+      <Dialog open={isEditTaskModalOpen} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Error Loading Task</DialogTitle>
+          </DialogHeader>
+          <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md">
+            <p className="text-sm text-destructive">
+              {taskError.message || 'Failed to load task data'}
+            </p>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={handleClose} variant="outline">
+              Close
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

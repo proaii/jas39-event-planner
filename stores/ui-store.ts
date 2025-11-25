@@ -112,6 +112,11 @@ interface UiStore {
   openEditProfileModal: () => void;
   closeEditProfileModal: () => void;
 
+ // Template Modal 
+  isTemplateModalOpen: boolean;
+  openTemplateModal: () => void;
+  closeTemplateModal: () => void;
+
   // ==================== TEMPLATE PREFILL DATA ====================
   eventPrefillData: Partial<Event> | null;
   setEventPrefillData: (data: Partial<Event> | null) => void;
@@ -197,6 +202,11 @@ const DEFAULT_PROFILE_DATA: ProfileData = {
 export const useUiStore = create<UiStore>()(
   persist(
     (set, get) => ({
+      // ==================== TEMPLATE MODAL ====================
+      isTemplateModalOpen: false,
+      openTemplateModal: () => set({ isTemplateModalOpen: true }),
+      closeTemplateModal: () => set({ isTemplateModalOpen: false }),
+
       // ==================== FORGOT PASSWORD ====================
       forgotPassword: { isLoading: false, error: null, success: false },
       

@@ -26,24 +26,17 @@ import {
 } from "lucide-react";
 import { Event } from "@/lib/types";
 import { useUiStore } from "@/stores/ui-store";
-import { useEventStore, useFetchEvents, useCreateEvent, useDeleteEvent } from "@/stores/useEventStore";
+import { useFetchEvents, useCreateEvent, useDeleteEvent } from "@/stores/useEventStore";
 import { AddEventModal } from "@/components/events/AddEventModal";
 import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
 import { TemplateData } from "@/schemas/template";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-// import { useUser } from "@/lib/client/features/auth/hooks";
-// import { useFetchUser } from "@/lib/client/features/users/hooks";
-
+import { filterEvents, sortEvents } from "@/lib/utils";
 
 export default function AllEventsPage() {
   const router = useRouter();
 
-  // const { data: authUser } = useUser();
-  // const { data: currentUser } = useFetchUser(
-  //   authUser?.id ?? ""
-  // );
-
-  // ------------------- UI STORE -------------------
+  // ------------------- UI STORE (UI State Only) -------------------
   const {
     isAddEventModalOpen,
     openAddEventModal,
@@ -63,24 +56,20 @@ export default function AllEventsPage() {
     setDateFilters,
   } = useUiStore();
 
-  const { events, setEvents } = useEventStore();
-  const { data: fetchedEvents } = useFetchEvents();
+  // ------------------- REACT QUERY (Server State) -------------------
+  const { data: eventsData, isLoading, isError, error } = useFetchEvents();
   const createEventMutation = useCreateEvent();
   const deleteEventMutation = useDeleteEvent();
 
-  React.useEffect(() => {
-    if (fetchedEvents && fetchedEvents.items) {
-      setEvents(fetchedEvents.items);
-    }
-  }, [fetchedEvents, setEvents]);
+  // Get events from query data (server state)
+  const events = eventsData?.items ?? [];
 
-
+  // ------------------- LOCAL STATE (Temporary UI State) -------------------
   const [prefillData, setPrefillData] = useState<Partial<Event> | null>(null);
-
-  // ------------------- FILTER STATE -------------------
   const [tempProgressFilters, setTempProgressFilters] = useState(progressFilters);
   const [tempDateFilters, setTempDateFilters] = useState(dateFilters);
 
+  // Sync temp filters when filter panel opens
   React.useEffect(() => {
     if (isFilterOpen) {
       setTempProgressFilters(progressFilters);
@@ -92,8 +81,11 @@ export default function AllEventsPage() {
   const handleCreateEvent = (
     eventData: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members">
   ) => {
-    createEventMutation.mutate({
-      ...eventData,
+    createEventMutation.mutate(eventData, {
+      onSuccess: () => {
+        closeAddEventModal();
+        setPrefillData(null);
+      },
     });
   };
 
@@ -111,6 +103,7 @@ export default function AllEventsPage() {
       startAt: data.startAt,
       endAt: data.endAt,
     });
+    closeTemplateModal();
     openAddEventModal();
   };
 
@@ -125,22 +118,56 @@ export default function AllEventsPage() {
     setTempDateFilters({ past: true, thisWeek: true, thisMonth: true, upcoming: true });
   };
 
-  // ------------------- FILTER & SORT -------------------
+  // ------------------- FILTER & SORT (Pure on Query Data) -------------------
   const filteredAndSortedEvents = useMemo(() => {
-    let filtered = events;
+    // Filter events
+    const filtered = filterEvents(events, searchQuery, progressFilters, dateFilters);
+    
+    // Sort events
+    return sortEvents(filtered, sortBy);
+  }, [events, searchQuery, progressFilters, dateFilters, sortBy]);
 
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (event) =>
-          event.title.toLowerCase().includes(query) ||
-          (event.description && event.description.toLowerCase().includes(query)) ||
-          (event.location && event.location.toLowerCase().includes(query))
-      );
-    }
+  // ------------------- LOADING & ERROR STATES -------------------
+  if (isLoading) {
+    return (
+      <main className="flex-1 p-8 space-y-8 max-w-[1600px] mx-auto">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-foreground">All Events</h1>
+            <p className="text-muted-foreground">View and manage all your events</p>
+          </div>
+        </div>
+        <Card className="p-12 text-center">
+          <div className="space-y-4">
+            <Calendar className="w-16 h-16 text-muted-foreground mx-auto animate-pulse" />
+            <p className="text-muted-foreground">Loading events...</p>
+          </div>
+        </Card>
+      </main>
+    );
+  }
 
-    return filtered;
-  }, [events, searchQuery]);
+  if (isError) {
+    return (
+      <main className="flex-1 p-8 space-y-8 max-w-[1600px] mx-auto">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-foreground">All Events</h1>
+            <p className="text-muted-foreground">View and manage all your events</p>
+          </div>
+        </div>
+        <Card className="p-12 text-center">
+          <div className="space-y-4">
+            <Calendar className="w-16 h-16 text-destructive mx-auto" />
+            <div>
+              <h3 className="font-semibold text-foreground mb-2">Failed to load events</h3>
+              <p className="text-muted-foreground">{error?.message || "An error occurred"}</p>
+            </div>
+          </div>
+        </Card>
+      </main>
+    );
+  }
 
   // ------------------- RENDER -------------------
   return (
@@ -156,6 +183,7 @@ export default function AllEventsPage() {
           <Button
             onClick={openAddEventModal}
             className="bg-primary hover:bg-primary/90 rounded-r-none border-r border-primary-foreground/20"
+            disabled={createEventMutation.isPending}
           >
             <Plus className="w-4 h-4 mr-2" />
             Create Event
@@ -346,28 +374,19 @@ export default function AllEventsPage() {
       {/* Modals */}
       <AddEventModal
         isOpen={isAddEventModalOpen}
-        onClose={closeAddEventModal}
+        onClose={() => {
+          closeAddEventModal();
+          setPrefillData(null);
+        }}
         onCreateEvent={handleCreateEvent}
-        prefillData={prefillData ?? undefined}
       />
 
       <CreateFromTemplateModal
         isOpen={isTemplateModalOpen}
-        templates={events.map((e) => ({
-          name: e.title,
-          description: e.description,
-          title: e.title,
-          location: e.location,
-          eventDescription: e.description,
-          coverImageUri: e.coverImageUri,
-          color: e.color,
-          startAt: e.startAt,
-          endAt: e.endAt,
-          members: e.members,
-        }))}
         onClose={closeTemplateModal}
         onUseTemplate={handleUseTemplate}
       />
+
     </main>
   );
 }

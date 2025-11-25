@@ -1,15 +1,14 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation"; // Import useRouter
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, CalendarDays, Clock, MapPin, ChevronLeft, ChevronRight, Plus } from "lucide-react"; // Import Plus icon
-
+import { Download, CalendarDays, Clock, MapPin, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Event } from "@/lib/types";
-import { createEvent as createIcsEvent, EventAttributes } from 'ics';
-import { AddEventModal } from "@/components/events/AddEventModal"; // Import the modal
-import { useCreateEvent } from "@/lib/client/features/events/hooks"; // Import the hook
+import { createEvent, EventAttributes } from 'ics';
+import { AddEventModal } from "@/components/events/AddEventModal";
+import { useCreateEvent } from "@/lib/client/features/events/hooks";
 
 function downloadIcsFile(content: string, fileName: string) {
   const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
@@ -21,11 +20,21 @@ function downloadIcsFile(content: string, fileName: string) {
   document.body.removeChild(link);
 }
 
-export default function Calendar({ events, isLoading, currentDate, setCurrentDate }: { events: Event[], isLoading: boolean, currentDate: Date, setCurrentDate: (date: Date) => void }) {
+export default function Calendar({ 
+  events, 
+  isLoading, 
+  currentDate, 
+  setCurrentDateAction  
+}: { 
+  events: Event[];
+  isLoading: boolean;
+  currentDate: Date;
+  setCurrentDateAction: (date: Date) => void;
+}) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
-  const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false); // State for modal
-  const router = useRouter(); // Initialize useRouter
-  const createEventMutation = useCreateEvent(); // Initialize the mutation hook
+  const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
+  const router = useRouter();
+  const createEventMutation = useCreateEvent();
 
   const eventsByDate = useMemo(() => {
     return events
@@ -57,11 +66,11 @@ export default function Calendar({ events, isLoading, currentDate, setCurrentDat
   };
 
   const handlePrevMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1));
+    setCurrentDateAction(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1));
   };
 
   const handleNextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
+    setCurrentDateAction(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
   };
 
   const handleDateClick = (day: number) => {
@@ -94,21 +103,44 @@ export default function Calendar({ events, isLoading, currentDate, setCurrentDat
 
   const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentDate);
 
-  const handleExport = (event: Event) => {
-    const startAt = new Date(event.startAt!);
-    const endAt = new Date(event.endAt!);
+  const handleExport = (event: Event, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!event.startAt || !event.endAt) {
+      console.error('Event missing start or end date');
+      return;
+    }
+
+    const startAt = new Date(event.startAt);
+    const endAt = new Date(event.endAt);
 
     const icsEvent: EventAttributes = {
-      start: [startAt.getFullYear(), startAt.getMonth() + 1, startAt.getDate(), startAt.getHours(), startAt.getMinutes()],
-      end: [endAt.getFullYear(), endAt.getMonth() + 1, endAt.getDate(), endAt.getHours(), endAt.getMinutes()],
+      start: [
+        startAt.getFullYear(),
+        startAt.getMonth() + 1,
+        startAt.getDate(),
+        startAt.getHours(),
+        startAt.getMinutes()
+      ],
+      end: [
+        endAt.getFullYear(),
+        endAt.getMonth() + 1,
+        endAt.getDate(),
+        endAt.getHours(),
+        endAt.getMinutes()
+      ],
       title: event.title,
-      description: event.description,
-      location: event.location,
+      description: event.description || undefined,
+      location: event.location || undefined,
+      status: 'CONFIRMED',
+      busyStatus: 'BUSY',
+      organizer: { name: 'Event Manager', email: 'noreply@eventmanager.com' },
+      uid: event.eventId,
     };
 
-    createIcsEvent(icsEvent, (error, value) => {
+    createEvent(icsEvent, (error: Error | undefined, value: string) => {
       if (error) {
-        console.error(error);
+        console.error('Error creating ICS file:', error);
         return;
       }
       downloadIcsFile(value, `${event.title}.ics`);
@@ -116,8 +148,20 @@ export default function Calendar({ events, isLoading, currentDate, setCurrentDat
   };
 
   const handleCreateEvent = (eventData: Omit<Event, 'eventId' | 'ownerId' | 'createdAt'>) => {
-    createEventMutation.mutate(eventData);
+  const payload: Omit<Event, 'members' | 'id' | 'tasks'> = {
+    ...eventData,
+    eventId: crypto.randomUUID(), 
+    ownerId: 'currentUserId',      
+    createdAt: new Date().toISOString(),
   };
+
+    createEventMutation.mutate(payload, {
+      onSuccess: () => setIsAddEventModalOpen(false),
+    });
+  };
+
+
+
 
   const eventsForSelectedDate = selectedDate
     ? eventsByDate[`${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`] || []
@@ -144,7 +188,6 @@ export default function Calendar({ events, isLoading, currentDate, setCurrentDat
           {isLoading && <p>Loading...</p>}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Calendar Card */}
             <Card className="lg:col-span-2 shadow-lg border-0 overflow-hidden">
               <CardHeader className="bg-primary text-primary-foreground">
                 <div className="flex items-center justify-between">
@@ -173,7 +216,6 @@ export default function Calendar({ events, isLoading, currentDate, setCurrentDat
                 </div>
               </CardHeader>
               <CardContent className="p-6">
-                {/* Weekday headers */}
                 <div className="grid grid-cols-7 gap-2 mb-2">
                   {weekDays.map(day => (
                     <div key={day} className="text-center text-sm font-medium text-muted-foreground py-2">
@@ -182,14 +224,11 @@ export default function Calendar({ events, isLoading, currentDate, setCurrentDat
                   ))}
                 </div>
 
-                {/* Calendar grid */}
                 <div className="grid grid-cols-7 gap-2">
-                  {/* Empty cells for days before month starts */}
                   {Array.from({ length: startingDayOfWeek }).map((_, i) => (
                     <div key={`empty-${i}`} className="aspect-square" />
                   ))}
 
-                  {/* Days of the month */}
                   {Array.from({ length: daysInMonth }).map((_, i) => {
                     const day = i + 1;
                     const today = isToday(day);
@@ -221,10 +260,9 @@ export default function Calendar({ events, isLoading, currentDate, setCurrentDat
               </CardContent>
             </Card>
 
-            {/* Events List Card */}
             <Card className="shadow-lg border-0 overflow-hidden">
               <CardHeader className="bg-secondary text-secondary-foreground">
-                <div className="flex items-center justify-between"> {/* Added div for layout */}
+                <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">
                     {selectedDate?.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
                   </CardTitle>
@@ -254,7 +292,7 @@ export default function Calendar({ events, isLoading, currentDate, setCurrentDat
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleExport(event)}
+                            onClick={(e) => handleExport(event, e)}
                             className="opacity-0 group-hover:opacity-100 transition-opacity -mt-1 -mr-2 h-8 w-8 p-0"
                           >
                             <Download className="w-4 h-4" />
@@ -294,7 +332,6 @@ export default function Calendar({ events, isLoading, currentDate, setCurrentDat
             </Card>
           </div>
 
-          {/* Event Count Summary */}
           <Card className="mt-6 shadow-lg border-0">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -322,9 +359,7 @@ export default function Calendar({ events, isLoading, currentDate, setCurrentDat
         isOpen={isAddEventModalOpen}
         onClose={() => setIsAddEventModalOpen(false)}
         onCreateEvent={handleCreateEvent}
-        defaultDate={selectedDate}
       />
     </>
   );
 }
-

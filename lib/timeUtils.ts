@@ -85,6 +85,55 @@ export const formatEventDateRange = (event: {
   return `${startDate} - ${endDate}`;
 };
 
+// Format a date range for events using ISO strings (for Event type with startAt/endAt)
+export const formatEventDateRangeISO = (event: {
+  startAt?: string | null;
+  endAt?: string | null;
+}): string => {
+  // Return empty string if dates are missing
+  if (!event.startAt || !event.endAt) return '';
+  
+  const { date: startDate, time: startTime } = extractDateAndTime(event.startAt);
+  const { date: endDate, time: endTime } = extractDateAndTime(event.endAt);
+  
+  if (!startDate || !startTime) return '';
+  
+  const formatDateStr = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+  
+  const formatTimeStr = (timeStr: string) => {
+    const [hours, minutes] = timeStr.split(':');
+    const date = new Date();
+    date.setHours(parseInt(hours), parseInt(minutes));
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+  
+  // Single day event
+  if (startDate === endDate) {
+    if (endTime && endTime !== startTime) {
+      return `${formatDateStr(startDate)}, ${formatTimeStr(startTime)} - ${formatTimeStr(endTime)}`;
+    }
+    return `${formatDateStr(startDate)} at ${formatTimeStr(startTime)}`;
+  }
+  
+  // Multi-day event
+  if (endDate && endTime) {
+    return `${formatDateStr(startDate)} ${formatTimeStr(startTime)} - ${formatDateStr(endDate)} ${formatTimeStr(endTime)}`;
+  }
+  
+  return `${formatDateStr(startDate)} - ${endDate ? formatDateStr(endDate) : ''}`;
+};
+
 // Format a date range for tasks
 export const formatTaskDateRange = (task: {
   startDate?: string;
@@ -296,6 +345,21 @@ export const isCurrentlyActive = (item: {
   }
   
   return false;
+};
+
+// Check if an event (with ISO string dates) is currently active
+export const isEventActive = (event: {
+  startAt?: string | null;
+  endAt?: string | null;
+}): boolean => {
+  // Return false if dates are missing
+  if (!event.startAt || !event.endAt) return false;
+  
+  const now = new Date();
+  const start = new Date(event.startAt);
+  const end = new Date(event.endAt);
+  
+  return now >= start && now <= end;
 };
 
 // Get a relative time description (e.g., "2 days ago", "in 3 hours")

@@ -30,6 +30,7 @@ export const mockTasks: Task[] = [
   {
     taskId: "t1",
     eventId: "e1",
+    creatorId: "u1",
     title: "Design the new landing page",
     description: "Hero, pricing, and CTA sections",
     taskStatus: "In Progress",
@@ -44,6 +45,7 @@ export const mockTasks: Task[] = [
   {
     taskId: "t2",
     eventId: "e1",
+    creatorId: "u1",
     title: "Develop the API for the new feature",
     taskStatus: "To Do",
     taskPriority: "Urgent",
@@ -51,10 +53,13 @@ export const mockTasks: Task[] = [
     endAt: iso(addDays(now, 2)),
     createdAt: iso(subDays(now, 1)),
     assignees: [mockUsers.u2],
+    subtasks: [],
+    attachments: [],
   },
   {
     taskId: "t3",
     eventId: null,                     // personal task
+    creatorId: "u1",
     title: "Write the documentation for the API",
     taskStatus: "To Do",
     taskPriority: "Normal",
@@ -62,10 +67,13 @@ export const mockTasks: Task[] = [
     endAt: iso(addDays(now, 10)),
     createdAt: iso(now),
     assignees: [mockUsers.u2],
+    subtasks: [],
+    attachments: [],
   },
   {
     taskId: "t4",
     eventId: "e2",
+    creatorId: "u1",
     title: "Test the new feature",
     taskStatus: "Done",
     taskPriority: "High",
@@ -73,6 +81,8 @@ export const mockTasks: Task[] = [
     endAt: iso(subDays(now, 2)),
     createdAt: iso(subDays(now, 5)),
     assignees: [mockUsers.u2],
+    subtasks: [],
+    attachments: [],
   },
 ];
 

@@ -8,7 +8,7 @@ import { Activity } from "lucide-react";
 import { useUiStore } from "@/stores/ui-store";
 import { useFetchRecentActivity } from "@/lib/client/features/activities/hooks";
 import { useFetchEvents } from "@/lib/client/features/events/hooks";
-import type { Event } from "@/lib/types";
+
 
 export function RecentActivityWidget() {
   const { setLoading, setError } = useUiStore();

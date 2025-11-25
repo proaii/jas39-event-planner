@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Calendar from "@/components/calendar/Calendar";
 import { useFetchEvents } from "@/lib/client/features/events/hooks";
-import { type Task } from "@/lib/types";
+
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());

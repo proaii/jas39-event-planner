@@ -22,7 +22,7 @@ import { TaskCard } from "@/components/task-card";
 import { EditTaskModal } from "@/components/tasks/EditTaskModal";
 import { useFetchUsers, useFetchUser } from "@/lib/client/features/users/hooks";
 import { useUser } from "@/lib/client/features/auth/hooks";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { filterTasks, sortTasks } from "@/lib/utils";
 import { TasksGridSkeleton } from "@/components/tasks/TasksGridSkeleton";
 

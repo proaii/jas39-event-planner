@@ -39,7 +39,6 @@ export function TaskCard({
   onClick,
 }: TaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const router = useRouter();
 
   const handleTaskRowClick = () => {
     if (onClick) {

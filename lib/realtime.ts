@@ -1,12 +1,14 @@
 // lib/realtime.ts
 import { supabaseClient } from '@/lib/client/supabase/client';
 
+type RealtimeRow = Record<string, unknown>;
+
 type RealtimeOptions = {
   eventId?: string;
   onChange?: (payload: {
     eventType: 'INSERT' | 'UPDATE' | 'DELETE';
-    new: any | null;
-    old: any | null;
+    new: RealtimeRow | null;
+    old: RealtimeRow | null;
   }) => void;
 };
 
@@ -29,8 +31,8 @@ export function getRealtimeChannel(tableName: string, options: RealtimeOptions =
 
         onChange?.({
           eventType: payload.eventType,
-          new: payload.new ?? null,
-          old: payload.old ?? null,
+          new: (payload.new ?? null) as RealtimeRow | null,
+          old: (payload.old ?? null) as RealtimeRow | null,
         });
       }
     )

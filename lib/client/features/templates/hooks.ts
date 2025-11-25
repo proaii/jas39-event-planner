@@ -4,15 +4,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ApiError } from '@/lib/errors';
 import type { EventTemplate } from '@/lib/types';
 import type { TemplateData } from '@/schemas/template';
-import { MINUTES } from '@/lib/constants'
+import { MINUTES } from '@/lib/constants';
 
 // ---------- Event Templates ----------
 
-export function useFetchTemplates() {
+export function useFetchTemplates(eventId: string) {
   return useQuery<EventTemplate[], ApiError>({
-    queryKey: ['templates'], 
+    queryKey: ['templates', eventId],
     queryFn: async () => {
-      const r = await fetch(`/api/templates`); 
+      const r = await fetch(`/api/events/${eventId}/templates`);
       if (!r.ok) throw (await r.json()) as ApiError;
       return (await r.json()) as EventTemplate[];
     },
@@ -22,8 +22,12 @@ export function useFetchTemplates() {
 
 export function useSaveTemplate() {
   const qc = useQueryClient();
-  
-  return useMutation<EventTemplate, ApiError, { eventId: string; data: TemplateData }>({
+
+  return useMutation<
+    EventTemplate,
+    ApiError,
+    { eventId: string; data: TemplateData }
+  >({
     mutationFn: async ({ eventId, data }) => {
       const r = await fetch(`/api/events/${eventId}/templates`, {
         method: 'POST',
@@ -33,8 +37,8 @@ export function useSaveTemplate() {
       if (!r.ok) throw (await r.json()) as ApiError;
       return (await r.json()) as EventTemplate;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['templates'] });
+    onSuccess: (_data, { eventId }) => {
+      qc.invalidateQueries({ queryKey: ['templates', eventId] });
     },
   });
 }

@@ -24,15 +24,17 @@ interface CreateFromTemplateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUseTemplate: (eventData: TemplateData) => void;
+  eventId: string;                // ✅ add this
 }
 
 export function CreateFromTemplateModal({
   isOpen,
   onClose,
   onUseTemplate,
+  eventId,                         // ✅ destructure
 }: CreateFromTemplateModalProps) {
 
-  const { data: templates, isLoading, error } = useFetchTemplates();
+  const { data: templates, isLoading, error } = useFetchTemplates(eventId);  // ✅ use it
 
   // --- map EventTemplateData -> TemplateData ---
   const mapEventTemplateToTemplateData = (template: EventTemplate): TemplateData => {
@@ -44,7 +46,7 @@ export function CreateFromTemplateModal({
       eventDescription: e.description ?? undefined,
       location: e.location ?? undefined,
       coverImageUri: e.cover_image_uri ?? undefined,
-      color: Number(e.color),        // <-- แปลงเป็น number
+      color: Number(e.color ?? 0),
       startAt: e.start_at ?? undefined,
       endAt: e.end_at ?? undefined,
       members: e.members ?? [],
@@ -56,7 +58,7 @@ export function CreateFromTemplateModal({
         startAt: task.start_at ?? undefined,
         endAt: task.end_at ?? undefined,
         assignees: task.assignees ?? [],
-      }))
+      })),
     };
   };
 
@@ -112,7 +114,10 @@ export function CreateFromTemplateModal({
                           <CardDescription className="mt-1">{template.description}</CardDescription>
                         </div>
 
-                        <Button size="sm" onClick={() => handleSelectTemplate(template)}>
+                        <Button
+                          size="sm"
+                          onClick={() => handleSelectTemplate(template)}
+                        >
                           Use Template
                         </Button>
                       </div>

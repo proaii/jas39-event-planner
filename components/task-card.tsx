@@ -21,6 +21,7 @@ import { AttachmentList } from "./attachment-list";
 import type { Task, TaskStatus } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { priorityColorMap, statusColorMap } from "@/lib/constants";
+import { useRouter } from "next/navigation";
 
 interface TaskCardProps {
   task: Task;
@@ -38,6 +39,7 @@ export function TaskCard({
   onClick,
 }: TaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const router = useRouter();
 
   const handleTaskRowClick = () => {
     if (onClick) {

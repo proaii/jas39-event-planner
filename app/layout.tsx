@@ -12,7 +12,7 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Next.js + Supabase Starter",
+  title: "JAS39 Event Planner",
   description: "Modern setup with React Query, ThemeProvider, Supabase auth",
 };
 

@@ -109,18 +109,20 @@ export function AddTaskModal({
   }, [isOpen, isPersonal, currentUser, taskData.assignees, setAssignees])
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (!isFormValid(isPersonal)) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    const finalTask: Omit<Task, 'taskId' | 'createdAt' | 'eventTitle'| 'creatorId'> = {
+    const nowIso = new Date().toISOString();
+
+    const finalTask: Omit<Task, "taskId" | "eventTitle"> = {
       title: taskData.title.trim(),
       description: taskData.description?.trim() || undefined,
       assignees: taskData.assignees,
@@ -130,13 +132,19 @@ export function AddTaskModal({
       taskPriority: taskData.taskPriority,
       subtasks: taskData.subtasks.length ? taskData.subtasks : undefined,
       attachments: taskData.attachments.length ? taskData.attachments : undefined,
-      eventId: eventId ?? null,
-    }
+      // required by mutation type
+      eventId: isPersonal ? null : eventId ?? null,
+      createdAt: nowIso,
+      creatorId: currentUser?.userId ?? "",
+    };
 
-    currentMutation.mutate(finalTask as any, {
+    currentMutation.mutate(finalTask, {
       onSuccess: (createdTask) => {
-       
-        queryClient.setQueryData<Task[]>(["tasks"], (old) => old ? [...old, createdTask] : [createdTask]);
+        const newTask = createdTask as Task;
+
+        queryClient.setQueryData<Task[]>(["tasks"], (old) =>
+          old ? [...old, newTask] : [newTask],
+        );
 
         toast({
           title: "Success",
@@ -144,18 +152,25 @@ export function AddTaskModal({
         });
 
         if (currentUser) resetForm(currentUser, isPersonal);
-
         onClose();
       },
-      onError: (error: any) => {
+      onError: (error: unknown) => {
+        const message =
+          error &&
+          typeof error === "object" &&
+          "message" in error &&
+          typeof (error as { message?: unknown }).message === "string"
+            ? (error as { message: string }).message
+            : "Failed to create task";
+
         toast({
           title: "Error",
-          description: error?.message || "Failed to create task",
+          description: message,
           variant: "destructive",
         });
       },
-    })
-  }
+    });
+  };
 
   const handleClose = () => {
     if (!currentMutation.isPending && currentUser) {

@@ -35,6 +35,8 @@ import {
 import { Task, TaskPriority, TaskStatus, UserLite } from "@/lib/types"
 import { useTasksStore } from "@/stores/task-store"
 import { useToast } from "@/components/ui/use-toast"
+import { useCreateEventTask, useCreatePersonalTask } from "@/lib/client/features/tasks/hooks"
+import { useQueryClient } from "@tanstack/react-query" 
 
 interface AddTaskModalProps {
   isOpen: boolean
@@ -43,7 +45,6 @@ interface AddTaskModalProps {
   currentUser?: UserLite | null
   isPersonal?: boolean
   eventId?: string | null
-  onCreateTask?: (taskData: Omit<Task, "taskId" | "createdAt">) => void
 }
 
 export function AddTaskModal({
@@ -53,16 +54,20 @@ export function AddTaskModal({
   currentUser,
   isPersonal = false,
   eventId,
-  onCreateTask,
 }: AddTaskModalProps) {
   const { toast } = useToast()
+  const queryClient = useQueryClient() 
+
+  // Use the appropriate mutation hook based on task type
+  const createEventTaskMutation = useCreateEventTask(eventId || '')
+  const createPersonalTaskMutation = useCreatePersonalTask()
+
+  const currentMutation = isPersonal ? createPersonalTaskMutation : createEventTaskMutation
 
   // Tasks Store for form data
   const taskData = useTasksStore((state) => state.taskData)
   const hasTimePeriod = useTasksStore((state) => state.hasTimePeriod)
   const newAttachmentUrl = useTasksStore((state) => state.newAttachmentUrl)
-  const isPending = useTasksStore((state) => state.isPending)
-  const error = useTasksStore((state) => state.error)
 
   // Actions
   const setTitle = useTasksStore((state) => state.setTitle)
@@ -83,8 +88,6 @@ export function AddTaskModal({
   const isFormValid = useTasksStore((state) => state.isFormValid)
   const resetForm = useTasksStore((state) => state.resetForm)
   const setAssignees = useTasksStore((state) => state.setAssignees)
-  const setIsPending = useTasksStore((state) => state.setIsPending)
-  const setError = useTasksStore((state) => state.setError)
 
   // Automatically assign current user when personal mode is active
   useEffect(() => {
@@ -105,19 +108,6 @@ export function AddTaskModal({
     }
   }, [isOpen, isPersonal, currentUser, taskData.assignees, setAssignees])
 
-
-  // Show error toast
-  useEffect(() => {
-    if (error) {
-      toast({
-        title: "Error",
-        description: error,
-        variant: "destructive",
-      })
-      setError(null)
-    }
-  }, [error, toast, setError])
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -130,44 +120,45 @@ export function AddTaskModal({
       return
     }
 
-    setIsPending(true)
-
-    try {
-      const finalTask: Omit<Task, "taskId" | "createdAt"> = {
-        title: taskData.title.trim(),
-        description: taskData.description?.trim() || undefined,
-        assignees: taskData.assignees,
-        startAt: hasTimePeriod ? taskData.startAt : null,
-        endAt: taskData.endAt,
-        taskStatus: taskData.taskStatus,
-        taskPriority: taskData.taskPriority,
-        subtasks: taskData.subtasks.length ? taskData.subtasks : undefined,
-        attachments: taskData.attachments.length ? taskData.attachments : undefined,
-        eventId: eventId ?? null,
-      }
-
-      if (onCreateTask) {
-        await onCreateTask(finalTask)
-      }
-
-      toast({
-        title: "Success",
-        description: "Task created successfully",
-      })
-
-      if (currentUser) {
-        resetForm(currentUser, isPersonal)
-      }
-      onClose()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create task")
-    } finally {
-      setIsPending(false)
+    const finalTask: Omit<Task, 'taskId' | 'createdAt' | 'eventTitle'> = {
+      title: taskData.title.trim(),
+      description: taskData.description?.trim() || undefined,
+      assignees: taskData.assignees,
+      startAt: hasTimePeriod ? taskData.startAt : null,
+      endAt: taskData.endAt,
+      taskStatus: taskData.taskStatus,
+      taskPriority: taskData.taskPriority,
+      subtasks: taskData.subtasks.length ? taskData.subtasks : undefined,
+      attachments: taskData.attachments.length ? taskData.attachments : undefined,
+      eventId: eventId ?? null,
     }
+
+    currentMutation.mutate(finalTask as any, {
+      onSuccess: (createdTask) => {
+       
+        queryClient.setQueryData<Task[]>(["tasks"], (old) => old ? [...old, createdTask] : [createdTask]);
+
+        toast({
+          title: "Success",
+          description: "Task created successfully",
+        });
+
+        if (currentUser) resetForm(currentUser, isPersonal);
+
+        onClose();
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error",
+          description: error?.message || "Failed to create task",
+          variant: "destructive",
+        });
+      },
+    })
   }
 
   const handleClose = () => {
-    if (currentUser) {
+    if (!currentMutation.isPending && currentUser) {
       resetForm(currentUser, isPersonal)
     }
     onClose()
@@ -186,6 +177,8 @@ export function AddTaskModal({
   const handleTimePeriodToggle = (checked: boolean) => {
     setHasTimePeriod(checked)
   }
+
+  const isPending = currentMutation.isPending
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>

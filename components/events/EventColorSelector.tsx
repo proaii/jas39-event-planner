@@ -11,9 +11,6 @@ const colorOptions = [
   { name: 'Chart 3', value: 'bg-chart-3' },
   { name: 'Chart 4', value: 'bg-chart-4' },
   { name: 'Chart 5', value: 'bg-chart-5' },
-  { name: 'Primary', value: 'bg-primary' },
-  { name: 'Secondary', value: 'bg-secondary' },
-  { name: 'Accent', value: 'bg-accent' },
 ];
 
 interface EventColorSelectorProps {

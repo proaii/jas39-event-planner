@@ -29,7 +29,7 @@ export function WelcomeHeader({
   return (
     <div className="flex items-center justify-between mb-8">
       <div>
-        <h1 className="text-foreground mb-2">
+        <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
           Welcome back, {currentUser.username.split(" ")[0]}! 👋
         </h1>
       </div>

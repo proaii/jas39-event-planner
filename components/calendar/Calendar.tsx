@@ -20,12 +20,12 @@ function downloadIcsFile(content: string, fileName: string) {
   document.body.removeChild(link);
 }
 
-export default function Calendar({ 
-  events, 
-  isLoading, 
-  currentDate, 
-  setCurrentDateAction  
-}: { 
+export default function Calendar({
+  events,
+  isLoading,
+  currentDate,
+  setCurrentDateAction
+}: {
   events: Event[];
   isLoading: boolean;
   currentDate: Date;
@@ -105,7 +105,7 @@ export default function Calendar({
 
   const handleExport = (event: Event, e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     if (!event.startAt || !event.endAt) {
       console.error('Event missing start or end date');
       return;
@@ -148,12 +148,12 @@ export default function Calendar({
   };
 
   const handleCreateEvent = (eventData: Omit<Event, 'eventId' | 'ownerId' | 'createdAt'>) => {
-  const payload: Omit<Event, 'members' | 'id' | 'tasks'> = {
-    ...eventData,
-    eventId: crypto.randomUUID(), 
-    ownerId: 'currentUserId',      
-    createdAt: new Date().toISOString(),
-  };
+    const payload: Omit<Event, 'members' | 'id' | 'tasks'> = {
+      ...eventData,
+      eventId: crypto.randomUUID(),
+      ownerId: 'currentUserId',
+      createdAt: new Date().toISOString(),
+    };
 
     createEventMutation.mutate(payload, {
       onSuccess: () => setIsAddEventModalOpen(false),
@@ -289,15 +289,16 @@ export default function Calendar({
                           <h3 className="font-semibold text-foreground text-base group-hover:text-primary transition-colors">
                             {event.title}
                           </h3>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => handleExport(event, e)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity -mt-1 -mr-2 h-8 w-8 p-0"
-                          >
-                            <Download className="w-4 h-4" />
-                          </Button>
-                        </div>
+                          {event.startAt && event.endAt && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => handleExport(event, e)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity -mt-1 -mr-2 h-8 w-8 p-0"
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          )}                        </div>
 
                         <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                           {event.description}

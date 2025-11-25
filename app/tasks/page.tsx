@@ -13,16 +13,18 @@ import {
 import { Card } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Filter, Plus, ArrowUpDown } from "lucide-react";
-import { Task, TaskStatus } from "@/lib/types";
+import { Search, Filter, Plus, ArrowUpDown, AlertCircle } from "lucide-react";
+import { Task } from "@/lib/types";
+
 import { useUiStore } from "@/stores/ui-store";
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { TaskCard } from "@/components/task-card";
 import { EditTaskModal } from "@/components/tasks/EditTaskModal";
 import { useFetchUsers, useFetchUser } from "@/lib/client/features/users/hooks";
 import { useUser } from "@/lib/client/features/auth/hooks";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { cn, filterTasks, sortTasks, getEffectiveDueDate } from "@/lib/utils";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { filterTasks, sortTasks } from "@/lib/utils";
+import { TasksGridSkeleton } from "@/components/tasks/TasksGridSkeleton";
 
 // ------------------- API Helpers -------------------
 async function fetchTasks(): Promise<Task[]> {
@@ -33,7 +35,6 @@ async function fetchTasks(): Promise<Task[]> {
 
 // ------------------- Main Component -------------------
 export default function AllTasksPage() {
-  const queryClient = useQueryClient();
 
   const {
     isAddTaskModalOpen,
@@ -92,8 +93,18 @@ export default function AllTasksPage() {
   }, [allTasks, searchQuery, progressFilters, sortBy]);
 
   // ------------------- RENDER -------------------
-  if (tasksLoading || usersLoading) return <div className="p-8 text-center">Loading...</div>;
-  if (tasksError) return <div className="p-8 text-center text-red-500">Failed to load tasks</div>;
+  if (tasksLoading || usersLoading) return <TasksGridSkeleton />;
+  if (tasksError) return (
+    <Card className="p-12 text-center border-destructive">
+      <div className="space-y-4">
+        <AlertCircle className="w-16 h-16 text-destructive mx-auto" />
+        <h3 className="font-semibold text-destructive mb-2">Failed to load tasks</h3>
+        <p className="text-muted-foreground mb-4">
+          An error occurred while fetching your tasks. Please try again later.
+        </p>
+      </div>
+    </Card>
+  );
 
   return (
     <main className="flex-1 p-8 space-y-8 max-w-[1600px] mx-auto">

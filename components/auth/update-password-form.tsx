@@ -1,6 +1,5 @@
-'use client';
+"use client";
 
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -27,10 +26,7 @@ const useUpdatePasswordUiStore = create<UpdatePasswordUiState>((set) => ({
   setError: (err) => set({ error: err }),
 }));
 
-export function UpdatePasswordForm({
-  className,
-  ...props
-}: React.ComponentPropsWithoutRef<"div">) {
+export function UpdatePasswordForm() {
   const [password, setPassword] = useState("");
   const router = useRouter();
   const { toast } = useToast();
@@ -55,7 +51,7 @@ export function UpdatePasswordForm({
         toast({ title: "Success", description: "Password updated!" });
         router.push("/dashboard");
       },
-      onError: (err: any) => {
+      onError: (err: Error) => {
         const msg = err.message || "Failed to update password";
         setError(msg);
         toast({ title: "Error", description: msg, variant: "destructive" });
@@ -64,7 +60,7 @@ export function UpdatePasswordForm({
   };
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
+    <div className={"flex flex-col gap-6"}>
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl">Reset Your Password</CardTitle>

@@ -25,11 +25,9 @@ import { toast } from "react-hot-toast";
 import { useUpdateEvent } from "@/stores/useEventStore";
 import { useFetchUsers } from "@/lib/client/features/users/hooks";
 
-export function EditEventModal({ events }: { events: Event[] }) {
-  const { isEditEventModalOpen, selectedEventIdForEdit, closeEditEventModal } = useUiStore();
+export function EditEventModal({ event }: { event: Event }) {
+  const { isEditEventModalOpen, closeEditEventModal } = useUiStore();
   const updateEventMutation = useUpdateEvent();
-
-  const event = events.find((e) => e.eventId === selectedEventIdForEdit) || null;
 
   const [formData, setFormData] = useState<UpdateEventInput>({
     title: "",

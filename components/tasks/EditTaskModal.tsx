@@ -10,11 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CheckSquare, Calendar, Users, X, Flag, Plus, Trash2, Paperclip, ExternalLink, Loader2 } from 'lucide-react'
-import type { UserLite, TaskStatus, TaskPriority } from '@/lib/types'
-import { useTasksStore, useTaskStore } from "@/stores/task-store"
+import type { UserLite, TaskStatus, TaskPriority, Task, Subtask, Attachment } from '@/lib/types'
 import { useUiStore } from "@/stores/ui-store"
-import { useEditTask } from '@/lib/client/features/tasks/hooks'
+import { useEditTask, useFetchTask } from '@/lib/client/features/tasks/hooks'
 import { toast } from 'sonner'
+import { extractTitleFromUrl, getFaviconFromUrl, generateId } from '@/lib/utils';
+import { initialTaskData } from '@/lib/constants'; // Not directly used for initial state, but for reference/reset
 
 interface EditTaskModalProps {
   isOpen: boolean;
@@ -31,73 +32,130 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
     closeEditTaskModal 
   } = useUiStore()
 
-  // Get task from task store using selectedTaskIdForEdit
-  const { tasks } = useTaskStore()
-  const editingTask = React.useMemo(
-    () => tasks.find((t) => t.taskId === selectedTaskIdForEdit),
-    [tasks, selectedTaskIdForEdit]
-  )
+  // Fetch task data using React Query
+  const { data: editingTask, isLoading, isError, error: fetchError } = useFetchTask(selectedTaskIdForEdit || '');
 
-  // Zustand store for form data
-  const {
-    editFormData,
-    editHasTimePeriod,
-    editNewAttachmentUrl,
-    isEditPending,
-    editError,
-    setEditTitle,
-    setEditDescription,
-    setEditStartAt,
-    setEditEndAt,
-    setEditTaskStatus,
-    setEditTaskPriority,
-    toggleEditAssignee,
-    removeEditAssignee,
-    addEditSubtask,
-    updateEditSubtask,
-    removeEditSubtask,
-    addEditAttachment,
-    removeEditAttachment,
-    setEditNewAttachmentUrl,
-    setEditHasTimePeriod,
-    setEditIsPending,
-    setEditError,
-    isEditFormValid,
-    openEditModal,
-  } = useTasksStore()
+  // Local component state for form data
+  const [title, setTitle] = React.useState('');
+  const [description, setDescription] = React.useState<string | undefined>(undefined);
+  const [startAt, setStartAt] = React.useState<string | null>(null);
+  const [endAt, setEndAt] = React.useState<string | null>(null);
+  const [taskStatus, setTaskStatus] = React.useState<TaskStatus>('To Do');
+  const [taskPriority, setTaskPriority] = React.useState<TaskPriority>('Normal');
+  const [subtasks, setSubtasks] = React.useState<Subtask[]>([]);
+  const [attachments, setAttachments] = React.useState<Attachment[]>([]);
+  const [assignees, setAssignees] = React.useState<UserLite[]>([]);
+  const [hasTimePeriod, setHasTimePeriod] = React.useState(false);
+  const [newAttachmentUrl, setNewAttachmentUrl] = React.useState('');
 
   const editTaskMutation = useEditTask()
 
-  // Initialize edit form when task is selected
-  useEffect(() => {
-    if (editingTask && isEditTaskModalOpen) {
-      openEditModal(editingTask)
-    }
-  }, [editingTask, isEditTaskModalOpen])
+  const isEditPending = isLoading || editTaskMutation.isPending;
+  const editError = isError ? fetchError?.message : editTaskMutation.error?.message;
 
-  useEffect(() => {
-    setEditIsPending(editTaskMutation.isPending)
-  }, [editTaskMutation.isPending, setEditIsPending])
+
+  // Effect to initialize form data when editingTask is loaded or changes
+  React.useEffect(() => {
+    if (editingTask && isEditTaskModalOpen) {
+      setTitle(editingTask.title);
+      setDescription(editingTask.description);
+      setStartAt(editingTask.startAt || null);
+      setEndAt(editingTask.endAt || null);
+      setTaskStatus(editingTask.taskStatus);
+      setTaskPriority(editingTask.taskPriority);
+      setSubtasks(editingTask.subtasks || []);
+      setAttachments(editingTask.attachments || []);
+      setAssignees(editingTask.assignees || []);
+      setHasTimePeriod(!!editingTask.startAt && !!editingTask.endAt); // Assuming if both are present, it has a time period
+      setNewAttachmentUrl('');
+    } else if (!isEditTaskModalOpen) {
+      // Reset form when modal closes
+      setTitle('');
+      setDescription(undefined);
+      setStartAt(null);
+      setEndAt(null);
+      setTaskStatus('To Do');
+      setTaskPriority('Normal');
+      setSubtasks([]);
+      setAttachments([]);
+      setAssignees([]);
+      setHasTimePeriod(false);
+      setNewAttachmentUrl('');
+    }
+  }, [editingTask, isEditTaskModalOpen,
+      setTitle, setDescription, setStartAt, setEndAt, setTaskStatus, setTaskPriority,
+      setSubtasks, setAttachments, setAssignees, setHasTimePeriod, setNewAttachmentUrl]);
+
+
+  // Helper function to check form validity
+  const isEditFormValid = React.useCallback(() => {
+    if (!title.trim()) return false;
+    if (!assignees.length) return false; // Assignees are always required for an existing task
+    if (hasTimePeriod && (!startAt || !endAt)) return false;
+    if (!hasTimePeriod && !endAt) return false;
+    if (endAt && startAt && new Date(startAt) > new Date(endAt)) return false;
+
+    return true;
+  }, [title, assignees, hasTimePeriod, startAt, endAt]);
+
+  // Actions for subtasks and attachments
+  const handleAddSubtask = () => {
+    setSubtasks((prev) => [...prev, { subtaskId: generateId(), title: '', subtaskStatus: 'To Do' }]);
+  };
+
+  const handleUpdateSubtask = (index: number, key: keyof Subtask, value: any) => {
+    setSubtasks((prev) =>
+      prev.map((st, i) => (i === index ? { ...st, [key]: value } : st))
+    );
+  };
+
+  const handleRemoveSubtask = (index: number) => {
+    setSubtasks((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddAttachment = () => {
+    if (newAttachmentUrl.trim() && editingTask) { // Ensure editingTask is not null for taskId
+      setAttachments((prev) => [...prev, { attachmentId: generateId(), taskId: editingTask.taskId, attachmentUrl: newAttachmentUrl.trim() }]);
+      setNewAttachmentUrl('');
+    }
+  };
+
+  const handleRemoveAttachment = (attachmentId: string) => {
+    setAttachments((prev) => prev.filter((att) => att.attachmentId !== attachmentId));
+  };
+
+  const handleAssigneeToggle = React.useCallback((member: UserLite) => {
+    setAssignees((prevAssignees) => {
+      const alreadyAssigned = prevAssignees.some((a) => a.userId === member.userId);
+      if (alreadyAssigned) {
+        return prevAssignees.filter((a) => a.userId !== member.userId);
+      } else {
+        return [...prevAssignees, member];
+      }
+    });
+  }, []);
+
+  const handleRemoveAssignee = React.useCallback((userId: string) => {
+    setAssignees((prevAssignees) => prevAssignees.filter((a) => a.userId !== userId));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!isEditFormValid() || isEditPending || !editingTask) return
 
-    try {
-      setEditError(null)
-      
+    try {      
       await editTaskMutation.mutateAsync({
         taskId: editingTask.taskId,
         patch: {
-          title: editFormData.title.trim(),
-          description: editFormData.description?.trim() || undefined,
-          assignees: editFormData.assignees,
-          startAt: editHasTimePeriod ? editFormData.startAt : null,
-          endAt: editFormData.endAt,
-          taskStatus: editFormData.taskStatus,
-          taskPriority: editFormData.taskPriority,
-          subtasks: editFormData.subtasks.length ? editFormData.subtasks : undefined,
-          attachments: editFormData.attachments.length ? editFormData.attachments : undefined,
+          title: title.trim(),
+          description: description?.trim() || undefined,
+          assignees: assignees,
+          startAt: hasTimePeriod ? startAt : null,
+          endAt: endAt,
+          taskStatus: taskStatus,
+          taskPriority: taskPriority,
+          subtasks: subtasks.length ? subtasks : undefined,
+          attachments: attachments.length ? attachments : undefined,
         },
       })
 
@@ -106,7 +164,6 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
     } catch (error: any) {
       console.error('Failed to update task:', error)
       const errorMsg = error?.message || 'Failed to update task. Please try again.'
-      setEditError(errorMsg)
       toast.error(errorMsg)
     }
   }
@@ -117,34 +174,10 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
     }
   }
 
-  const extractTitleFromUrl = (url: string): string => {
-    try {
-      const urlObj = new URL(url)
-      if (urlObj.hostname.includes('docs.google.com')) return 'Google Doc'
-      if (urlObj.hostname.includes('figma.com')) return 'Figma Design'
-      if (urlObj.hostname.includes('github.com')) return 'GitHub Repository'
-      if (urlObj.hostname.includes('drive.google.com')) return 'Google Drive File'
-      return urlObj.hostname.replace('www.', '')
-    } catch {
-      return 'Link'
-    }
-  }
 
-  const getFaviconFromUrl = (url: string): string => {
-    try {
-      const urlObj = new URL(url)
-      if (urlObj.hostname.includes('docs.google.com')) return '📄'
-      if (urlObj.hostname.includes('figma.com')) return '🎨'
-      if (urlObj.hostname.includes('github.com')) return '💻'
-      if (urlObj.hostname.includes('drive.google.com')) return '📂'
-      return '🔗'
-    } catch {
-      return '🔗'
-    }
-  }
 
   // Loading skeleton when task data is being fetched
-  if (!editingTask && isEditTaskModalOpen) {
+  if (isLoading && isEditTaskModalOpen) { // Use isLoading from useFetchTask
     return (
       <Dialog open={isEditTaskModalOpen} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
@@ -165,7 +198,7 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
     )
   }
 
-  if (!editingTask) return null
+  if (!editingTask) return null // If not loading and no task, return null (shouldn't happen if selectedTaskIdForEdit is valid)
 
   return (
     <Dialog open={isEditTaskModalOpen} onOpenChange={(open) => { if (!open) handleClose() }}>
@@ -187,8 +220,8 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
             <Input
               id="title"
               placeholder="Enter task name"
-              value={editFormData.title}
-              onChange={(e) => setEditTitle(e.target.value)}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
               disabled={isEditPending}
               required
             />
@@ -199,8 +232,8 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              value={editFormData.description}
-              onChange={(e) => setEditDescription(e.target.value)}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               placeholder="Enter task description (optional)"
               rows={3}
               disabled={isEditPending}
@@ -213,10 +246,10 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
               <input
                 type="checkbox"
                 id="hasTimePeriod"
-                checked={editHasTimePeriod}
+                checked={hasTimePeriod}
                 onChange={(e) => {
                   if (isEditPending) return
-                  setEditHasTimePeriod(e.target.checked)
+                  setHasTimePeriod(e.target.checked)
                 }}
                 disabled={isEditPending}
                 className="w-4 h-4 text-primary border-border rounded focus:ring-primary"
@@ -226,7 +259,7 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
               </Label>
             </div>
 
-            {editHasTimePeriod ? (
+            {hasTimePeriod ? (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="startAt" className="flex items-center space-x-2">
@@ -236,9 +269,9 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
                   <Input
                     id="startAt"
                     type="datetime-local"
-                    value={editFormData.startAt?.substring(0, 16) || ""}
+                    value={startAt?.substring(0, 16) || ""}
                     onChange={(e) =>
-                      setEditStartAt(e.target.value ? new Date(e.target.value).toISOString() : null)
+                      setStartAt(e.target.value ? new Date(e.target.value).toISOString() : null)
                     }
                     disabled={isEditPending}
                   />
@@ -252,11 +285,11 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
                   <Input
                     id="endAt"
                     type="datetime-local"
-                    value={editFormData.endAt?.substring(0, 16) || ""}
+                    value={endAt?.substring(0, 16) || ""}
                     onChange={(e) =>
-                      setEditEndAt(e.target.value ? new Date(e.target.value).toISOString() : null)
+                      setEndAt(e.target.value ? new Date(e.target.value).toISOString() : null)
                     }
-                    min={editFormData.startAt?.substring(0, 16) || ""}
+                    min={startAt?.substring(0, 16) || ""}
                     disabled={isEditPending}
                   />
                 </div>
@@ -270,9 +303,9 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
                 <Input
                   id="endAt"
                   type="date"
-                  value={editFormData.endAt?.substring(0, 10) || ""}
+                  value={endAt?.substring(0, 10) || ""}
                   onChange={(e) =>
-                    setEditEndAt(e.target.value ? new Date(e.target.value).toISOString() : null)
+                    setEndAt(e.target.value ? new Date(e.target.value).toISOString() : null)
                   }
                   disabled={isEditPending}
                 />
@@ -287,8 +320,8 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
               <span>Priority</span>
             </Label>
             <Select
-              value={editFormData.taskPriority}
-              onValueChange={(value: TaskPriority) => setEditTaskPriority(value)}
+              value={taskPriority}
+              onValueChange={(value: TaskPriority) => setTaskPriority(value)}
               disabled={isEditPending}
             >
               <SelectTrigger>
@@ -327,8 +360,8 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
           <div className="space-y-2">
             <Label>Status</Label>
             <Select
-              value={editFormData.taskStatus}
-              onValueChange={(value: TaskStatus) => setEditTaskStatus(value)}
+              value={taskStatus}
+              onValueChange={(value: TaskStatus) => setTaskStatus(value)}
               disabled={isEditPending}
             >
               <SelectTrigger>
@@ -350,29 +383,29 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => addEditSubtask(editingTask.taskId)}
+                onClick={handleAddSubtask}
                 disabled={isEditPending}
               >
                 <Plus className="w-4 h-4 mr-1" />
                 Add sub-task
               </Button>
             </div>
-            {editFormData.subtasks.length > 0 && (
+            {subtasks.length > 0 && (
               <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
-                {editFormData.subtasks.map((subtask, index) => (
+                {subtasks.map((subtask, index) => (
                   <div key={subtask.subtaskId} className="flex items-center space-x-2">
                     <input
                       type="checkbox"
                       checked={subtask.subtaskStatus === 'Done'}
                       onChange={(e) =>
-                        updateEditSubtask(index, 'subtaskStatus', e.target.checked ? 'Done' : 'To Do')
+                        handleUpdateSubtask(index, 'subtaskStatus', e.target.checked ? 'Done' : 'To Do')
                       }
                       disabled={isEditPending}
                       className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
                     />
                     <Input
                       value={subtask.title}
-                      onChange={(e) => updateEditSubtask(index, 'title', e.target.value)}
+                      onChange={(e) => handleUpdateSubtask(index, 'title', e.target.value)}
                       placeholder="Enter sub-task name"
                       className="flex-1"
                       disabled={isEditPending}
@@ -381,7 +414,7 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => removeEditSubtask(index)}
+                      onClick={() => handleRemoveSubtask(index)}
                       className="text-destructive hover:text-destructive"
                       disabled={isEditPending}
                     >
@@ -402,11 +435,10 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
               </Label>
             </div>
             
-            {/* Add Attachment */}
             <div className="flex space-x-2">
               <Input
-                value={editNewAttachmentUrl}
-                onChange={(e) => setEditNewAttachmentUrl(e.target.value)}
+                value={newAttachmentUrl}
+                onChange={(e) => setNewAttachmentUrl(e.target.value)}
                 placeholder="Paste a link here..."
                 className="flex-1"
                 disabled={isEditPending}
@@ -415,17 +447,16 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => addEditAttachment(editingTask.taskId)}
-                disabled={!editNewAttachmentUrl.trim() || isEditPending}
+                onClick={handleAddAttachment}
+                disabled={!newAttachmentUrl.trim() || isEditPending}
               >
                 Add Link
               </Button>
             </div>
 
-            {/* Attached Links */}
-            {editFormData.attachments.length > 0 && (
+            {attachments.length > 0 && (
               <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
-                {editFormData.attachments.map((attachment) => {
+                {attachments.map((attachment) => {
                   const title = extractTitleFromUrl(attachment.attachmentUrl)
                   const favicon = getFaviconFromUrl(attachment.attachmentUrl)
                   return (
@@ -451,7 +482,7 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => removeEditAttachment(attachment.attachmentId)}
+                        onClick={() => handleRemoveAttachment(attachment.attachmentId)}
                         className="text-destructive hover:text-destructive shrink-0 ml-2"
                         disabled={isEditPending}
                       >
@@ -472,14 +503,14 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
             </Label>
             
             {/* Selected Assignees */}
-            {editFormData.assignees.length > 0 && (
+            {assignees.length > 0 && (
               <div className="flex flex-wrap gap-2 p-3 bg-muted/30 rounded-lg">
-                {editFormData.assignees.map((assignee) => (
+                {assignees.map((assignee) => (
                   <Badge key={assignee.userId} variant="secondary" className="flex items-center space-x-1">
                     <span>{assignee.username}</span>
                     <button
                       type="button"
-                      onClick={() => removeEditAssignee(assignee.userId)}
+                      onClick={() => handleRemoveAssignee(assignee.userId)}
                       className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"
                       disabled={isEditPending}
                     >
@@ -498,10 +529,10 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
                   <button
                     key={member.userId}
                     type="button"
-                    onClick={() => toggleEditAssignee(member)}
+                    onClick={() => handleAssigneeToggle(member)}
                     disabled={isEditPending}
                     className={`text-left p-2 rounded-md border transition-colors ${
-                      editFormData.assignees.some(a => a.userId === member.userId)
+                      assignees.some(a => a.userId === member.userId)
                         ? 'bg-primary/10 border-primary text-primary'
                         : 'bg-white border-border hover:bg-muted/50'
                     } ${isEditPending ? 'opacity-50 cursor-not-allowed' : ''}`}

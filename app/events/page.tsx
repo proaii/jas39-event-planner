@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react"; 
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,22 +15,21 @@ import { Card } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EventCard } from "@/components/events/EventCard";
-import {
-  Search,
-  Filter,
-  Plus,
-  Calendar,
-  ArrowUpDown,
-  ChevronDown,
-  FileText,
-} from "lucide-react";
-import { Event } from "@/lib/types";
+import { Search, Filter, Plus, Calendar, ArrowUpDown, ChevronDown, FileText, AlertCircle } from "lucide-react";
+import { Event } from "@/lib/types"; // Event type is used in Partial<Event>
 import { useUiStore } from "@/stores/ui-store";
-import { useEventStore, useFetchEvents, useCreateEvent, useDeleteEvent } from "@/stores/useEventStore";
+import { useFetchEvents, useCreateEvent, useDeleteEvent } from "@/lib/client/features/events/hooks";
 import { AddEventModal } from "@/components/events/AddEventModal";
 import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
 import { TemplateData } from "@/schemas/template";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { useFetchTemplates } from "@/lib/client/features/templates/hooks"; // Import useFetchTemplates
+import { filterEvents, sortEvents } from "@/lib/client/features/events/utils"; // Import filterEvents and sortEvents
+import { EventsGridSkeleton } from "@/components/events/EventsGridSkeleton"; // Import EventsGridSkeleton
+import { useToast } from "@/components/ui/use-toast";
+import type { ApiError } from "@/lib/errors";
+
+
 // import { useUser } from "@/lib/client/features/auth/hooks";
 // import { useFetchUser } from "@/lib/client/features/users/hooks";
 
@@ -48,9 +47,9 @@ export default function AllEventsPage() {
     isAddEventModalOpen,
     openAddEventModal,
     closeAddEventModal,
-    isTemplateModalOpen,
-    openTemplateModal,
-    closeTemplateModal,
+    isCreateFromTemplateModalOpen,
+    openCreateFromTemplateModal,
+    closeCreateFromTemplateModal,
     searchQuery,
     setSearchQuery,
     sortBy,
@@ -61,55 +60,67 @@ export default function AllEventsPage() {
     setProgressFilters,
     dateFilters,
     setDateFilters,
+    setEventPrefillData,
   } = useUiStore();
 
-  const { events, setEvents } = useEventStore();
-  const { data: fetchedEvents } = useFetchEvents();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { data: eventsData, isLoading, isError, error } = useFetchEvents({}); // Pass empty filter for now
+  const events = useMemo(() => eventsData || [], [eventsData]);
   const createEventMutation = useCreateEvent();
   const deleteEventMutation = useDeleteEvent();
+  const { data: templates } = useFetchTemplates(); // Fetch templates
 
-  React.useEffect(() => {
-    if (fetchedEvents && fetchedEvents.items) {
-      setEvents(fetchedEvents.items);
-    }
-  }, [fetchedEvents, setEvents]);
-
-
-  const [prefillData, setPrefillData] = useState<Partial<Event> | null>(null);
-
-  // ------------------- FILTER STATE -------------------
   const [tempProgressFilters, setTempProgressFilters] = useState(progressFilters);
   const [tempDateFilters, setTempDateFilters] = useState(dateFilters);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isFilterOpen) {
       setTempProgressFilters(progressFilters);
       setTempDateFilters(dateFilters);
     }
   }, [isFilterOpen, progressFilters, dateFilters]);
 
-  // ------------------- HANDLERS -------------------
-  const handleCreateEvent = (
-    eventData: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members">
-  ) => {
-    createEventMutation.mutate({
-      ...eventData,
+  const { toast } = useToast();
+
+  const handleCreateEvent = (payload: Omit<Event, 'eventId' | 'ownerId' | 'createdAt'>) => {
+    createEventMutation.mutate(payload, {
+      onSuccess: () => {
+        closeAddEventModal();
+        toast({ title: "Success", description: "Event created successfully!" });
+      },
+      onError: (error: ApiError) => {
+        toast({ title: "Error", description: error?.message || "Failed to create event", variant: "destructive" });
+      },
     });
   };
 
   const handleDeleteEvent = (eventId: string) => {
-    deleteEventMutation.mutate(eventId);
+    if (!confirm("Are you sure you want to delete this event? This action cannot be undone.")) {
+      return;
+    }
+
+    deleteEventMutation.mutate(eventId, {
+      onSuccess: () => {
+        toast({ title: "Success", description: "Event deleted successfully" });
+      },
+      onError: (error) => {
+        console.error("Failed to delete event:", error);
+        toast({ title: "Error", description: "Failed to delete event", variant: "destructive" });
+      },
+    });
   };
 
+  // ------------------- HANDLERS -------------------
   const handleUseTemplate = (data: TemplateData) => {
-    setPrefillData({
+    setEventPrefillData({
       title: data.title,
       location: data.location || "",
       description: data.eventDescription || "",
       coverImageUri: data.coverImageUri ?? undefined,
-      color: 0,
+      color: 0, // Assuming default color for now
       startAt: data.startAt,
       endAt: data.endAt,
+      members: data.members, // Ensure members are also prefilled
     });
     openAddEventModal();
   };
@@ -127,20 +138,10 @@ export default function AllEventsPage() {
 
   // ------------------- FILTER & SORT -------------------
   const filteredAndSortedEvents = useMemo(() => {
-    let filtered = events;
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (event) =>
-          event.title.toLowerCase().includes(query) ||
-          (event.description && event.description.toLowerCase().includes(query)) ||
-          (event.location && event.location.toLowerCase().includes(query))
-      );
-    }
-
-    return filtered;
-  }, [events, searchQuery]);
+    const filteredEvents = filterEvents(events, searchQuery, progressFilters, dateFilters);
+    const sortedEvents = sortEvents(filteredEvents, sortBy);
+    return sortedEvents;
+  }, [events, searchQuery, progressFilters, dateFilters, sortBy]);
 
   // ------------------- RENDER -------------------
   return (
@@ -170,7 +171,7 @@ export default function AllEventsPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={openTemplateModal} className="cursor-pointer">
+              <DropdownMenuItem onClick={openCreateFromTemplateModal} className="cursor-pointer">
                 <FileText className="w-4 h-4 mr-2" />
                 Create from Template...
               </DropdownMenuItem>
@@ -298,7 +299,19 @@ export default function AllEventsPage() {
       </div>
 
       {/* Events Grid */}
-      {filteredAndSortedEvents.length === 0 ? (
+      {isLoading ? (
+        <EventsGridSkeleton />
+      ) : isError ? (
+        <Card className="p-12 text-center border-destructive">
+          <div className="space-y-4">
+            <AlertCircle className="w-16 h-16 text-destructive mx-auto" />
+            <h3 className="font-semibold text-destructive mb-2">Failed to load events</h3>
+            <p className="text-muted-foreground mb-4">
+              An error occurred while fetching your events. Please try again later.
+            </p>
+          </div>
+        </Card>
+      ) : filteredAndSortedEvents.length === 0 ? (
         <Card className="p-12 text-center">
           <div className="space-y-4">
             <Calendar className="w-16 h-16 text-muted-foreground mx-auto" />
@@ -327,9 +340,7 @@ export default function AllEventsPage() {
               key={event.eventId}
               event={event}
               onClick={() => router.push(`/events/${event.eventId}`)}
-              onEdit={() => { }}
               onDelete={handleDeleteEvent}
-              onAddTask={() => { }}
             />
           ))}
         </div>
@@ -348,24 +359,12 @@ export default function AllEventsPage() {
         isOpen={isAddEventModalOpen}
         onClose={closeAddEventModal}
         onCreateEvent={handleCreateEvent}
-        prefillData={prefillData ?? undefined}
       />
 
       <CreateFromTemplateModal
-        isOpen={isTemplateModalOpen}
-        templates={events.map((e) => ({
-          name: e.title,
-          description: e.description,
-          title: e.title,
-          location: e.location,
-          eventDescription: e.description,
-          coverImageUri: e.coverImageUri,
-          color: e.color,
-          startAt: e.startAt,
-          endAt: e.endAt,
-          members: e.members,
-        }))}
-        onClose={closeTemplateModal}
+        isOpen={isCreateFromTemplateModalOpen}
+        templates={templates || []}
+        onClose={closeCreateFromTemplateModal}
         onUseTemplate={handleUseTemplate}
       />
     </main>

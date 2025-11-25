@@ -10,25 +10,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { EventCard } from './EventCard';
 import { SearchAndFilter } from './SearchAndFilter';
 import { 
-  Home, 
-  CheckSquare, 
-  Calendar, 
-  Settings, 
-  Bell,
   Plus,
   ChevronRight,
-  Palette,
-  Eye,
-  Edit3,
-  CheckCircle2,
   TrendingUp,
   Clock,
   Users,
-  AlertTriangle,
-  Target,
   Activity,
-  Zap,
-  User,
+  CheckSquare,
   Layout,
   ChevronDown,
   FileText
@@ -85,10 +73,9 @@ interface Event {
   color?: string;
 }
 
+import type { Task, Event, DashboardWidget } from '@/lib/types'; // Import DashboardWidget
+
 interface DashboardProps {
-  events: Event[];
-  personalTasks: Task[];
-  currentUser: string;
   onCreateEvent: () => void;
   onCreateFromTemplate?: () => void;
   onEventClick: (eventId: string) => void;
@@ -106,9 +93,12 @@ interface DashboardProps {
   onNavigateToAllTasks?: (filterContext?: 'my' | 'all') => void;
   onNavigateToCalendar?: () => void;
   onNavigateToSettings?: () => void;
+  // Dashboard customization
+  dashboardConfig: DashboardWidget[]; // Changed to DashboardWidget[]
+  setDashboardConfig: (widgets: DashboardWidget[]) => void; // Changed setter type
 }
 
-export function Dashboard({ events, personalTasks, currentUser, onCreateEvent, onCreateFromTemplate, onEventClick, onStyleGuide, onNotifications, onEditEvent, onDeleteEvent, onAddTask, onTaskAction, onCreatePersonalTask, onStatusChange, onSubTaskToggle, onNavigateToAllEvents, onNavigateToAllTasks, onNavigateToCalendar, onNavigateToSettings }: DashboardProps) {
+export function Dashboard({ onCreateEvent, onCreateFromTemplate, onEventClick, onStyleGuide, onNotifications, onEditEvent, onDeleteEvent, onAddTask, onTaskAction, onCreatePersonalTask, onStatusChange, onSubTaskToggle, onNavigateToAllEvents, onNavigateToAllTasks, onNavigateToCalendar, onNavigateToSettings, dashboardConfig, setDashboardConfig }: DashboardProps) {
   // Search and filtering state
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
@@ -127,13 +117,6 @@ export function Dashboard({ events, personalTasks, currentUser, onCreateEvent, o
   
   // Dashboard customization state
   const [showCustomizeModal, setShowCustomizeModal] = useState(false);
-  const [dashboardConfig, setDashboardConfig] = useState({
-    upcomingEvents: true,
-    recentActivity: true,
-    upcomingDeadlines: true,
-    progressOverview: true,
-    miniCalendar: false // Future widget
-  });
 
   // Task list customization state
   const [showTaskCustomizeModal, setShowTaskCustomizeModal] = useState(false);
@@ -330,7 +313,7 @@ export function Dashboard({ events, personalTasks, currentUser, onCreateEvent, o
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {/* Widget 1: Upcoming Events */}
-                {dashboardConfig.upcomingEvents && (
+                {dashboardConfig.includes('upcomingEvents') && (
                   <Card className="lg:col-span-1">
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between mb-4">
@@ -381,7 +364,7 @@ export function Dashboard({ events, personalTasks, currentUser, onCreateEvent, o
                 )}
 
                 {/* Widget 2: Recent Activity */}
-                {dashboardConfig.recentActivity && (
+                {dashboardConfig.includes('recentActivity') && (
                   <Card className="lg:col-span-1">
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between mb-4">
@@ -414,7 +397,7 @@ export function Dashboard({ events, personalTasks, currentUser, onCreateEvent, o
                 )}
 
                 {/* Widget 3: Upcoming Deadlines */}
-                {dashboardConfig.upcomingDeadlines && (
+                {dashboardConfig.includes('upcomingDeadlines') && (
                   <Card className="lg:col-span-1">
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between mb-4">
@@ -493,7 +476,7 @@ export function Dashboard({ events, personalTasks, currentUser, onCreateEvent, o
                 )}
 
                 {/* Widget 4: Progress Overview */}
-                {dashboardConfig.progressOverview && (
+                {dashboardConfig.includes('progressOverview') && (
                   <Card className="lg:col-span-1">
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between mb-4">
@@ -678,9 +661,13 @@ export function Dashboard({ events, personalTasks, currentUser, onCreateEvent, o
                   <p className="text-xs text-muted-foreground">Show your upcoming events overview</p>
                 </div>
                 <Checkbox 
-                  checked={dashboardConfig.upcomingEvents}
+                  checked={dashboardConfig.includes('upcomingEvents')}
                   onCheckedChange={(checked) => 
-                    setDashboardConfig(prev => ({ ...prev, upcomingEvents: !!checked }))
+                    setDashboardConfig(prev => 
+                      checked 
+                        ? [...prev, 'upcomingEvents'] 
+                        : prev.filter(w => w !== 'upcomingEvents')
+                    )
                   }
                 />
               </div>
@@ -691,9 +678,13 @@ export function Dashboard({ events, personalTasks, currentUser, onCreateEvent, o
                   <p className="text-xs text-muted-foreground">Show tasks with upcoming due dates</p>
                 </div>
                 <Checkbox 
-                  checked={dashboardConfig.upcomingDeadlines}
+                  checked={dashboardConfig.includes('upcomingDeadlines')}
                   onCheckedChange={(checked) => 
-                    setDashboardConfig(prev => ({ ...prev, upcomingDeadlines: !!checked }))
+                    setDashboardConfig(prev => 
+                      checked 
+                        ? [...prev, 'upcomingDeadlines'] 
+                        : prev.filter(w => w !== 'upcomingDeadlines')
+                    )
                   }
                 />
               </div>
@@ -704,9 +695,13 @@ export function Dashboard({ events, personalTasks, currentUser, onCreateEvent, o
                   <p className="text-xs text-muted-foreground">Show team activity and updates</p>
                 </div>
                 <Checkbox 
-                  checked={dashboardConfig.recentActivity}
+                  checked={dashboardConfig.includes('recentActivity')}
                   onCheckedChange={(checked) => 
-                    setDashboardConfig(prev => ({ ...prev, recentActivity: !!checked }))
+                    setDashboardConfig(prev => 
+                      checked 
+                        ? [...prev, 'recentActivity'] 
+                        : prev.filter(w => w !== 'recentActivity')
+                    )
                   }
                 />
               </div>
@@ -717,9 +712,13 @@ export function Dashboard({ events, personalTasks, currentUser, onCreateEvent, o
                   <p className="text-xs text-muted-foreground">Show event progress charts</p>
                 </div>
                 <Checkbox 
-                  checked={dashboardConfig.progressOverview}
+                  checked={dashboardConfig.includes('progressOverview')}
                   onCheckedChange={(checked) => 
-                    setDashboardConfig(prev => ({ ...prev, progressOverview: !!checked }))
+                    setDashboardConfig(prev => 
+                      checked 
+                        ? [...prev, 'progressOverview'] 
+                        : prev.filter(w => w !== 'progressOverview')
+                    )
                   }
                 />
               </div>
@@ -730,7 +729,14 @@ export function Dashboard({ events, personalTasks, currentUser, onCreateEvent, o
                   <p className="text-xs text-muted-foreground">Coming soon - compact calendar view</p>
                 </div>
                 <Checkbox 
-                  checked={dashboardConfig.miniCalendar}
+                  checked={dashboardConfig.includes('miniCalendar')} // Assuming 'miniCalendar' is a DashboardWidget
+                  onCheckedChange={(checked) => 
+                    setDashboardConfig(prev => 
+                      checked 
+                        ? [...prev, 'miniCalendar'] 
+                        : prev.filter(w => w !== 'miniCalendar')
+                    )
+                  }
                   disabled
                 />
               </div>
@@ -742,13 +748,7 @@ export function Dashboard({ events, personalTasks, currentUser, onCreateEvent, o
                 variant="outline" 
                 size="sm"
                 onClick={() => {
-                  setDashboardConfig({
-                    upcomingEvents: true,
-                    recentActivity: true,
-                    upcomingDeadlines: true,
-                    progressOverview: true,
-                    miniCalendar: false
-                  });
+                  setDashboardConfig([...DEFAULT_WIDGETS]);
                 }}
               >
                 Reset to Default

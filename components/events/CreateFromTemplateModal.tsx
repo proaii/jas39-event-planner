@@ -19,21 +19,21 @@ import {
 import { Calendar, MapPin } from "lucide-react";
 import type { TemplateData } from "@/schemas/template";
 import type { EventTemplate } from "@/lib/types";
-import { useFetchTemplates } from "@/lib/client/features/templates/hooks";
+
 
 interface CreateFromTemplateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUseTemplate: (eventData: TemplateData) => void;
+  templates: EventTemplate[];
 }
 
 export function CreateFromTemplateModal({
   isOpen,
   onClose,
   onUseTemplate,
+  templates,
 }: CreateFromTemplateModalProps) {
-
-  const { data: templates, isLoading, error } = useFetchTemplates();
 
   const handleSelectTemplate = (template: EventTemplate) => {
     const event = template.eventData;
@@ -60,79 +60,65 @@ export function CreateFromTemplateModal({
           </DialogDescription>
         </DialogHeader>
 
-        {isLoading && (
-          <p className="text-center py-8 text-muted-foreground">
-            Loading templates...
-          </p>
-        )}
-
-        {error && (
-          <p className="text-center py-8 text-red-500">
-            Failed to load templates: {error.message}
-          </p>
-        )}
-
-        {!isLoading && !error && (
-          <div className="space-y-4">
-            {(templates?.length ?? 0) === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <div className="text-sm">No templates available yet.</div>
-                <div className="text-xs mt-1">
-                  Create an event and save it as a template to get started.
-                </div>
+        <div className="space-y-4">
+          {(templates?.length ?? 0) === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <div className="text-sm">No templates available yet.</div>
+              <div className="text-xs mt-1">
+                Create an event and save it as a template to get started.
               </div>
-            ) : (
-              templates!.map((template: EventTemplate) => {
-                const event = template.eventData;
+            </div>
+          ) : (
+            templates!.map((template: EventTemplate) => {
+              const event = template.eventData;
 
-                return (
-                  <Card
-                    key={template.templateId}
-                    className="cursor-pointer hover:shadow-md transition-shadow"
-                  >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg">
-                            {template.name}
-                          </CardTitle>
-                          <CardDescription className="mt-1">
-                            {template.description}
-                          </CardDescription>
-                        </div>
-
-                  
-                        <Button size="sm" onClick={() => handleSelectTemplate(template)}>
-                          Use Template
-                        </Button>
+              return (
+                <Card
+                  key={template.templateId}
+                  className="cursor-pointer hover:shadow-md transition-shadow"
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg">
+                          {template.name}
+                        </CardTitle>
+                        <CardDescription className="mt-1">
+                          {template.description}
+                        </CardDescription>
                       </div>
-                    </CardHeader>
 
-                    {event && (
-                      <CardContent className="pt-0 space-y-3">
-                        {event.location && (
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <MapPin className="w-3 h-3" />
-                            {event.location}
-                          </div>
-                        )}
+                
+                      <Button size="sm" onClick={() => handleSelectTemplate(template)}>
+                        Use Template
+                      </Button>
+                    </div>
+                  </CardHeader>
 
-                        {event.startAt && (
-                          <div className="flex justify-end text-xs text-muted-foreground pt-2 border-t border-border">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {new Date(event.startAt).toLocaleDateString()}
-                            </div>
+                  {event && (
+                    <CardContent className="pt-0 space-y-3">
+                      {event.location && (
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <MapPin className="w-3 h-3" />
+                          {event.location}
+                        </div>
+                      )}
+
+                      {event.startAt && (
+                        <div className="flex justify-end text-xs text-muted-foreground pt-2 border-t border-border">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {new Date(event.startAt).toLocaleDateString()}
                           </div>
-                        )}
-                      </CardContent>
-                    )}
-                  </Card>
-                );
-              })
-            )}
-          </div>
-        )}
+                        </div>
+                      )}
+                    </CardContent>
+                  )}
+                </Card>
+              );
+            })
+          )}
+        </div>
 
         <div className="flex justify-end pt-4 border-t border-border">
           <Button variant="outline" onClick={onClose}>

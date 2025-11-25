@@ -27,6 +27,7 @@ interface AddEventModalProps {
   onClose: () => void;
   onCreateEvent: (eventData: Omit<Event, 'eventId' | 'ownerId' | 'createdAt'>) => void;
   eventId?: string;
+  defaultDate?: Date | null;
 }
 
 const hexToNumber = (hex: string) => parseInt(hex.replace("#", ""), 16);
@@ -61,7 +62,7 @@ const toYYYYMMDD = (date: Date | null) => {
 
 const DEFAULT_COLOR = "#E8F4FD";
 
-export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEventModalProps) {
+export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId, defaultDate }: AddEventModalProps) {
   // ==================== STORES ====================
   const { selectedColor, setColor } = useEventColorStore();
   const { eventPrefillData, clearEventPrefillData } = useUiStore();
@@ -111,9 +112,15 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEv
       }
     } else if (isOpen && !eventPrefillData) {
       // Reset to default when opening without prefill
+      if (defaultDate) {
+        setFormData(prev => ({
+          ...prev,
+          startDate: toYYYYMMDD(defaultDate),
+        }));
+      }
       setColor(DEFAULT_COLOR);
     }
-  }, [isOpen, eventPrefillData, setColor]);
+  }, [isOpen, eventPrefillData, setColor, defaultDate]);
 
   // ==================== HANDLERS ====================
   const handleInviteMembers = () => setInviteModalOpen(true);

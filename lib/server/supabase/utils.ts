@@ -1,4 +1,4 @@
-import type { Task, Event, UserLite } from "@/lib/types";
+import type { Task, Event, UserLite, FilterOptions } from "@/lib/types";
 
 /* ===================== Effective Due Date ===================== */
 
@@ -37,15 +37,7 @@ function isTask(x: unknown): x is Task {
 
 /* ===================== Filters ===================== */
 
-export interface FilterOptions {
-  status?: ("To Do" | "In Progress" | "Done")[];
-  priority?: ("Urgent" | "High" | "Normal" | "Low")[];
-  assignees?: string[]; // Matches username/email/userId
-  dateRange?: { from: Date | null; to: Date | null };
-  eventTypes?: string[]; // (Unused in mock data for now)
-  showCompleted?: boolean;
-  showPersonalTasks?: boolean; // true = show tasks with eventId === null
-}
+
 
 /** Helper: extract searchable strings from a UserLite */
 function assigneeKeys(a: UserLite): string[] {

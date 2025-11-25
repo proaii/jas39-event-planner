@@ -4,7 +4,7 @@ import { WelcomeHeader } from "./welcome-header";
 import { DashboardWidgets } from "./dashboard-widgets";
 import { MyTasksSection } from "./my-tasks-section";
 import { Event, Task } from "@/lib/types";
-import { useUiStore } from "@/stores/ui-store"; 
+ 
 
 interface DashboardProps {
   events: Event[];
@@ -18,7 +18,21 @@ interface DashboardProps {
   onNavigateToAllEvents?: () => void;
   onNavigateToAllTasks?: (filterContext?: "my" | "all") => void;
   onCustomize?: () => void;
-  visibleWidgets?: string[]; 
+  visibleWidgets?: string[];
+  dashboardConfig: {
+    upcomingEvents: boolean;
+    recentActivity: boolean;
+    upcomingDeadlines: boolean;
+    progressOverview: boolean;
+    miniCalendar: boolean;
+  };
+  setDashboardConfig: (config: {
+    upcomingEvents: boolean;
+    recentActivity: boolean;
+    upcomingDeadlines: boolean;
+    progressOverview: boolean;
+    miniCalendar: boolean;
+  }) => void;
 }
 
 export function Dashboard({
@@ -33,7 +47,9 @@ export function Dashboard({
   onNavigateToAllEvents,
   onNavigateToAllTasks,
   onCustomize,
-  visibleWidgets, 
+  visibleWidgets,
+  dashboardConfig,
+  setDashboardConfig,
 }: DashboardProps) {
   return (
     <main className="flex-1 p-8 bg-muted/20 overflow-hidden">
@@ -49,6 +65,10 @@ export function Dashboard({
             visibleWidgets={visibleWidgets}
             onEventClick={onEventClick}
             onNavigateToAllEvents={onNavigateToAllEvents}
+            events={events} // Pass events
+            tasks={tasks}
+            dashboardConfig={dashboardConfig}
+            setDashboardConfig={setDashboardConfig}
           />
 
           <MyTasksSection
@@ -56,6 +76,8 @@ export function Dashboard({
             onSubTaskToggle={onSubTaskToggle}
             onNavigateToAllTasks={onNavigateToAllTasks}
             onCreatePersonalTask={onCreatePersonalTask}
+            tasks={tasks} // Pass tasks
+            events={events} // Pass events
           />
         </div>
       </div>

@@ -7,24 +7,15 @@ import { getInitials } from "@/lib/utils";
 import { Activity } from "lucide-react";
 import { useUiStore } from "@/stores/ui-store";
 import { useFetchRecentActivity } from "@/lib/client/features/activities/hooks";
-import { useFetchEvents } from "@/stores/useEventStore";
-
-// ---- HELPER: flatten events ----
-function flattenEventsData(data?: { pages?: { items: any[] }[]; items?: any[] }): any[] {
-  if (!data) return [];
-  if (Array.isArray(data.items)) return data.items;
-  if (data.pages && Array.isArray(data.pages)) {
-    return data.pages.flatMap(p => Array.isArray(p.items) ? p.items : []);
-  }
-  return [];
-}
+import { useFetchEvents } from "@/lib/client/features/events/hooks";
+import type { Event } from "@/lib/types";
 
 export function RecentActivityWidget() {
   const { setLoading, setError } = useUiStore();
 
   // Fetch events to get first eventId
-  const { data: eventsData } = useFetchEvents();
-  const events = useMemo(() => flattenEventsData(eventsData), [eventsData]);
+  const { data: eventsData } = useFetchEvents({});
+  const events = useMemo(() => eventsData || [], [eventsData]);
   const firstEventId = events[0]?.eventId || "";
 
   // Fetch activities using first event

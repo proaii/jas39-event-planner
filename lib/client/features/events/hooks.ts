@@ -13,7 +13,7 @@ type EventsPage = { items: Event[]; nextPage: number | null };
 export function useFetchEvents(f: { q?: string; pageSize?: number }) {
   const pageSize = f.pageSize ?? 10;
 
-  return useInfiniteQuery<EventsPage, ApiError, EventsPage, ReturnType<typeof queryKeys.events>, number>({
+  return useInfiniteQuery<EventsPage, ApiError, Event[], ReturnType<typeof queryKeys.events>, number>({
     queryKey: queryKeys.events({ ...f, pageSize }),
     initialPageParam: 1,
     queryFn: async ({ pageParam }): Promise<EventsPage> => {
@@ -27,6 +27,7 @@ export function useFetchEvents(f: { q?: string; pageSize?: number }) {
       return (await r.json()) as EventsPage;
     },
     getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,
+    select: (data) => data.pages.flatMap(page => page.items), // This will flatten the pages
 
     staleTime: MINUTES.FIVE,
     gcTime: MINUTES.TEN,
@@ -36,9 +37,9 @@ export function useFetchEvents(f: { q?: string; pageSize?: number }) {
   });
 }
 
-export function useFetchEvent(id: string) {
+export function useFetchEvent(id: string | null, options?: { enabled?: boolean }) {
   return useQuery<Event, ApiError>({
-    queryKey: queryKeys.event(id),
+    queryKey: queryKeys.event(id!),
     queryFn: async () => {
       const r = await fetch(`/api/events/${id}`);
       if (!r.ok) throw await r.json();
@@ -46,6 +47,7 @@ export function useFetchEvent(id: string) {
     },
     staleTime: MINUTES.FIVE,
     refetchOnWindowFocus: false,
+    enabled: options?.enabled,
   });
 }
 
@@ -65,7 +67,7 @@ export async function prefetchEvent(qc: ReturnType<typeof useQueryClient>, id: s
 // ---------- Mutations ----------
 export function useCreateEvent() {
   const qc = useQueryClient();
-  return useMutation<Event, ApiError, Omit<Event, 'id' | 'tasks' | 'members'>>({
+  return useMutation<Event, ApiError, Omit<Event, 'eventId' | 'ownerId' | 'createdAt'>>({
     mutationFn: async (payload) => {
       const r = await fetch('/api/events', {
         method: 'POST',

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,26 +10,45 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { toast } from "react-hot-toast";
-import { useUiStore, DEFAULT_WIDGETS, type DashboardWidget } from "@/stores/ui-store";
+import { toast } from "sonner"; // Using sonner for toasts
+
 
 interface CustomizeDashboardModalProps {
   isOpen: boolean;
   onClose: () => void;
+  dashboardConfig: {
+    upcomingEvents: boolean;
+    recentActivity: boolean;
+    upcomingDeadlines: boolean;
+    progressOverview: boolean;
+    miniCalendar: boolean;
+  };
+  setDashboardConfig: (config: {
+    upcomingEvents: boolean;
+    recentActivity: boolean;
+    upcomingDeadlines: boolean;
+    progressOverview: boolean;
+    miniCalendar: boolean;
+  }) => void;
 }
 
 export function CustomizeDashboardModal({
   isOpen,
   onClose,
+  dashboardConfig,
+  setDashboardConfig,
 }: CustomizeDashboardModalProps) {
-  const {
-    tempWidgets,
-    setTempWidgets,
-    saveWidgetConfig,
-    resetWidgets,
-  } = useUiStore();
+  const [tempConfig, setTempConfig] = useState(dashboardConfig); // Local state for temp changes
 
-  const widgetInfo: Record<DashboardWidget, { label: string; desc: string }> = {
+  // Initialize tempConfig when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setTempConfig(dashboardConfig);
+    }
+  }, [isOpen, dashboardConfig]);
+
+
+  const widgetInfo: Record<keyof typeof dashboardConfig, { label: string; desc: string }> = {
     upcomingEvents: {
       label: "Upcoming Events",
       desc: "Show your upcoming events overview",
@@ -45,24 +65,35 @@ export function CustomizeDashboardModal({
       label: "Progress Overview",
       desc: "Show event progress charts",
     },
+    miniCalendar: {
+      label: "Mini Calendar",
+      desc: "Show a mini calendar",
+    },
   };
 
-  const widgetKeys = Object.keys(widgetInfo) as DashboardWidget[];
+  const widgetKeys = Object.keys(widgetInfo) as (keyof typeof dashboardConfig)[];
 
-  const toggleWidget = (name: DashboardWidget) => {
-    setTempWidgets((prev) =>
-      prev.includes(name) ? prev.filter((w) => w !== name) : [...prev, name]
-    );
+  const toggleWidget = (name: keyof typeof dashboardConfig) => {
+    setTempConfig((prev) => ({
+      ...prev,
+      [name]: !prev[name],
+    }));
   };
 
   const handleSave = () => {
-    saveWidgetConfig();
+    setDashboardConfig(tempConfig); // Use setDashboardConfig from props
     toast.success("Dashboard updated!");
     onClose();
   };
 
   const handleReset = () => {
-    resetWidgets();
+    setTempConfig({
+      upcomingEvents: true,
+      recentActivity: true,
+      upcomingDeadlines: true,
+      progressOverview: true,
+      miniCalendar: false,
+    }); // Reset local tempConfig to defaults
     toast.success("Dashboard reset to default!");
   };
 
@@ -80,7 +111,7 @@ export function CustomizeDashboardModal({
           {widgetKeys.map((widget) => (
             <div key={widget} className="flex items-start space-x-3">
               <Checkbox
-                checked={tempWidgets.includes(widget)}
+                checked={tempConfig[widget]}
                 onCheckedChange={() => toggleWidget(widget)}
               />
               <div>

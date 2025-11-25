@@ -10,14 +10,15 @@ type TasksPage = { items: Task[]; nextPage: number | null };
 
 // List Task of a single Event (For the Event Detail page)
 export function useFetchEventTasks(f: {
-  eventId: string;
+  eventId: string | null;
   status?: Task['taskStatus'];  
   q?: string;
   pageSize?: number;
+  enabled?: boolean;
 }) {
   const pageSize = f.pageSize ?? 20;
 
-  return useInfiniteQuery<TasksPage, ApiError, TasksPage, ReturnType<typeof queryKeys.tasks>, number>({
+  return useInfiniteQuery<TasksPage, ApiError, Task[], ReturnType<typeof queryKeys.tasks>, number>({
     queryKey: queryKeys.tasks({ eventId: f.eventId, status: f.status, pageSize, q: f.q }),
     initialPageParam: 1,
     queryFn: async ({ pageParam, signal }) => {
@@ -35,10 +36,12 @@ export function useFetchEventTasks(f: {
       return (await r.json()) as TasksPage;
     },
     getNextPageParam: (last) => last.nextPage ?? undefined,
+    select: (data) => data.pages.flatMap(page => page.items),
     staleTime: MINUTES.FIVE,
     gcTime: MINUTES.TEN,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
+    enabled: f.enabled,
   });
 }
 
@@ -50,7 +53,7 @@ export function useFetchAllTasks(f: {
 }) {
   const pageSize = f.pageSize ?? 20;
 
-  return useInfiniteQuery<TasksPage, ApiError, TasksPage, ReturnType<typeof queryKeys.tasks>, number>({
+  return useInfiniteQuery<TasksPage, ApiError, Task[], ReturnType<typeof queryKeys.tasks>, number>({
     queryKey: queryKeys.tasks({ status: f.status, pageSize, q: f.q }),
     initialPageParam: 1,
     queryFn: async ({ pageParam, signal }): Promise<TasksPage> => {
@@ -65,6 +68,7 @@ export function useFetchAllTasks(f: {
       return (await r.json()) as TasksPage;
     },
     getNextPageParam: (last) => last.nextPage ?? undefined,
+    select: (data) => data.pages.flatMap(page => page.items), // This will flatten the pages
     staleTime: MINUTES.FIVE,
     gcTime: MINUTES.TEN,
     refetchOnWindowFocus: false,
@@ -88,10 +92,10 @@ export function useFetchTask(taskId: string) {
 
 // ---------- Task Mutations ----------
 
-export function useCreateEventTask(eventId: string) {
+export function useCreateEventTask(eventId: string | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: Omit<Task, 'taskId' | 'eventTitle'>) => {
+    mutationFn: async (payload: Omit<Task, 'taskId' | 'eventTitle' | 'createdAt'>) => {
       const r = await fetch(`/api/events/${eventId}/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -100,10 +104,14 @@ export function useCreateEventTask(eventId: string) {
       if (!r.ok) throw await r.json();
       return (await r.json()) as Task;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.tasks({ eventId }) });
-      qc.invalidateQueries({ queryKey: queryKeys.event(eventId) });
-      qc.invalidateQueries({ queryKey: ['event-activity', eventId] });
+    onSuccess: (data) => {
+      if (data.eventId) {
+        qc.invalidateQueries({ queryKey: queryKeys.tasks({ eventId: data.eventId }) });
+        qc.invalidateQueries({ queryKey: queryKeys.event(data.eventId) });
+        qc.invalidateQueries({ queryKey: ['event-activity', data.eventId] });
+      } else {
+        qc.invalidateQueries({ queryKey: queryKeys.tasks({}) });
+      }
     },
     retry: 0,
   });
@@ -112,7 +120,7 @@ export function useCreateEventTask(eventId: string) {
 export function useCreatePersonalTask() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: Omit<Task, 'taskId' | 'eventId' | 'eventTitle'>) => {
+    mutationFn: async (payload: Omit<Task, 'taskId' | 'eventId' | 'eventTitle' | 'createdAt'>) => {
       const r = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -147,6 +155,28 @@ export function useEditTask() {
       if (task.eventId) {
         qc.invalidateQueries({ queryKey: queryKeys.tasks({ eventId: task.eventId }) });
         qc.invalidateQueries({ queryKey: ['event-activity', task.eventId] });
+      }
+    },
+  });
+}
+
+export function useUpdateTaskStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ taskId, patch }: { taskId: string; patch: Partial<Task> }) => {
+      const r = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (!r.ok) throw await r.json();
+      return (await r.json()) as Task;
+    },
+    onSuccess: (task) => {
+      qc.setQueryData(queryKeys.task(task.taskId), task);
+      qc.invalidateQueries({ queryKey: queryKeys.tasks({}) }); // Invalidate all tasks query
+      if (task.eventId) {
+        qc.invalidateQueries({ queryKey: queryKeys.tasks({ eventId: task.eventId }) }); // Invalidate event-specific tasks
       }
     },
   });

@@ -15,7 +15,7 @@ export const queryKeys = {
   event: (id: string) => ['event', { id }] as const,
 
   tasks: (f: {
-    eventId?: string;
+    eventId?: string | null;
     status?: Task['taskStatus'];
     q?: string;
     page?: number;

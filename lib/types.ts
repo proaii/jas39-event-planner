@@ -63,7 +63,7 @@ export interface Attachment {
 
 export interface Subtask {
   subtaskId: string;
-  taskId: string;
+  taskId?: string;
   title: string;
   subtaskStatus: SubtaskStatus;
 }
@@ -124,4 +124,14 @@ export interface ActivityItem {
   action: string;         // action performed (created task, joined event, etc.)
   item: string;           // related task or event title
   time: string;           // ISO timestamp
+}
+
+export interface FilterOptions {
+  status?: ("To Do" | "In Progress" | "Done")[];
+  priority?: ("Urgent" | "High" | "Normal" | "Low")[];
+  assignees?: string[]; // Matches username/email/userId
+  dateRange?: { from: Date | null; to: Date | null };
+  eventTypes?: string[]; // (Unused in mock data for now)
+  showCompleted?: boolean;
+  showPersonalTasks?: boolean; // true = show tasks with eventId === null
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner"; // Use sonner
 
 import { useUiStore } from "@/stores/ui-store";
 import { Dashboard } from "@/components/dashboard/dashboard";
@@ -10,12 +10,19 @@ import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { CustomizeDashboardModal } from "@/components/dashboard/CustomizeDashboardModal";
 import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
 
-import { useFetchEvents, useCreateEvent } from "@/stores/useEventStore";
+import type { ApiError } from "@/lib/errors";
+import { useFetchEvents, useCreateEvent } from "@/lib/client/features/events/hooks";
 import { useFetchAllTasks } from "@/lib/client/features/tasks/hooks";
 import { useFetchUsers } from "@/lib/client/features/users/hooks";
-import { useFetchCurrentUser } from "@/lib/client/features/users/hooks";
-import type { Event } from "@/lib/types";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useFetchTemplates } from "@/lib/client/features/templates/hooks";
+import { useFetchUser } from "@/lib/client/features/users/hooks"; // Should be from auth hooks
+import { useUser } from "@/lib/client/features/auth/hooks"; // Added this
+
+import type { Event, Task } from "@/lib/types"; // Adjusted Event type if necessary
+import type { TemplateData } from "@/schemas/template";
+import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton"; // Import DashboardSkeleton
+import { AlertCircle } from "lucide-react"; // Import AlertCircle
+import { useState } from "react"; // For local dashboardConfig
 
 type DashboardCreateEventInput = Omit<
   Event,
@@ -24,8 +31,17 @@ type DashboardCreateEventInput = Omit<
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { data: authUser } = useUser();
+  const { data: currentUserData, isLoading: isCurrentUserLoading, isError: isCurrentUserError } = useFetchUser(authUser?.id ?? ""); // Use currentUserData for user details
 
-  // ==================== UI STORE ====================
+  const [dashboardConfig, setDashboardConfig] = useState({
+    upcomingEvents: true,
+    recentActivity: true,
+    upcomingDeadlines: true,
+    progressOverview: true,
+    miniCalendar: false,
+  });
+
   const {
     isAddEventModalOpen,
     isAddTaskModalOpen,
@@ -39,39 +55,25 @@ export default function DashboardPage() {
     closeCustomizeModal,
     openCreateFromTemplateModal,
     closeCreateFromTemplateModal,
-    visibleWidgets,
     setEventPrefillData,
+    // Widgets
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    visibleWidgets,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    setVisibleWidgets, 
   } = useUiStore();
 
-  // ==================== DATA FETCHING ====================
-  const {
-    data: currentUser,
-    isLoading: userLoading
-  } = useFetchCurrentUser();
+  const { data: eventsData, isLoading: isEventsLoading, isError: isEventsError } = useFetchEvents({});
+  const { data: tasksData, isLoading: isTasksLoading, isError: isTasksError } = useFetchAllTasks({});
+  const { data: allUsers = [], isLoading: isAllUsersLoading, isError: isAllUsersError } = useFetchUsers({ q: "", enabled: true });
+  const { data: templates = [] } = useFetchTemplates();
 
-  const {
-    data: eventsData,
-    isLoading: eventsLoading,
-    isError: eventsError,
-    error: eventsQueryError,
-  } = useFetchEvents();
+  const events: Event[] = eventsData || [];
+  const tasks: Task[] = tasksData || [];
 
-  const {
-    data: tasksData,
-    isLoading: tasksLoading,
-    isError: tasksError,
-    error: tasksQueryError,
-  } = useFetchAllTasks({});
+  const isLoadingPage = isEventsLoading || isTasksLoading || isAllUsersLoading || isCurrentUserLoading; // isCurrentUserLoading should be from useFetchUser
+  const isErrorPage = isEventsError || isTasksError || isAllUsersError || isCurrentUserError || !currentUserData; // !currentUserData instead of !currentUser
 
-  const {
-    data: allUsers = [],
-    isLoading: usersLoading,
-  } = useFetchUsers({ q: "", enabled: true });
-
-  const events: Event[] = eventsData?.items ?? [];
-  const tasks = tasksData?.items ?? [];
-
-  // ==================== MUTATIONS ====================
   const createEventMutation = useCreateEvent();
 
   const handleCreateEvent = (payload: DashboardCreateEventInput) => {
@@ -80,100 +82,56 @@ export default function DashboardPage() {
         closeAddEventModal();
         toast.success("Event created successfully!");
       },
-      onError: (error: any) => {
+      onError: (error: ApiError) => {
         toast.error(error?.message || "Failed to create event");
       },
     });
   };
 
-  // ==================== TEMPLATE HANDLER ====================
-  const handleUseTemplate = (template: any) => {
-    // Map EventTemplate -> Partial<Event>
+  const handleUseTemplate = (templateData: TemplateData) => {
     setEventPrefillData({
-      title: template.title,
-      location: template.location,
-      description: template.description ?? "",
-      coverImageUri: template.coverImageUri ?? "",
-      color: template.color,
-      startAt: template.eventData?.startAt,
-      endAt: template.eventData?.endAt,
-      members: template.members ?? [],
+      title: templateData.title,
+      location: templateData.location || "",
+      description: templateData.eventDescription || "",
+      coverImageUri: templateData.coverImageUri ?? undefined,
+      color: templateData.color,
+      startAt: templateData.startAt,
+      endAt: templateData.endAt,
+      members: templateData.members,
     });
-
     closeCreateFromTemplateModal();
     openAddEventModal();
     toast.success("Template loaded! Fill in the remaining details.");
   };
 
-  const handleEventClick = (eventId: string) => {
-    router.push(`/events/${eventId}`);
-  };
-
-  const isLoading = eventsLoading || tasksLoading || userLoading;
-
-  // -------------------------------------------------
-  // Loading State
-  // -------------------------------------------------
-  if (isLoading) {
-    return (
-      <div className="flex-1 p-8 space-y-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-8">
-            <Skeleton className="h-8 w-64 mb-2" />
-            <Skeleton className="h-4 w-96" />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-32 rounded-lg" />
-            ))}
-          </div>
-
-          <Skeleton className="h-64 rounded-lg" />
-        </div>
-      </div>
-    );
+  if (isLoadingPage) {
+    return <DashboardSkeleton />;
   }
 
-  // -------------------------------------------------
-  // Error State
-  // -------------------------------------------------
-  if (eventsError || tasksError) {
+  if (isErrorPage) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Failed to load dashboard</h2>
-
-          <p className="text-muted-foreground mb-4">
-            {eventsQueryError?.message ||
-              tasksQueryError?.message ||
-              "Something went wrong"}
+        <div className="flex flex-col items-center gap-4 text-destructive">
+          <AlertCircle className="w-16 h-16" />
+          <p className="text-center text-lg">
+            Failed to load dashboard data. Please try again.
           </p>
-
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
-          >
-            Retry
-          </button>
         </div>
       </div>
     );
   }
-
-  // -------------------------------------------------
-  // Render UI
-  // -------------------------------------------------
+  
   return (
     <>
       <Dashboard
         events={events}
         tasks={tasks}
         onCreateEvent={openAddEventModal}
-        onEventClick={handleEventClick}
+        onEventClick={(id) => router.push(`/events/${id}`)}
         onCreatePersonalTask={openAddTaskModal}
         onCustomize={openCustomizeModal}
-        visibleWidgets={visibleWidgets}
+        dashboardConfig={dashboardConfig} // Pass local dashboardConfig
+        setDashboardConfig={setDashboardConfig} // Pass local setDashboardConfig
         onCreateFromTemplate={openCreateFromTemplateModal}
       />
 
@@ -187,19 +145,22 @@ export default function DashboardPage() {
         isOpen={isAddTaskModalOpen}
         onClose={closeAddTaskModal}
         eventMembers={allUsers}
-        currentUser={currentUser}
+        currentUser={currentUserData} // Pass currentUserData (UserLite object)
         isPersonal={true}
       />
 
       <CustomizeDashboardModal
         isOpen={isCustomizeModalOpen}
         onClose={closeCustomizeModal}
+        dashboardConfig={dashboardConfig} // Pass local dashboardConfig
+        setDashboardConfig={setDashboardConfig} // Pass local setDashboardConfig
       />
 
       <CreateFromTemplateModal
         isOpen={isCreateFromTemplateModalOpen}
         onClose={closeCreateFromTemplateModal}
         onUseTemplate={handleUseTemplate}
+        templates={templates}
       />
     </>
   );

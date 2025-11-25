@@ -1,33 +1,28 @@
 'use client';
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Event, Task } from "@/lib/types";
-import { filterTasks, getAllAssignees } from "@/lib/server/supabase/utils";
-import { getEffectiveDueDate } from "@/lib/server/supabase/utils";
+import { filterTasks } from "@/lib/client/features/tasks/utils"; // Adjusted import
 import { CheckSquare, Plus } from "lucide-react";
 import { SearchAndFilter, FilterOptions } from "@/components/search-and-filter";
 import { TaskCard } from "@/components/task-card";
-import { useFetchEvents } from "@/stores/useEventStore";
-import { useFetchAllTasks } from "@/lib/client/features/tasks/hooks";
-import { useFetchCurrentUser } from "@/lib/client/features/users/hooks"; 
+import { getEffectiveDueDate } from '@/lib/utils'; // Adjusted import
+import { useFetchCurrentUser } from "@/lib/client/features/users/hooks"; // Keep for current user
+import { getAllAssignees } from '@/lib/client/features/tasks/utils'; // Adjusted import
 
 interface MyTasksSectionProps {
   onStatusChange?: (taskId: string, newStatus: Task["taskStatus"]) => void;
   onSubTaskToggle?: (taskId: string, subTaskId: string) => void;
   onNavigateToAllTasks?: (filterContext?: "my" | "all") => void;
   onCreatePersonalTask: () => void;
+  events: Event[]; // Added events
+  tasks: Task[]; // Added tasks
 }
 
-type Dateish = { startDate?: string; endDate?: string; dueDate?: string };
 function effectiveDueDateOf(t: Task): string | undefined {
-  const dateish: Dateish = {
-    startDate: t.startAt ?? undefined,
-    endDate: t.endAt ?? undefined,
-    dueDate: t.endAt ?? undefined,
-  };
-  return getEffectiveDueDate(dateish) ?? undefined;
+  return getEffectiveDueDate(t) ?? undefined;
 }
 
 export function MyTasksSection({
@@ -35,16 +30,13 @@ export function MyTasksSection({
   onSubTaskToggle,
   onNavigateToAllTasks,
   onCreatePersonalTask,
+  events, // Destructure events
+  tasks, // Destructure tasks
 }: MyTasksSectionProps) {
   // Fetch current user
-  const { data: currentUser, isLoading: loadingUser } = useFetchCurrentUser();
+  const { data: currentUserData, isLoading: loadingUser } = useFetchCurrentUser();
+  const currentUser = currentUserData?.username; // Get username
   
-  const { data: eventsData, isLoading: loadingEvents, error: errorEvents } = useFetchEvents();
-  const { data: tasksData, isLoading: loadingTasks, error: errorTasks } = useFetchAllTasks({ pageSize: 200 });
-
-  const [events, setEvents] = useState<Event[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<FilterOptions>({
     status: [],
@@ -57,40 +49,15 @@ export function MyTasksSection({
   });
   const [taskSortBy, setTaskSortBy] = useState<"dueDate" | "priority" | "recent">("dueDate");
 
-  const isLoading = loadingUser || loadingEvents || loadingTasks;
-  const error = errorEvents?.message || errorTasks?.message || null;
-
-  // Flatten paginated data safely
-  useEffect(() => {
-    const flatEvents: Event[] = eventsData
-      ? "pages" in eventsData && Array.isArray(eventsData.pages)
-        ? eventsData.pages.flatMap((p: any) => Array.isArray(p?.items) ? p.items : [])
-        : Array.isArray(eventsData.items)
-          ? eventsData.items
-          : []
-      : [];
-
-    const flatTasks: Task[] = tasksData
-      ? "pages" in tasksData && Array.isArray(tasksData.pages)
-        ? tasksData.pages.flatMap((p: any) => Array.isArray(p?.items) ? p.items : [])
-        : Array.isArray(tasksData.items)
-          ? tasksData.items
-          : []
-      : [];
-
-    setEvents(flatEvents);
-    setTasks(flatTasks);
-  }, [eventsData, tasksData]);
-
   const userTasks = useMemo(() => {
     if (!currentUser) return [];
     
     const isAssignedToCurrentUser = (t: Task) =>
       t.assignees?.some(
         (a) =>
-          a?.username === currentUser.username ||
-          a?.userId === currentUser.userId ||
-          a?.email === currentUser.email
+          a?.username === currentUser ||
+          a?.userId === currentUserData?.userId ||
+          a?.email === currentUserData?.email
       ) ?? false;
 
     const eventMap = new Map(events.map((e) => [e.eventId, e.title]));
@@ -98,7 +65,7 @@ export function MyTasksSection({
       ...t,
       eventTitle: t.eventId ? eventMap.get(t.eventId) : undefined,
     }));
-  }, [tasks, events, currentUser]);
+  }, [tasks, events, currentUser, currentUserData]);
 
   const availableAssignees = useMemo(() => getAllAssignees(userTasks, events), [userTasks, events]);
 
@@ -136,23 +103,15 @@ export function MyTasksSection({
     return dueDate < today && t.taskStatus !== "Done";
   }).length;
 
-  if (isLoading) {
+  if (loadingUser) { // Use loadingUser for user data loading
     return (
       <Card className="p-8 text-center">
-        <CardContent>Loading tasks...</CardContent>
+        <CardContent>Loading user data...</CardContent>
       </Card>
     );
   }
 
-  if (error) {
-    return (
-      <Card className="p-8 text-center">
-        <CardContent className="text-red-500">{error}</CardContent>
-      </Card>
-    );
-  }
-
-  if (!currentUser) {
+  if (!currentUserData) { // Use currentUserData for checking user existence
     return (
       <Card className="p-8 text-center">
         <CardContent>Please log in to view your tasks</CardContent>
@@ -187,7 +146,7 @@ export function MyTasksSection({
         availableAssignees={availableAssignees}
         showTaskFilters
         placeholder="Search your tasks..."
-        currentUser={currentUser.username}
+        currentUser={currentUser}
         sortBy={taskSortBy}
         onSortChange={setTaskSortBy}
         showSort

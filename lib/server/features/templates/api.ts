@@ -90,16 +90,8 @@ const { data: event, error: eventError } = await db
 }
 
 // ---------- Template Types & Mapper ----------
-type EventData = {
-  title?: string;
-  location?: string | null;
-  eventDescription?: string | null;
-  coverImageUri?: string | null;
-  color?: number;
-  members?: { userId: string }[];
-  startAt?: string | null;
-  endAt?: string | null;
-};
+
+import type { EventTemplateData } from '@/lib/types'; // add this import at top
 
 type RawTemplateRow = {
   template_id: string;
@@ -107,7 +99,7 @@ type RawTemplateRow = {
   name: string;
   description?: string | null;
   created_at: string;
-  event_data: EventData; 
+  event_data: EventTemplateData; // JSON stored in DB
 };
 
 function mapTemplate(r: RawTemplateRow): EventTemplate {
@@ -117,15 +109,6 @@ function mapTemplate(r: RawTemplateRow): EventTemplate {
     name: String(r.name),
     description: r.description ?? '',
     createdAt: String(r.created_at),
-    eventData: {
-      title: r.event_data.title ?? '',
-      location: r.event_data.location,
-      eventDescription: r.event_data.eventDescription,
-      coverImageUri: r.event_data.coverImageUri,
-      color: Number(r.event_data.color ?? 0),
-      members: Array.isArray(r.event_data.members) ? r.event_data.members.map(m => m.userId) : [],
-      startAt: r.event_data.startAt,
-      endAt: r.event_data.endAt,
-    },
+    eventData: r.event_data, // ✅ let it be the typed JSON
   };
 }

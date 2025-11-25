@@ -1,16 +1,19 @@
 // lib/realtime.ts
 import { supabaseClient } from '@/lib/client/supabase/client';
 
-type RealtimeOptions = {
+type RealtimeOptions<T = Record<string, unknown>> = {
   eventId?: string;
   onChange?: (payload: {
     eventType: 'INSERT' | 'UPDATE' | 'DELETE';
-    new: any | null;
-    old: any | null;
+    new: T | null;
+    old: T | null;
   }) => void;
 };
 
-export function getRealtimeChannel(tableName: string, options: RealtimeOptions = {}) {
+export function getRealtimeChannel<T = Record<string, unknown>>(
+  tableName: string, 
+  options: RealtimeOptions<T> = {}
+) {
   const { eventId, onChange } = options;
 
   const channel = supabaseClient
@@ -28,9 +31,9 @@ export function getRealtimeChannel(tableName: string, options: RealtimeOptions =
         console.log('[realtime]', tableName, payload);
 
         onChange?.({
-          eventType: payload.eventType,
-          new: payload.new ?? null,
-          old: payload.old ?? null,
+          eventType: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
+          new: (payload.new ?? null) as T | null,
+          old: (payload.old ?? null) as T | null,
         });
       }
     )

@@ -39,14 +39,12 @@ export function DashboardWidgets({
   // ---- FETCH DATA ----
   const { 
     data: eventsData, 
-    isLoading: loadingEvents, 
-    isError: errorEvents 
+    isLoading: loadingEvents,
   } = useFetchEvents();
   
   const { 
     data: tasksData, 
-    isLoading: loadingTasks, 
-    isError: errorTasks 
+    isLoading: loadingTasks,
   } = useFetchAllTasks({ pageSize: 20 });
 
   // ---- FLATTEN DATA ----
@@ -73,9 +71,6 @@ export function DashboardWidgets({
     );
   }
 
-  // ---- ERROR STATE - Show individual widget errors instead of blocking all ----
-  // Each widget will handle its own error states
-  
   // ---- RENDER ----
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

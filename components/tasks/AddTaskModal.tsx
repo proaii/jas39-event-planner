@@ -133,7 +133,7 @@ export function AddTaskModal({
       eventId: eventId ?? null,
     }
 
-    currentMutation.mutate(finalTask as any, {
+    currentMutation.mutate(finalTask as Omit<Task, 'taskId' | 'eventTitle'>, {
       onSuccess: (createdTask) => {
        
         queryClient.setQueryData<Task[]>(["tasks"], (old) => old ? [...old, createdTask] : [createdTask]);
@@ -147,7 +147,7 @@ export function AddTaskModal({
 
         onClose();
       },
-      onError: (error: any) => {
+      onError: (error: Error) => {
         toast({
           title: "Error",
           description: error?.message || "Failed to create task",

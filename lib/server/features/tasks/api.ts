@@ -88,7 +88,7 @@ export async function listEventTasks(params: {
   }
 }
 
-// List all User's Tasks (Owner of Event + Assignee)
+// List all User's Tasks (Owner of Event + Assignee + Personal Task)
 export async function listAllUserTasks(params: {
   q?: string;
   status?: Task['taskStatus'];
@@ -100,6 +100,8 @@ export async function listAllUserTasks(params: {
 
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? 10;
+  
+  const to = (page * pageSize) - 1; 
 
   const {
     data: { user },
@@ -108,9 +110,8 @@ export async function listAllUserTasks(params: {
   if (uerr) throw uerr;
   if (!user) throw new Error('UNAUTHORIZED');
 
-  const SEL_WITH_USER =
-    `
-    task_id, event_id, title, description, task_status, task_priority, start_at, end_at, created_at,
+  const SEL_BASE = `
+    task_id, creator_id, event_id, title, description, task_status, task_priority, start_at, end_at, created_at,
     attachments:attachments ( attachment_id, attachment_url ),
     subtasks:subtasks ( subtask_id, title, subtask_status ),
     assignees:task_assignees (
@@ -118,56 +119,95 @@ export async function listAllUserTasks(params: {
       user:users!task_assignees_user_id_fkey ( user_id, username, email, avatar_url )
     ),
     event:events!tasks_event_id_fkey ( event_id, owner_id, title )
-    ` as const;
+  `;
 
-  // 1) All tasks in the event that we own (not necessarily inner assignees)
+  // 1. Owner of Event Tasks
+  const SEL_EVENT_OWNER = SEL_BASE.replace(
+    'event:events!tasks_event_id_fkey (',
+    'event:events!tasks_event_id_fkey!inner ('
+  );
+  
   let ownerQ = db
     .from(TABLE)
-    .select(SEL_WITH_USER)
+    .select(SEL_EVENT_OWNER)
     .eq('event.owner_id', user.id)
-    .order('created_at', { ascending: false });
-  if (params.status) ownerQ = ownerQ.eq('task_status', params.status);
-  if (params.q) ownerQ = ownerQ.ilike('title', `%${params.q}%`);
+    .order('created_at', { ascending: false })
+    .range(0, to); 
 
-  // 2) The tasks we are assignee of
-  const SEL_ASSIGNEE_INNER = SEL_WITH_USER.replace(
+  // 2. Assignee Tasks (The task which user was assigned)
+  const SEL_ASSIGNEE_INNER = SEL_BASE.replace(
     'assignees:task_assignees (',
     'assignees:task_assignees!inner ('
-  ) as typeof SEL_WITH_USER;
+  );
 
   let assigneeQ = db
     .from(TABLE)
     .select(SEL_ASSIGNEE_INNER)
     .eq('assignees.user_id', user.id)
-    .order('created_at', { ascending: false });
-  if (params.status) assigneeQ = assigneeQ.eq('task_status', params.status);
-  if (params.q) assigneeQ = assigneeQ.ilike('title', `%${params.q}%`);
+    .order('created_at', { ascending: false })
+    .range(0, to);
 
-  const [{ data: dOwner, error: eOwner }, { data: dAssign, error: eAssign }] = await Promise.all([
+  // 3. Personal Tasks
+  // Event == NULL && Creator is the user
+  let personalQ = db
+    .from(TABLE)
+    .select(SEL_BASE)
+    .is('event_id', null)       
+    .eq('creator_id', user.id) 
+    .order('created_at', { ascending: false })
+    .range(0, to);
+
+  // Apply Filters (Search & Status) to all queries
+  if (params.status) {
+    ownerQ = ownerQ.eq('task_status', params.status);
+    assigneeQ = assigneeQ.eq('task_status', params.status);
+    personalQ = personalQ.eq('task_status', params.status);
+  }
+  if (params.q) {
+    const searchStr = `%${params.q}%`;
+    ownerQ = ownerQ.ilike('title', searchStr);
+    assigneeQ = assigneeQ.ilike('title', searchStr);
+    personalQ = personalQ.ilike('title', searchStr);
+  }
+
+  const [
+    { data: dOwner, error: eOwner }, 
+    { data: dAssign, error: eAssign },
+    { data: dPersonal, error: ePersonal }
+  ] = await Promise.all([
     ownerQ,
     assigneeQ,
+    personalQ
   ]);
+
   if (eOwner) throw eOwner;
   if (eAssign) throw eAssign;
+  if (ePersonal) throw ePersonal;
 
-  // Merge + dedupe by task_id
-  const merged = [...(dOwner ?? []), ...(dAssign ?? [])] as unknown as RawTaskRow[];
+  const merged = [
+    ...(dOwner ?? []), 
+    ...(dAssign ?? []),
+    ...(dPersonal ?? [])
+  ] as unknown as RawTaskRow[];
+
   const byId = new Map<string, RawTaskRow>();
   for (const r of merged) {
     const k = String(r.task_id);
     if (!byId.has(k)) byId.set(k, r);
   }
 
-  // Sort by created_at then paginate
   const all = Array.from(byId.values()).sort((a, b) =>
     String(b.created_at).localeCompare(String(a.created_at))
   );
+  
   const start = (page - 1) * pageSize;
   const end = start + pageSize;
+  
+  const hasNextPage = all.length > end;
 
   return {
     items: all.slice(start, end).map(map),
-    nextPage: end < all.length ? page + 1 : null,
+    nextPage: hasNextPage ? page + 1 : null,
   };
 }
 
@@ -177,12 +217,15 @@ export async function createEventTask(eventId: string, input: Task): Promise<Tas
   const { data: { user } } = await root.auth.getUser();
   const db = await createDb();
 
+  if (!user) throw new Error('UNAUTHORIZED'); 
+
   try {
     // 1) create task
     const { data: trow, error: e1 } = await db
       .from(TABLE)
       .insert({
         event_id: eventId ?? null,
+        creator_id: user.id,
         title: input.title,
         description: input.description ?? null,
         task_status: input.taskStatus,
@@ -284,6 +327,7 @@ export async function createPersonalTask(
       .from(TABLE)
       .insert({
         event_id: null,
+        creator_id: user.id, 
         title: input.title,
         description: input.description ?? null,
         task_status: input.taskStatus,
@@ -340,7 +384,8 @@ export async function createPersonalTask(
         assignees:task_assignees (
           assigned_at,
           user:users!task_assignees_user_id_fkey ( user_id, username, email, avatar_url )
-        )
+        ),
+        event:events!tasks_event_id_fkey ( title )
       `
       )
       .eq('task_id', taskId)
@@ -352,7 +397,7 @@ export async function createPersonalTask(
     if (user) {
       await logActivity(
         user.id, 
-        null, // Personal Task doesn't has Event ID
+        null, 
         'CREATE_TASK', 
         'TASK', 
         input.title
@@ -681,6 +726,7 @@ type RawSubtaskRow = {
 
 type RawTaskRow = {
   task_id: string;
+  creator_id?: string | null;
   event_id?: string | null;
   title: string;
   description?: string | null;

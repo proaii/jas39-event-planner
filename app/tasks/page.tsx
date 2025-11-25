@@ -28,7 +28,16 @@ import { cn, filterTasks, sortTasks, getEffectiveDueDate } from "@/lib/utils";
 async function fetchTasks(): Promise<Task[]> {
   const res = await fetch("/api/tasks");
   if (!res.ok) throw new Error("Failed to fetch tasks");
-  return res.json();
+
+  const data = await res.json();
+
+  // ถ้า backend คืนเป็น { items, nextPage }
+  if (!Array.isArray(data) && data?.items) {
+    return data.items as Task[];
+  }
+
+  // เผื่ออนาคตเปลี่ยน route ให้คืนเป็น array ตรง ๆ
+  return data as Task[];
 }
 
 // ------------------- Main Component -------------------
@@ -69,10 +78,19 @@ export default function AllTasksPage() {
   });
 
   // ------------------- TASKS -------------------
-  const { data: allTasks = [], isLoading: tasksLoading, isError: tasksError } = useQuery<Task[]>({
+  // const { data: allTasks = [], isLoading: tasksLoading, isError: tasksError } = useQuery<Task[]>({
+  //   queryKey: ["tasks"],
+  //   queryFn: fetchTasks,
+  // });
+
+  const { 
+    data: allTasks = [], 
+    isLoading: tasksLoading, 
+    isError: tasksError 
+} = useQuery<Task[]>({
     queryKey: ["tasks"],
     queryFn: fetchTasks,
-  });
+});
 
   // ------------------- HANDLERS -------------------
   const handleTaskClick = (taskId: string) => openEditTaskModal(taskId);

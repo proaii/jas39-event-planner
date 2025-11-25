@@ -114,11 +114,7 @@ export function EditEventModal({ event }: { event: Event }) {
     }));
   };
 
-  const handleColorSelect = (color: string) => {
-    // color format: "bg-chart-1" -> extract number and convert to 0-indexed
-    const colorNumber = parseInt(color.split("-")[2]) - 1;
-    setFormData((prev) => ({ ...prev, color: colorNumber }));
-  };
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

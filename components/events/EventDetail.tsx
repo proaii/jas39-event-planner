@@ -57,7 +57,6 @@ import { SaveTemplateModal } from "@/components/events/SaveTemplateModal";
 import { ViewSwitcher } from "@/components/events/ViewSwitcher";
 import { KanbanBoard } from "@/components/events/KanbanBoard";
 import type { Event, Task, TaskStatus, TaskPriority, UserLite } from "@/lib/types";
-import type { TemplateData } from "@/schemas/template";
 import { useUiStore } from "@/stores/ui-store";
 import { useEventViewStore } from "@/stores/eventViewStore";
 import { useEventDetailStore } from "@/stores/Eventdetailstore";
@@ -72,12 +71,9 @@ interface EventDetailProps {
   currentUser: UserLite;
   allUsers: UserLite[];
   onBack: () => void;
-  onTaskStatusChange: (taskId: string, newStatus: TaskStatus) => void;
-  onAddTask: (task: Omit<Task, "taskId" | "createdAt">) => void;
   onTaskAction?: (taskId: string, action: "edit" | "reassign" | "setDueDate" | "delete") => void;
   onDeleteEvent?: (eventId: string) => void;
   onEditEvent?: (eventId: string) => void;
-  onSaveTemplate: (eventId: string, templateData: TemplateData) => void;
 }
 
 const safeDate = (value: string | null | undefined): Date | null =>
@@ -96,12 +92,9 @@ export function EventDetail({
   currentUser,
   allUsers,
   onBack,
-  onTaskStatusChange,
-  onAddTask,
   onTaskAction,
   onDeleteEvent,
   onEditEvent,
-  onSaveTemplate,
 }: EventDetailProps) {
   // ==================== STORES ====================
   const { 

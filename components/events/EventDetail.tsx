@@ -143,7 +143,7 @@ export function EventDetail({
   const apiTasks = tasksQuery.data ? 
     (tasksQuery.data as any).pages?.flatMap((page: { items: Task[] }) => page.items) : 
     undefined;
-  const tasks = apiTasks ?? allTasks.filter((t: Task) => t.eventId === event.eventId);
+  const tasks = apiTasks ?? (allTasks?.filter((t: Task) => t.eventId === event.eventId) || []);
   const members = event.members || [];
 
   const totalTasks = tasks.length;

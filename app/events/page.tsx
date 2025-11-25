@@ -28,6 +28,7 @@ import { Event } from "@/lib/types";
 import { useUiStore } from "@/stores/ui-store";
 import { useFetchEvents, useCreateEvent, useDeleteEvent } from "@/stores/useEventStore";
 import { AddEventModal } from "@/components/events/AddEventModal";
+import { EditEventModal } from "@/components/events/EditEventModal";
 import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
 import { TemplateData } from "@/schemas/template";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -44,6 +45,7 @@ export default function AllEventsPage() {
     isTemplateModalOpen,
     openTemplateModal,
     closeTemplateModal,
+    openEditEventModal, 
     searchQuery,
     setSearchQuery,
     sortBy,
@@ -91,6 +93,11 @@ export default function AllEventsPage() {
 
   const handleDeleteEvent = (eventId: string) => {
     deleteEventMutation.mutate(eventId);
+  };
+
+  // Add proper edit handler
+  const handleEditEvent = (eventId: string) => {
+    openEditEventModal(eventId);
   };
 
   const handleUseTemplate = (data: TemplateData) => {
@@ -355,7 +362,7 @@ export default function AllEventsPage() {
               key={event.eventId}
               event={event}
               onClick={() => router.push(`/events/${event.eventId}`)}
-              onEdit={() => { }}
+              onEdit={() => handleEditEvent(event.eventId)} 
               onDelete={handleDeleteEvent}
               onAddTask={() => { }}
             />
@@ -380,6 +387,9 @@ export default function AllEventsPage() {
         }}
         onCreateEvent={handleCreateEvent}
       />
+
+      {/* Add EditEventModal */}
+      <EditEventModal events={events} />
 
       <CreateFromTemplateModal
         isOpen={isTemplateModalOpen}

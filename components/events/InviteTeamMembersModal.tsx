@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, Check, UserPlus, Loader2 } from "lucide-react";
+import { Search, Check, UserPlus, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import type { EventMember, UserLite } from "@/lib/types";
 import { useFetchUsers } from "@/lib/client/features/users/hooks";
@@ -33,6 +33,12 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
+// ✅ Validate UUID format
+function isValidUUID(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+}
+
 export function InviteTeamMembersModal({
   isOpen,
   onClose,
@@ -44,7 +50,13 @@ export function InviteTeamMembersModal({
   const [selectedUsers, setSelectedUsers] = useState<UserLite[]>([]);
   const [isInviting, setIsInviting] = useState(false);
 
-  const { data: allUsers = [] } = useFetchUsers({ q: searchQuery, enabled: isOpen });
+  // ✅ Check if eventId is valid
+  const isValidEventId = isValidUUID(eventId);
+
+  const { data: allUsers = [], isLoading: isLoadingUsers } = useFetchUsers({ 
+    q: searchQuery, 
+    enabled: isOpen && isValidEventId // Only fetch if eventId is valid
+  });
 
   const addMemberMutation = useAddMember(eventId);
 
@@ -52,8 +64,16 @@ export function InviteTeamMembersModal({
     (u) => !currentMembers.some((m) => m.userId === u.userId)
   );
 
+  // ✅ Reset state when modal opens/closes
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedUsers([]);
+      setSearchQuery("");
+    }
+  }, [isOpen]);
+
   const handleToggleUser = (user: UserLite) => {
-    if (isInviting) return; // Prevent selection while inviting
+    if (isInviting) return;
     
     setSelectedUsers((prev) =>
       prev.some((u) => u.userId === user.userId)
@@ -63,39 +83,75 @@ export function InviteTeamMembersModal({
   };
 
   const handleInvite = async () => {
-    if (!selectedUsers.length || isInviting) return;
+    if (!selectedUsers.length || isInviting || !isValidEventId) return;
 
     setIsInviting(true);
 
     try {
-      // Invite all selected users
-      await Promise.all(
-        selectedUsers.map((u) => 
-          addMemberMutation.mutateAsync({ memberId: u.userId })
-        )
-      );
+      console.log('Starting invitation:', {
+        eventId,
+        userIds: selectedUsers.map(u => u.userId),
+        isValidEventId,
+      });
+      
+      // Invite all selected users sequentially
+      for (const user of selectedUsers) {
+        try {
+          console.log(`Inviting user ${user.userId} to event ${eventId}`);
+          const result = await addMemberMutation.mutateAsync({ 
+            memberId: user.userId 
+          });
+          console.log(`Successfully invited ${user.userId}:`, result);
+        } catch (error) {
+          console.error(`Failed to invite ${user.userId}:`, error);
+          throw error;
+        }
+      }
 
-      const newMembers: EventMember[] = [
-        ...currentMembers,
-        ...selectedUsers.map((u) => ({
-          eventMemberId: `demo-${u.userId}-${Date.now()}`,
-          userId: u.userId,
-          eventId,
-          joinedAt: new Date().toISOString(),
-        })),
-      ];
+      console.log('All invitations completed successfully');
 
       toast.success(
         `Successfully invited ${selectedUsers.length} member${selectedUsers.length > 1 ? 's' : ''}!`
       );
       
-      onMembersUpdated?.(newMembers);
+      // ✅ Only call onMembersUpdated if callback exists
+      if (onMembersUpdated) {
+        const newMembers: EventMember[] = [
+          ...currentMembers,
+          ...selectedUsers.map((u) => ({
+            eventMemberId: `temp-${u.userId}-${Date.now()}`,
+            userId: u.userId,
+            eventId,
+            joinedAt: new Date().toISOString(),
+          })),
+        ];
+        onMembersUpdated(newMembers);
+      }
+      
       setSelectedUsers([]);
       setSearchQuery("");
       onClose();
     } catch (err: any) {
       console.error('Failed to invite members:', err);
-      toast.error(err?.message || "Failed to invite members. Please try again.");
+      
+      // Extract error message
+      let errorMessage = "Failed to invite members. Please try again.";
+      
+      if (err) {
+        if (typeof err === 'string') {
+          errorMessage = err;
+        } else if (err.message) {
+          errorMessage = err.message;
+        } else if (err.error) {
+          errorMessage = err.error;
+        } else if (err.code === '22P02') {
+          errorMessage = "Invalid event ID. Please refresh and try again.";
+        }
+        
+        console.error('Full error object:', JSON.stringify(err, null, 2));
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setIsInviting(false);
     }
@@ -108,6 +164,40 @@ export function InviteTeamMembersModal({
       onClose();
     }
   };
+
+  // ✅ Show error if eventId is invalid
+  if (!isValidEventId && isOpen) {
+    return (
+      <Dialog open={isOpen} onOpenChange={handleClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="w-5 h-5" />
+              Invalid Event
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-muted-foreground">
+              Cannot invite members to this event. The event ID is invalid or the event hasn't been created yet.
+            </p>
+            <div className="p-3 bg-muted rounded-md">
+              <p className="text-xs font-mono text-muted-foreground break-all">
+                Event ID: {eventId}
+              </p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Please save the event first, then try inviting members.
+            </p>
+          </div>
+          <div className="flex justify-end pt-4 border-t">
+            <Button onClick={handleClose}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
@@ -131,7 +221,12 @@ export function InviteTeamMembersModal({
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-2">
-          {availableUsers.length > 0 ? (
+          {isLoadingUsers ? (
+            <div className="text-center py-8">
+              <Loader2 className="w-8 h-8 mx-auto mb-3 animate-spin text-muted-foreground" />
+              <p className="text-muted-foreground">Loading users...</p>
+            </div>
+          ) : availableUsers.length > 0 ? (
             availableUsers.map((user) => {
               const isSelected = selectedUsers.some((u) => u.userId === user.userId);
               return (
@@ -164,7 +259,11 @@ export function InviteTeamMembersModal({
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <UserPlus className="w-8 h-8 mx-auto mb-3 opacity-50" />
-              <p>No users found.</p>
+              <p>
+                {searchQuery 
+                  ? "No users found matching your search." 
+                  : "No available users to invite."}
+              </p>
             </div>
           )}
         </div>

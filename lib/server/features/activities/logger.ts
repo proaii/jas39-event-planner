@@ -9,9 +9,8 @@ export async function logActivity(
               'CREATE_EVENT' | 'JOIN_EVENT' | 'UPDATE_EVENT',
   entityType: 'TASK' | 'EVENT' | 'MEMBER' | 'SUBTASK',
   entityTitle: string,
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ) {
-  // Use Admin Client to be sure when writing Log (to prevent RLS when writing)
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return;
   
   const adminDb = createAdminClient(
@@ -27,7 +26,7 @@ export async function logActivity(
       action_type: actionType,
       entity_type: entityType,
       entity_title: entityTitle,
-      metadata: metadata
+      metadata: metadata || null 
     });
   } catch (error) {
     console.error('Failed to log activity:', error);

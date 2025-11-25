@@ -3,6 +3,17 @@ import { createClient } from '@/lib/server/supabase/server';
 import { toApiError } from '@/lib/errors';
 import type { ActivityItem } from '@/lib/types';
 
+interface ActivityLogRow {
+  id: string;
+  action_type: string;
+  entity_title: string;
+  created_at: string;
+  user: {
+    username: string;
+    avatar_url: string | null;
+  } | null;
+}
+
 export async function getEventActivities(eventId: string): Promise<ActivityItem[]> {
   const db = await createDb();
 
@@ -19,7 +30,9 @@ export async function getEventActivities(eventId: string): Promise<ActivityItem[
 
     if (error) throw error;
 
-    return (data || []).map((row: any) => {
+    const rows = (data || []) as unknown as ActivityLogRow[];
+
+    return rows.map((row) => {
       let actionText = 'performed action'; 
 
       switch (row.action_type) {
@@ -75,7 +88,9 @@ export async function getPersonalActivities(): Promise<ActivityItem[]> {
 
     if (error) throw error;
 
-    return (data || []).map((row: any) => {
+    const rows = (data || []) as unknown as ActivityLogRow[];
+
+    return rows.map((row) => {
       let actionText = 'performed action';
 
       switch (row.action_type) {
@@ -85,7 +100,6 @@ export async function getPersonalActivities(): Promise<ActivityItem[]> {
         case 'CREATE_SUBTASK': actionText = 'added subtask to personal task'; break;
         case 'UPDATE_SUBTASK': actionText = 'updated subtask'; break;
         case 'DELETE_SUBTASK': actionText = 'deleted subtask'; break;
-        // Personal task doesn't have Event actions
       }
 
       return {

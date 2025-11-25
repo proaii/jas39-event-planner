@@ -165,7 +165,7 @@ export async function updateEvent(eventId: string, patch: Partial<Event>): Promi
     await logActivity(
         user.id, 
         eventId, 
-        'UPDATE_EVENT' as any, 
+        'UPDATE_EVENT', 
         'EVENT', 
         eventData.title
     );
@@ -226,4 +226,3 @@ function map(r: RawEventRow): Event {
     members,
   };
 }
-

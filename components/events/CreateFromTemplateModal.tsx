@@ -24,17 +24,17 @@ interface CreateFromTemplateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUseTemplate: (eventData: TemplateData) => void;
-  eventId: string;                // ✅ add this
+  // ❌ remove eventId: string;
 }
 
 export function CreateFromTemplateModal({
   isOpen,
   onClose,
   onUseTemplate,
-  eventId,                         // ✅ destructure
 }: CreateFromTemplateModalProps) {
 
-  const { data: templates, isLoading, error } = useFetchTemplates(eventId);  // ✅ use it
+  // ✅ fetch templates globally, no eventId needed
+  const { data: templates, isLoading, error } = useFetchTemplates();
 
   // --- map EventTemplateData -> TemplateData ---
   const mapEventTemplateToTemplateData = (template: EventTemplate): TemplateData => {

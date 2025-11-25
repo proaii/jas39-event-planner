@@ -8,11 +8,15 @@ import { MINUTES } from '@/lib/constants';
 
 // ---------- Event Templates ----------
 
-export function useFetchTemplates(eventId: string) {
+export function useFetchTemplates(eventId?: string) {
   return useQuery<EventTemplate[], ApiError>({
-    queryKey: ['templates', eventId],
+    queryKey: ['templates', eventId ?? 'all'],
     queryFn: async () => {
-      const r = await fetch(`/api/events/${eventId}/templates`);
+      const url = eventId
+        ? `/api/events/${eventId}/templates`  // per-event (e.g. if you ever want that)
+        : `/api/templates`;                   // global list for dashboard
+
+      const r = await fetch(url);
       if (!r.ok) throw (await r.json()) as ApiError;
       return (await r.json()) as EventTemplate[];
     },
@@ -37,8 +41,10 @@ export function useSaveTemplate() {
       if (!r.ok) throw (await r.json()) as ApiError;
       return (await r.json()) as EventTemplate;
     },
-    onSuccess: (_data, { eventId }) => {
-      qc.invalidateQueries({ queryKey: ['templates', eventId] });
+    onSuccess: () => {
+      // invalidate both per-event and global views
+      qc.invalidateQueries({ queryKey: ['templates'] });
+      qc.invalidateQueries({ queryKey: ['templates', 'all'] });
     },
   });
 }

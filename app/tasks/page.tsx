@@ -18,6 +18,7 @@ import { Task } from "@/lib/types";
 import { useUiStore } from "@/stores/ui-store";
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { TaskCard } from "@/components/task-card";
+import { TaskDetailModal } from "@/components/tasks/TaskDetail"; 
 import { EditTaskModal } from "@/components/tasks/EditTaskModal";
 import { useFetchUsers, useFetchUser } from "@/lib/client/features/users/hooks";
 import { useUser } from "@/lib/client/features/auth/hooks";
@@ -31,25 +32,24 @@ async function fetchTasks(): Promise<Task[]> {
 
   const data = await res.json();
 
-  // ถ้า backend คืนเป็น { items, nextPage }
   if (!Array.isArray(data) && data?.items) {
     return data.items as Task[];
   }
 
-  // เผื่ออนาคตเปลี่ยน route ให้คืนเป็น array ตรง ๆ
   return data as Task[];
 }
 
 // ------------------- Main Component -------------------
 export default function AllTasksPage() {
+  // ⭐ เพิ่ม state สำหรับ Task Detail Modal
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const {
     isAddTaskModalOpen,
     openAddTaskModal,
     closeAddTaskModal,
     isEditTaskModalOpen,
-    selectedTaskIdForEdit,
-    openEditTaskModal,
     closeEditTaskModal,
     searchQuery,
     setSearchQuery,
@@ -77,22 +77,25 @@ export default function AllTasksPage() {
   });
 
   // ------------------- TASKS -------------------
-  // const { data: allTasks = [], isLoading: tasksLoading, isError: tasksError } = useQuery<Task[]>({
-  //   queryKey: ["tasks"],
-  //   queryFn: fetchTasks,
-  // });
-
   const { 
     data: allTasks = [], 
     isLoading: tasksLoading, 
     isError: tasksError 
-} = useQuery<Task[]>({
+  } = useQuery<Task[]>({
     queryKey: ["tasks"],
     queryFn: fetchTasks,
-});
+  });
 
   // ------------------- HANDLERS -------------------
-  const handleTaskClick = (taskId: string) => openEditTaskModal(taskId);
+  const handleTaskClick = (taskId: string) => {
+    setSelectedTaskId(taskId);
+    setIsDetailModalOpen(true);
+  };
+
+  const handleCloseDetailModal = () => {
+    setIsDetailModalOpen(false);
+    setSelectedTaskId(null);
+  };
 
   const applyTempFilters = () => {
     setProgressFilters(tempProgressFilters);
@@ -158,7 +161,6 @@ export default function AllTasksPage() {
                 <div className="pb-2 border-b border-border">
                   <h3 className="font-semibold text-foreground">Filter Tasks</h3>
                 </div>
-                {/* Progress */}
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-foreground">Filter by Status</label>
                   <div className="space-y-2">
@@ -264,6 +266,7 @@ export default function AllTasksPage() {
         </div>
       )}
 
+      {/* Modals */}
       <AddTaskModal
         isOpen={isAddTaskModalOpen}
         onClose={closeAddTaskModal}
@@ -272,11 +275,17 @@ export default function AllTasksPage() {
         isPersonal={true}
       />
 
+      <TaskDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={handleCloseDetailModal}
+        taskId={selectedTaskId}
+      />
+
       <EditTaskModal
         isOpen={isEditTaskModalOpen}
         onClose={closeEditTaskModal}
         availableAssignees={allUsers}
-        taskId={selectedTaskIdForEdit}
+        taskId={null} 
       />
     </main>
   );

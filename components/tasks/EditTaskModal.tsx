@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { CheckSquare, Calendar, Users, X, Flag, Plus, Trash2, Paperclip, ExternalLink, Loader2 } from 'lucide-react'
+import { CheckSquare, Calendar, Users, X, Flag, Plus, Trash2, Paperclip, ExternalLink, Loader2, AlertCircle } from 'lucide-react'
 import type { UserLite, TaskStatus, TaskPriority } from '@/lib/types'
 import { useTasksStore } from "@/stores/task-store"
 import { useUiStore } from "@/stores/ui-store"
@@ -23,7 +23,6 @@ interface EditTaskModalProps {
   taskId: string | null;  
 }
 
-
 export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
   const { 
     isEditTaskModalOpen, 
@@ -31,12 +30,16 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
     closeEditTaskModal 
   } = useUiStore()
 
-  // Fetch task data using React Query
+  // ⭐ ใช้ conditional rendering แทน enabled option
+  // จะ fetch เฉพาะเมื่อมี taskId ที่ถูกต้อง
+  const shouldFetch = selectedTaskIdForEdit && selectedTaskIdForEdit.trim().length > 0
+  
   const { 
     data: editingTask, 
     isLoading: isLoadingTask,
-    error: taskError 
-  } = useFetchTask(selectedTaskIdForEdit || '')
+    error: taskError,
+    isError: isTaskError
+  } = useFetchTask(shouldFetch ? selectedTaskIdForEdit : 'skip-fetch')
 
   // Zustand store for form data (UI state only)
   const {
@@ -70,10 +73,12 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
 
   // Initialize edit form when task is loaded
   useEffect(() => {
-    if (editingTask && isEditTaskModalOpen) {
+    if (editingTask && isEditTaskModalOpen && shouldFetch) {
       openEditModal(editingTask)
     }
-  }, [editingTask, isEditTaskModalOpen, openEditModal])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingTask, isEditTaskModalOpen, shouldFetch])
+  // Note: openEditModal is intentionally excluded to prevent infinite loops
 
   useEffect(() => {
     setEditIsPending(editTaskMutation.isPending)
@@ -143,13 +148,21 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
     }
   }
 
+  // Don't render if modal is not open or no valid task ID
+  if (!isEditTaskModalOpen || !shouldFetch) {
+    return null
+  }
+
   // Loading skeleton when task data is being fetched
-  if (isLoadingTask && isEditTaskModalOpen) {
+  if (isLoadingTask) {
     return (
       <Dialog open={isEditTaskModalOpen} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <Skeleton className="h-6 w-32" />
+            <div className="flex items-center space-x-2">
+              <Loader2 className="w-5 h-5 text-primary animate-spin" />
+              <Skeleton className="h-6 w-32" />
+            </div>
             <Skeleton className="h-4 w-64 mt-2" />
           </DialogHeader>
           <div className="space-y-6">
@@ -165,22 +178,53 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
     )
   }
 
-  // Error state
-  if (taskError && isEditTaskModalOpen) {
+  // Error state with better error handling
+  if (isTaskError) {
+    const errorMessage = taskError?.message || 'Failed to load task data'
+
     return (
       <Dialog open={isEditTaskModalOpen} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Error Loading Task</DialogTitle>
+            <DialogTitle className="flex items-center space-x-2 text-destructive">
+              <AlertCircle className="w-5 h-5" />
+              <span>Error Loading Task</span>
+            </DialogTitle>
+            <DialogDescription>
+              We encountered an issue while loading the task data.
+            </DialogDescription>
           </DialogHeader>
-          <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md">
-            <p className="text-sm text-destructive">
-              {taskError.message || 'Failed to load task data'}
-            </p>
+          
+          <div className="space-y-4">
+            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md">
+              <p className="text-sm text-destructive font-medium mb-2">Error Details:</p>
+              <p className="text-sm text-destructive/80">
+                {errorMessage}
+              </p>
+            </div>
+
+            <div className="p-4 bg-muted/50 rounded-md">
+              <p className="text-sm text-muted-foreground">
+                <strong>Possible causes:</strong>
+              </p>
+              <ul className="text-sm text-muted-foreground list-disc list-inside mt-2 space-y-1">
+                <li>The task may have been deleted</li>
+                <li>You may not have permission to view this task</li>
+                <li>There may be a network connectivity issue</li>
+                <li>The server may be temporarily unavailable</li>
+              </ul>
+            </div>
           </div>
-          <div className="flex justify-end">
+
+          <div className="flex justify-end space-x-3 pt-4 border-t">
             <Button onClick={handleClose} variant="outline">
               Close
+            </Button>
+            <Button 
+              onClick={() => window.location.reload()} 
+              variant="default"
+            >
+              Reload
             </Button>
           </div>
         </DialogContent>
@@ -188,7 +232,10 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
     )
   }
 
-  if (!editingTask) return null
+  // No task data loaded yet
+  if (!editingTask) {
+    return null
+  }
 
   return (
     <Dialog open={isEditTaskModalOpen} onOpenChange={(open) => { if (!open) handleClose() }}>

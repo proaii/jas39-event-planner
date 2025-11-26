@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/server/supabase/server'; 
+import { createClient } from '@/lib/server/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { toApiError } from '@/lib/errors';
 import type { UserLite } from '@/lib/types';
@@ -6,10 +6,10 @@ import type { UserLite } from '@/lib/types';
 const TABLE = 'users';
 
 type DbUserRow = {
-  userId: string;        
+  userId: string;
   username: string | null;
   email: string | null;
-  avatarUrl: string | null; 
+  avatarUrl: string | null;
 };
 
 function getAdminDb() {
@@ -40,11 +40,14 @@ export async function getUserById(targetUserId: string): Promise<UserLite> {
       throw new Error('UNAUTHORIZED');
     }
 
-    let { data, error } = await supabase
+    let data;
+    const { data: fetched, error } = await supabase
       .from(TABLE)
       .select('userId:user_id, username, email, avatarUrl:avatar_url')
       .eq('user_id', targetUserId)
       .single();
+
+    data = fetched;
 
     // If user profile doesn't exist, create it.
     if (error && error.code === 'PGRST116') { // PGRST116: "exact one row not found"
@@ -61,7 +64,7 @@ export async function getUserById(targetUserId: string): Promise<UserLite> {
         .insert(profileToInsert)
         .select('userId:user_id, username, email, avatarUrl:avatar_url')
         .single();
-      
+
       if (createError) {
         throw createError;
       }
@@ -69,7 +72,7 @@ export async function getUserById(targetUserId: string): Promise<UserLite> {
     } else if (error) {
       throw error;
     }
-    
+
     if (!data) {
       throw new Error('USER_NOT_FOUND');
     }
@@ -107,29 +110,29 @@ export async function updateUser(
 
   try {
     const updates: Record<string, unknown> = {};
-    
+
     if (patch.username !== undefined) updates.username = patch.username;
     if (patch.avatarUrl !== undefined) updates.avatar_url = patch.avatarUrl;
 
     if (Object.keys(updates).length === 0) {
-        return getUserById(userId); 
+      return getUserById(userId);
     }
 
     const { data, error } = await adminDb
       .from(TABLE)
       .update(updates)
       .eq('user_id', userId)
-      .select('userId:user_id, username, email, avatarUrl:avatar_url') 
+      .select('userId:user_id, username, email, avatarUrl:avatar_url')
       .single();
 
     if (error) throw error;
 
     const r = data as DbUserRow;
-    
+
     return {
       userId: r.userId,
       username: (r.username ?? r.email ?? '').toString(),
-      email: (r.email ?? '').toString(), 
+      email: (r.email ?? '').toString(),
       avatarUrl: r.avatarUrl ?? null,
     };
 
@@ -203,7 +206,7 @@ export async function listAllUsers(params: {
         if (!userId) return null;
         const username = (r.username ?? r.email ?? '').toString();
         const email = (r.email ?? '').toString();
-        const avatarUrl = r.avatarUrl ?? null; 
+        const avatarUrl = r.avatarUrl ?? null;
         return { userId, username, email, avatarUrl };
       })
       .filter((u): u is UserLite => u !== null);

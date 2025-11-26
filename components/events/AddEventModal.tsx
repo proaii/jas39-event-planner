@@ -28,7 +28,6 @@ import { toast } from "react-hot-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { Event, UserLite } from "@/lib/types";
 import { InviteTeamMembersModal } from "./InviteTeamMembersModal";
-import { useEventColorStore } from "@/stores/eventColorStore";
 import { useUiStore } from "@/stores/ui-store";
 import { useFetchCurrentUser } from '@/lib/client/features/users/hooks';
 
@@ -40,8 +39,6 @@ interface AddEventModalProps {
   ) => void;
   eventId?: string;
 }
-
-const hexToNumber = (hex: string) => parseInt(hex.replace("#", ""), 16);
 
 function formatDateTimeWithTZ(dateStr: string, timeStr: string): string {
   const localDate = new Date(`${dateStr}T${timeStr}`);
@@ -62,7 +59,7 @@ function formatDateTimeWithTZ(dateStr: string, timeStr: string): string {
   return `${yyyy}-${MM}-${dd} ${hh}:${mm}:${ss}${offsetSign}${offsetHr}:${offsetM}`;
 }
 
-const DEFAULT_COLOR = "#E8F4FD";
+const DEFAULT_COLOR = 0;
 
 export function AddEventModal({
   isOpen,
@@ -71,7 +68,6 @@ export function AddEventModal({
   eventId,
 }: AddEventModalProps) {
   // ==================== STORES ====================
-  const { selectedColor, setColor } = useEventColorStore();
   const { eventPrefillData, clearEventPrefillData } = useUiStore();
   const { data: currentUser, isLoading: isLoadingCurrentUser } = useFetchCurrentUser(); // Fetch current user
 
@@ -87,6 +83,7 @@ export function AddEventModal({
     description: "",
     coverImage: "",
     members: [] as UserLite[],
+    color: DEFAULT_COLOR,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,6 +93,7 @@ export function AddEventModal({
   useEffect(() => {
     if (isOpen) {
       let initialMembers: UserLite[] = [];
+      let initialColor = DEFAULT_COLOR;
 
       // If prefill data exists, use its members
       if (eventPrefillData) {
@@ -106,6 +104,7 @@ export function AddEventModal({
 
         initialMembers =
           (eventPrefillData.members as unknown as UserLite[]) || [];
+        initialColor = eventPrefillData.color ?? DEFAULT_COLOR;
 
         setFormData({
           title: eventPrefillData.title || "",
@@ -123,20 +122,11 @@ export function AddEventModal({
           description: eventPrefillData.description || "",
           coverImage: eventPrefillData.coverImageUri || "",
           members: initialMembers,
+          color: initialColor,
         });
 
-        // Set color from prefill data
-        if (eventPrefillData.color) {
-          const colorHex = `#${eventPrefillData.color
-            .toString(16)
-            .padStart(6, "0")}`;
-          setColor(colorHex);
-        } else {
-          setColor(DEFAULT_COLOR);
-        }
       } else {
         // Reset to default when opening without prefill
-        setColor(DEFAULT_COLOR);
         // Only add current user if no prefill and members list is empty
         if (!isLoadingCurrentUser && currentUser && initialMembers.length === 0) {
             initialMembers = [currentUser];
@@ -144,10 +134,11 @@ export function AddEventModal({
         setFormData(prev => ({
           ...prev,
           members: initialMembers,
+          color: DEFAULT_COLOR,
         }));
       }
     }
-  }, [isOpen, eventPrefillData, setColor, currentUser, isLoadingCurrentUser]);
+  }, [isOpen, eventPrefillData, currentUser, isLoadingCurrentUser]);
 
   // ==================== HANDLERS ====================
   const handleInviteMembers = () => setInviteModalOpen(true);
@@ -196,7 +187,7 @@ export function AddEventModal({
         location: formData.location,
         description: formData.description,
         coverImageUri: formData.coverImage,
-        color: hexToNumber(selectedColor || DEFAULT_COLOR),
+        color: formData.color,
         startAt: startISO,
         endAt: endISO,
         members: formData.members.map(m => m.userId),
@@ -216,8 +207,8 @@ export function AddEventModal({
         description: "",
         coverImage: "",
         members: [],
+        color: DEFAULT_COLOR,
       });
-      setColor(DEFAULT_COLOR);
       clearEventPrefillData();
     } catch (error) {
       console.error(error);
@@ -424,8 +415,14 @@ export function AddEventModal({
               )}
             </div>
 
-            {/* Color selector - now uses Zustand store */}
-            <EventColorSelector />
+            {/* Color selector */}
+            <EventColorSelector
+              selectedColor={`bg-chart-${formData.color + 1}`}
+              onColorSelect={(color) => {
+                const colorNumber = parseInt(color.split("-")[2]) - 1;
+                setFormData((prev) => ({ ...prev, color: colorNumber }));
+              }}
+            />
 
             {/* Team members */}
             <div className="space-y-4">

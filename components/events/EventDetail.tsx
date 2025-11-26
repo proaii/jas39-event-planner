@@ -169,6 +169,26 @@ export function EventDetail({
     }
   };
 
+  const handleSubtaskStatusChange = async (taskId: string, subtaskId: string, newStatus: 'To Do' | 'Done') => {
+    const task = tasks.find(t => t.taskId === taskId);
+    if (!task || !task.subtasks) return;
+
+    const updatedSubtasks = task.subtasks.map(sub => 
+      sub.subtaskId === subtaskId ? { ...sub, subtaskStatus: newStatus } : sub
+    );
+
+    try {
+      await editTaskMutation.mutateAsync({
+        taskId,
+        patch: { subtasks: updatedSubtasks }
+      });
+      toast.success("Subtask status updated");
+    } catch (error) {
+      toast.error("Failed to update subtask status");
+      console.error(error);
+    }
+  };
+
   const handleDeleteEvent = async () => {
     try {
       await deleteEventMutation.mutateAsync(event.eventId);
@@ -647,7 +667,14 @@ export function EventDetail({
                                     <div className="mt-3 pt-3 border-t space-y-2">
                                       {task.subtasks.map((sub: Subtask) => (
                                         <div key={sub.subtaskId} className="flex items-center space-x-2 pl-4">
-                                          <Checkbox checked={sub.subtaskStatus === "Done"} className="h-4 w-4" />
+                                          <Checkbox
+                                            checked={sub.subtaskStatus === "Done"}
+                                            onCheckedChange={(checked) =>
+                                              handleSubtaskStatusChange(task.taskId, sub.subtaskId, checked ? 'Done' : 'To Do')
+                                            }
+                                            className="h-4 w-4"
+                                            disabled={editTaskMutation.isPending}
+                                          />
                                           <span className={`text-sm ${sub.subtaskStatus === "Done" ? "line-through opacity-60" : ""}`}>
                                             {sub.title}
                                           </span>

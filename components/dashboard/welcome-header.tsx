@@ -2,23 +2,15 @@
 
 import { useFetchCurrentUser } from "@/lib/client/features/users/hooks";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ChevronDown, FileText, Layout, Plus } from "lucide-react";
+import { Layout, Plus } from "lucide-react";
 
 interface WelcomeHeaderProps {
   onCreateEvent: () => void;
-  onCreateFromTemplate?: () => void;
   onOpenCustomizeDashboard?: () => void;
 }
 
 export function WelcomeHeader({
   onCreateEvent,
-  onCreateFromTemplate,
   onOpenCustomizeDashboard,
 }: WelcomeHeaderProps) {
   const { data: currentUser, isLoading, isError } = useFetchCurrentUser();
@@ -53,25 +45,6 @@ export function WelcomeHeader({
             <Plus className="w-4 h-4 mr-2" />
             Create Event
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                className="bg-primary hover:bg-primary/90 rounded-l-none px-2"
-                aria-label="More options"
-              >
-                <ChevronDown className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem
-                onClick={onCreateFromTemplate}
-                className="cursor-pointer"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Create from Template...
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import React, { useState, useEffect } from "react";
 import {
@@ -13,23 +13,32 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { EventColorSelector } from "./EventColorSelector";
-import { Calendar, MapPin, Clock, Users, Image as LucideImage, X, UserPlus, Loader2 } from "lucide-react";
+import {
+  Calendar,
+  MapPin,
+  Clock,
+  Users,
+  Image as LucideImage,
+  X,
+  UserPlus,
+  Loader2,
+} from "lucide-react";
 import NextImage from "next/image";
 import { toast } from "react-hot-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import type { Event, EventMember } from "@/lib/types";
+import type { Event, UserLite } from "@/lib/types";
 import { InviteTeamMembersModal } from "./InviteTeamMembersModal";
-import { useEventColorStore } from '@/stores/eventColorStore';
-import { useUiStore } from '@/stores/ui-store';
+import { useUiStore } from "@/stores/ui-store";
+import { useFetchCurrentUser } from '@/lib/client/features/users/hooks';
 
 interface AddEventModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreateEvent: (eventData: Omit<Event, 'eventId' | 'ownerId' | 'createdAt'>) => void;
+  onCreateEvent: (
+    eventData: Omit<Event, "eventId" | "ownerId" | "createdAt">
+  ) => void;
   eventId?: string;
 }
-
-const hexToNumber = (hex: string) => parseInt(hex.replace("#", ""), 16);
 
 function formatDateTimeWithTZ(dateStr: string, timeStr: string): string {
   const localDate = new Date(`${dateStr}T${timeStr}`);
@@ -42,7 +51,7 @@ function formatDateTimeWithTZ(dateStr: string, timeStr: string): string {
   const mm = pad(localDate.getMinutes());
   const ss = pad(localDate.getSeconds());
 
-  const offsetMin = localDate.getTimezoneOffset(); 
+  const offsetMin = localDate.getTimezoneOffset();
   const offsetSign = offsetMin > 0 ? "-" : "+";
   const offsetHr = pad(Math.floor(Math.abs(offsetMin) / 60));
   const offsetM = pad(Math.abs(offsetMin) % 60);
@@ -50,12 +59,17 @@ function formatDateTimeWithTZ(dateStr: string, timeStr: string): string {
   return `${yyyy}-${MM}-${dd} ${hh}:${mm}:${ss}${offsetSign}${offsetHr}:${offsetM}`;
 }
 
-const DEFAULT_COLOR = "#E8F4FD";
+const DEFAULT_COLOR = 0;
 
-export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEventModalProps) {
+export function AddEventModal({
+  isOpen,
+  onClose,
+  onCreateEvent,
+  eventId,
+}: AddEventModalProps) {
   // ==================== STORES ====================
-  const { selectedColor, setColor } = useEventColorStore();
   const { eventPrefillData, clearEventPrefillData } = useUiStore();
+  const { data: currentUser, isLoading: isLoadingCurrentUser } = useFetchCurrentUser(); // Fetch current user
 
   // ==================== FORM STATE ====================
   const [formData, setFormData] = useState({
@@ -68,7 +82,8 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEv
     endTime: "",
     description: "",
     coverImage: "",
-    members: [] as string[],
+    members: [] as UserLite[],
+    color: DEFAULT_COLOR,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -76,81 +91,110 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEv
 
   // ==================== PREFILL DATA FROM TEMPLATE ====================
   useEffect(() => {
-    if (isOpen && eventPrefillData) {
-      const isMulti = !!eventPrefillData.endAt && 
-                      eventPrefillData.startAt?.split("T")[0] !== eventPrefillData.endAt?.split("T")[0];
-      
-      setFormData({
-        title: eventPrefillData.title || "",
-        location: eventPrefillData.location || "",
-        isMultiDay: isMulti,
-        startDate: eventPrefillData.startAt?.split("T")[0] || "",
-        startTime: eventPrefillData.startAt?.split("T")[1]?.substring(0,5) || "",
-        endDate: eventPrefillData.endAt?.split("T")[0] || eventPrefillData.startAt?.split("T")[0] || "",
-        endTime: eventPrefillData.endAt?.split("T")[1]?.substring(0,5) || "",
-        description: eventPrefillData.description || "",
-        coverImage: eventPrefillData.coverImageUri || "",
-        members: eventPrefillData.members || [],
-      });
+    if (isOpen) {
+      let initialMembers: UserLite[] = [];
+      let initialColor = DEFAULT_COLOR;
 
-      // Set color from prefill data
-      if (eventPrefillData.color) {
-        const colorHex = `#${eventPrefillData.color.toString(16).padStart(6,"0")}`;
-        setColor(colorHex);
+      // If prefill data exists, use its members
+      if (eventPrefillData) {
+        const isMulti =
+          !!eventPrefillData.endAt &&
+          eventPrefillData.startAt?.split("T")[0] !==
+            eventPrefillData.endAt?.split("T")[0];
+
+        initialMembers =
+          (eventPrefillData.members as unknown as UserLite[]) || [];
+        initialColor = eventPrefillData.color ?? DEFAULT_COLOR;
+
+        setFormData({
+          title: eventPrefillData.title || "",
+          location: eventPrefillData.location || "",
+          isMultiDay: isMulti,
+          startDate: eventPrefillData.startAt?.split("T")[0] || "",
+          startTime:
+            eventPrefillData.startAt?.split("T")[1]?.substring(0, 5) || "",
+          endDate:
+            eventPrefillData.endAt?.split("T")[0] ||
+            eventPrefillData.startAt?.split("T")[0] ||
+            "",
+          endTime:
+            eventPrefillData.endAt?.split("T")[1]?.substring(0, 5) || "",
+          description: eventPrefillData.description || "",
+          coverImage: eventPrefillData.coverImageUri || "",
+          members: initialMembers,
+          color: initialColor,
+        });
+
       } else {
-        setColor(DEFAULT_COLOR);
+        // Reset to default when opening without prefill
+        // Only add current user if no prefill and members list is empty
+        if (!isLoadingCurrentUser && currentUser && initialMembers.length === 0) {
+            initialMembers = [currentUser];
+        }
+        setFormData(prev => ({
+          ...prev,
+          members: initialMembers,
+          color: DEFAULT_COLOR,
+        }));
       }
-    } else if (isOpen && !eventPrefillData) {
-      // Reset to default when opening without prefill
-      setColor(DEFAULT_COLOR);
     }
-  }, [isOpen, eventPrefillData, setColor]);
+  }, [isOpen, eventPrefillData, currentUser, isLoadingCurrentUser]);
 
   // ==================== HANDLERS ====================
   const handleInviteMembers = () => setInviteModalOpen(true);
-  
-  const removeMember = (member: string) => 
-    setFormData(prev => ({ ...prev, members: prev.members.filter(m => m !== member) }));
+
+  const removeMember = (member: UserLite) =>
+    setFormData((prev) => ({
+      ...prev,
+      members: prev.members.filter((m) => m.userId !== member.userId),
+    }));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation
-    if (!formData.title.trim()) return toast.error("Please enter an event title.");
-    if (!formData.startDate || !formData.startTime) return toast.error("Please select a start date and time.");
-    if (formData.isMultiDay && (!formData.endDate || !formData.endTime)) 
+    if (!formData.title.trim())
+      return toast.error("Please enter an event title.");
+    if (!formData.startDate || !formData.startTime)
+      return toast.error("Please select a start date and time.");
+    if (formData.isMultiDay && (!formData.endDate || !formData.endTime))
       return toast.error("Please select an end date and time.");
-    
+
     if (!formData.isMultiDay && formData.endTime) {
       const [startH, startM] = formData.startTime.split(":").map(Number);
       const [endH, endM] = formData.endTime.split(":").map(Number);
-      if (endH < startH || (endH === startH && endM <= startM)) 
-        return toast.error("End time must be after start time for single-day event.");
+      if (endH < startH || (endH === startH && endM <= startM))
+        return toast.error(
+          "End time must be after start time for single-day event."
+        );
     }
 
     setIsSubmitting(true);
-    
+
     try {
-      const startISO = formatDateTimeWithTZ(formData.startDate, formData.startTime);
+      const startISO = formatDateTimeWithTZ(
+        formData.startDate,
+        formData.startTime
+      );
       const endISO = formData.isMultiDay
         ? formatDateTimeWithTZ(formData.endDate, formData.endTime)
         : formData.endTime
           ? formatDateTimeWithTZ(formData.startDate, formData.endTime)
           : null;
 
-      const newEvent: Omit<Event, 'eventId' | 'ownerId' | 'createdAt'> = {
+      const newEvent: Omit<Event, "eventId" | "ownerId" | "createdAt"> = {
         title: formData.title,
         location: formData.location,
         description: formData.description,
         coverImageUri: formData.coverImage,
-        color: hexToNumber(selectedColor || DEFAULT_COLOR),
+        color: formData.color,
         startAt: startISO,
         endAt: endISO,
-        members: formData.members,
+        members: formData.members.map(m => m.userId),
       };
 
       onCreateEvent(newEvent);
-      
+
       // Reset form
       setFormData({
         title: "",
@@ -163,10 +207,9 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEv
         description: "",
         coverImage: "",
         members: [],
+        color: DEFAULT_COLOR,
       });
-      setColor(DEFAULT_COLOR);
       clearEventPrefillData();
-      
     } catch (error) {
       console.error(error);
       toast.error("Failed to create event.");
@@ -182,7 +225,12 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEv
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={open => { if (!open) handleClose(); }}>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) handleClose();
+        }}
+      >
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
@@ -190,7 +238,8 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEv
               <span>Create Event</span>
             </DialogTitle>
             <DialogDescription>
-              Fill out the form to add a new event and optionally invite members.
+              Fill out the form to add a new event and optionally invite
+              members.
             </DialogDescription>
           </DialogHeader>
 
@@ -198,11 +247,13 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEv
             {/* Title */}
             <div className="space-y-2">
               <Label htmlFor="title">Event Title</Label>
-              <Input 
-                id="title" 
-                value={formData.title} 
-                onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))} 
-                required 
+              <Input
+                id="title"
+                value={formData.title}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, title: e.target.value }))
+                }
+                required
               />
             </div>
 
@@ -212,20 +263,30 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEv
                 <MapPin className="w-4 h-4" />
                 <span>Location</span>
               </Label>
-              <Input 
-                value={formData.location} 
-                onChange={e => setFormData(prev => ({ ...prev, location: e.target.value }))} 
-                required 
+              <Input
+                value={formData.location}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    location: e.target.value,
+                  }))
+                }
+                required
               />
             </div>
 
             {/* Multi-day checkbox */}
             <div className="flex items-center space-x-2">
-              <input 
-                type="checkbox" 
-                checked={formData.isMultiDay} 
-                onChange={e => setFormData(prev => ({ ...prev, isMultiDay: e.target.checked }))} 
-                className="w-4 h-4 text-primary border-border rounded focus:ring-primary" 
+              <input
+                type="checkbox"
+                checked={formData.isMultiDay}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    isMultiDay: e.target.checked,
+                  }))
+                }
+                className="w-4 h-4 text-primary border-border rounded focus:ring-primary"
               />
               <Label className="text-sm">Multi-day event</Label>
             </div>
@@ -237,11 +298,16 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEv
                   <Calendar className="w-4 h-4" />
                   <span>{formData.isMultiDay ? "Start Date" : "Date"}</span>
                 </Label>
-                <Input 
-                  type="date" 
-                  value={formData.startDate} 
-                  onChange={e => setFormData(prev => ({ ...prev, startDate: e.target.value }))} 
-                  required 
+                <Input
+                  type="date"
+                  value={formData.startDate}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      startDate: e.target.value,
+                    }))
+                  }
+                  required
                 />
               </div>
               <div className="space-y-2">
@@ -249,11 +315,16 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEv
                   <Clock className="w-4 h-4" />
                   <span>Start Time</span>
                 </Label>
-                <Input 
-                  type="time" 
-                  value={formData.startTime} 
-                  onChange={e => setFormData(prev => ({ ...prev, startTime: e.target.value }))} 
-                  required 
+                <Input
+                  type="time"
+                  value={formData.startTime}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      startTime: e.target.value,
+                    }))
+                  }
+                  required
                 />
               </div>
             </div>
@@ -266,11 +337,16 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEv
                     <Calendar className="w-4 h-4" />
                     <span>End Date</span>
                   </Label>
-                  <Input 
-                    type="date" 
-                    value={formData.endDate} 
-                    onChange={e => setFormData(prev => ({ ...prev, endDate: e.target.value }))} 
-                    required 
+                  <Input
+                    type="date"
+                    value={formData.endDate}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        endDate: e.target.value,
+                      }))
+                    }
+                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -278,11 +354,16 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEv
                     <Clock className="w-4 h-4" />
                     <span>End Time (on last day)</span>
                   </Label>
-                  <Input 
-                    type="time" 
-                    value={formData.endTime} 
-                    onChange={e => setFormData(prev => ({ ...prev, endTime: e.target.value }))} 
-                    required 
+                  <Input
+                    type="time"
+                    value={formData.endTime}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        endTime: e.target.value,
+                      }))
+                    }
+                    required
                   />
                 </div>
               </div>
@@ -291,11 +372,16 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEv
             {/* Description */}
             <div className="space-y-2">
               <Label>Description</Label>
-              <Textarea 
-                value={formData.description} 
-                onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))} 
-                className="min-h-[100px]" 
-                required 
+              <Textarea
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                className="min-h-[100px]"
+                required
               />
             </div>
 
@@ -307,19 +393,21 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEv
               </Label>
               {formData.coverImage && (
                 <div className="relative w-full h-32">
-                  <NextImage 
-                    src={formData.coverImage} 
-                    alt="Cover preview" 
-                    fill 
-                    style={{ objectFit: "cover" }} 
-                    className="rounded-lg" 
+                  <NextImage
+                    src={formData.coverImage}
+                    alt="Cover preview"
+                    fill
+                    style={{ objectFit: "cover" }}
+                    className="rounded-lg"
                   />
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm" 
-                    className="absolute top-2 right-2 z-10" 
-                    onClick={() => setFormData(prev => ({ ...prev, coverImage: "" }))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="absolute top-2 right-2 z-10"
+                    onClick={() =>
+                      setFormData((prev) => ({ ...prev, coverImage: "" }))
+                    }
                   >
                     <X className="w-4 h-4" />
                   </Button>
@@ -327,8 +415,14 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEv
               )}
             </div>
 
-            {/* Color selector - now uses Zustand store */}
-            <EventColorSelector />
+            {/* Color selector */}
+            <EventColorSelector
+              selectedColor={`bg-chart-${formData.color + 1}`}
+              onColorSelect={(color) => {
+                const colorNumber = parseInt(color.split("-")[2]) - 1;
+                setFormData((prev) => ({ ...prev, color: colorNumber }));
+              }}
+            />
 
             {/* Team members */}
             <div className="space-y-4">
@@ -337,41 +431,54 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEv
                 <span>Team Members</span>
               </Label>
               <div className="space-y-3">
-                {formData.members.length > 0 ? formData.members.map(member => (
-                  <div key={member} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                          {member[0]}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium text-foreground text-sm">{member}</p>
-                        <p className="text-xs text-muted-foreground">Team Member</p>
-                      </div>
-                    </div>
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => removeMember(member)} 
-                      className="text-muted-foreground hover:text-destructive"
+                {formData.members.length > 0 ? (
+                  formData.members.map((member) => (
+                    <div
+                      key={member.userId}
+                      className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
                     >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )) : (
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="w-8 h-8">
+                          <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                            {member.username[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium text-foreground text-sm">
+                            {member.username}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Team Member
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeMember(member)}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))
+                ) : (
                   <div className="text-center py-6 border-2 border-dashed border-muted rounded-lg">
                     <Users className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">No team members assigned</p>
-                    <p className="text-xs text-muted-foreground mt-1">Add members to start collaborating</p>
+                    <p className="text-sm text-muted-foreground">
+                      No team members assigned
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Add members to start collaborating
+                    </p>
                   </div>
                 )}
               </div>
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="w-full border-primary text-primary hover:bg-primary hover:text-white" 
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-primary text-primary hover:bg-primary hover:text-white"
                 onClick={handleInviteMembers}
               >
                 <UserPlus className="w-4 h-4 mr-2" />
@@ -384,9 +491,9 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEv
               <Button type="button" variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
-                className="bg-primary hover:bg-primary/90" 
+              <Button
+                type="submit"
+                className="bg-primary hover:bg-primary/90"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
@@ -407,14 +514,12 @@ export function AddEventModal({ isOpen, onClose, onCreateEvent, eventId }: AddEv
         isOpen={inviteModalOpen}
         onClose={() => setInviteModalOpen(false)}
         eventId={eventId || "new-event"}
-        currentMembers={formData.members.map(u => ({
-          eventMemberId: `demo-${u}-${Date.now()}`,
-          userId: u,
-          eventId: eventId || "new-event",
-          joinedAt: new Date().toISOString(),
-        }))}
-        onMembersUpdated={(newMembers: EventMember[]) =>
-          setFormData(prev => ({ ...prev, members: newMembers.map(m => m.userId) }))
+        currentMembers={formData.members}
+        onMembersUpdated={(newlySelected: UserLite[]) =>
+          setFormData((prev) => ({
+            ...prev,
+            members: [...prev.members, ...newlySelected],
+          }))
         }
       />
     </>

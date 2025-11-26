@@ -9,7 +9,6 @@ interface DashboardProps {
   events: Event[];
   tasks: Task[];
   onCreateEvent: () => void;
-  onCreateFromTemplate?: () => void;
   onEventClick: (eventId: string) => void;
   onCreatePersonalTask: () => void;
   onStatusChange?: (taskId: string, newStatus: Task["taskStatus"]) => void;
@@ -22,7 +21,6 @@ interface DashboardProps {
 
 export function Dashboard({
   onCreateEvent,
-  onCreateFromTemplate,
   onEventClick,
   onCreatePersonalTask,
   onStatusChange,
@@ -37,7 +35,6 @@ export function Dashboard({
       <div className="max-w-7xl mx-auto w-full">
         <WelcomeHeader
           onCreateEvent={onCreateEvent}
-          onCreateFromTemplate={onCreateFromTemplate}
           onOpenCustomizeDashboard={onCustomize}
         />
 

@@ -14,7 +14,7 @@ export async function GET(req: Request) {
       : undefined;
 
     const page = searchParams.get('page') ? Number(searchParams.get('page')) : undefined;
-    const pageSize = searchParams.get('pageSize') ? Number(searchParams.get('pageSize')) : undefined;
+    const pageSize = searchParams.get('pageSize') ? Number(searchParams.get('pageSize')) : 100;
 
     const res = await listAllUserTasks({ q, status, page, pageSize });
     return Response.json(res);

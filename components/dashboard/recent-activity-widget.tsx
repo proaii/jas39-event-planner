@@ -74,7 +74,7 @@ export function RecentActivityWidget() {
 
   // 3. Render Activities
   return (
-    <Card className="lg:col-span-1 border-0 shadow-sm h-full">
+    <Card className="lg:col-span-1">
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="font-semibold text-foreground">Recent Activity</h3>
@@ -89,7 +89,7 @@ export function RecentActivityWidget() {
             <div key={activity.id || index} className="flex items-start space-x-3 relative z-10">
               
               {/* Avatar */}
-              <Avatar className="w-8 h-8 border-2 border-background">
+              <Avatar className="w-8 h-8 border-2 border-black">
                 <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">
                   {getInitials(activity.user)}
                 </AvatarFallback>

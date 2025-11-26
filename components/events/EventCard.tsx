@@ -28,6 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatEventDateRange, isCurrentlyActive, calculateDuration, extractDateAndTime } from '@/lib/timeUtils';
 import { Event, Task } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useFetchUser } from '@/lib/client/features/users/hooks'; // Import the hook
 
 interface EventCardProps {
   event?: Event; 
@@ -38,6 +39,25 @@ interface EventCardProps {
   onAddTask?: (eventId: string) => void;
   isLoading?: boolean;
   error?: string;
+}
+
+// Helper component for displaying member avatars with initials
+function MemberAvatar({ userId }: { userId: string }) {
+  const { data: user, isLoading } = useFetchUser(userId);
+
+  const getInitials = (name: string) => name.replace(/[^a-zA-Z- ]/g, "").split(' ').map(p => p[0]).join('').toUpperCase();
+
+  if (isLoading) {
+    return <Skeleton className="w-8 h-8 rounded-full" />;
+  }
+
+  return (
+    <Avatar className="w-8 h-8">
+      <AvatarFallback className="bg-primary/10 text-primary text-xs">
+        {user?.username ? getInitials(user.username) : 'UN'}
+      </AvatarFallback>
+    </Avatar>
+  );
 }
 
 export function EventCard({ event, tasks = [], onClick, onEdit, onDelete, onAddTask, isLoading, error }: EventCardProps) {
@@ -65,8 +85,6 @@ export function EventCard({ event, tasks = [], onClick, onEdit, onDelete, onAddT
       </Card>
     );
   }
-
-  const getInitials = (name: string) => name.split(' ').map(p => p[0]).join('').toUpperCase();
 
   const { date: startDate, time: startTime } = extractDateAndTime(event.startAt);
   const { date: endDate, time: endTime } = extractDateAndTime(event.endAt);
@@ -198,12 +216,8 @@ export function EventCard({ event, tasks = [], onClick, onEdit, onDelete, onAddT
 
           <div className="flex items-center space-x-3">
             <div className="flex space-x-1">
-              {event.members.slice(0, 4).map((member, index) => (
-                <Avatar key={index} className="w-8 h-8">
-                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                    {getInitials(member)}
-                  </AvatarFallback>
-                </Avatar>
+              {event.members.slice(0, 4).map((memberId, index) => (
+                <MemberAvatar key={index} userId={memberId} />
               ))}
               {event.members.length > 4 && (
                 <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">

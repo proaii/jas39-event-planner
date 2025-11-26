@@ -372,12 +372,24 @@ export function EditEventModal({ events }: { events: Event[] }) {
         isOpen={inviteModalOpen}
         onClose={() => setInviteModalOpen(false)}
         eventId={event.eventId}
-        currentMembers={formData.members}
-        onMembersUpdated={(newMembers: EventMember[]) =>
-          setFormData((prev) => ({
-            ...prev,
-            members: newMembers,
-          }))
+        currentMembers={
+          formData.members
+            .map(m => usersMap.get(m.userId))
+            .filter((u): u is UserLite => u !== undefined)
+        }
+        onMembersUpdated={(newMembers: UserLite[]) =>
+          setFormData(prev => {
+            const newEventMembers: EventMember[] = newMembers.map(u => ({
+              eventMemberId: `new-${u.userId}`,
+              eventId: event.eventId,
+              userId: u.userId,
+              joinedAt: new Date().toISOString()
+            }));
+            return {
+              ...prev,
+              members: [...prev.members, ...newEventMembers]
+            };
+          })
         }
       />
 

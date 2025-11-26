@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +26,6 @@ import {
 import {
   ArrowLeft,
   Edit,
-  Save,
   Share,
   Trash2,
   Plus,
@@ -44,23 +43,24 @@ import {
   ArrowUpDown,
   Image,
   Loader2,
+  Download,
 } from "lucide-react";
 
 import NextImage from "next/image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { createEvent, EventAttributes } from 'ics';
 
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
-import { SaveTemplateModal } from "@/components/events/SaveTemplateModal";
 import { ViewSwitcher } from "@/components/events/ViewSwitcher";
 import { KanbanBoard } from "@/components/events/KanbanBoard";
-import type { Event, Task, TaskStatus, TaskPriority, UserLite , EventTemplateData, Subtask } from "@/lib/types";
+import type { Event, Task, TaskStatus, TaskPriority, UserLite, Subtask } from "@/lib/types";
 import { useUiStore } from "@/stores/ui-store";
 import { useEventViewStore } from "@/stores/eventViewStore";
 import { useEventDetailStore } from "@/stores/Eventdetailstore";
 
 // React Query Hooks
-import { useFetchEventTasks, useEditTask, useCreateEventTask } from "@/lib/client/features/tasks/hooks";
+import { useFetchEventTasks, useEditTask, useCreateEventTask, useUpdateSubtaskStatus } from "@/lib/client/features/tasks/hooks";
 import { useDeleteEvent } from "@/lib/client/features/events/hooks";
 
 interface EventDetailProps {
@@ -74,7 +74,6 @@ interface EventDetailProps {
   onTaskAction?: (taskId: string, action: "edit" | "reassign" | "setDueDate" | "delete") => void;
   onDeleteEvent?: (eventId: string) => void;
   onEditEvent?: (eventId: string) => void;
-  onSaveTemplate?: (eventId: string, templateData: EventTemplateData) => void;
   onTaskClick?: (taskId: string) => void; 
 }
 
@@ -111,9 +110,6 @@ export function EventDetail({
     isAddTaskModalOpen,
     openAddTaskModal,
     closeAddTaskModal,
-    isSaveTemplateModalOpen,
-    openSaveTemplateModal,
-    closeSaveTemplateModal,
   } = useUiStore();
   
   const { currentView } = useEventViewStore();
@@ -128,6 +124,8 @@ export function EventDetail({
     showCoverImage,
     setShowCoverImage,
   } = useEventDetailStore();
+
+  const [updatingSubtaskId, setUpdatingSubtaskId] = useState<string | null>(null);
 
   const userMap = useMemo(() => {
     const map = new Map<string, UserLite>();
@@ -146,6 +144,7 @@ export function EventDetail({
   const editTaskMutation = useEditTask();
   const createTaskMutation = useCreateEventTask(event.eventId);
   const deleteEventMutation = useDeleteEvent();
+  const updateSubtaskMutation = useUpdateSubtaskStatus();
 
   // ==================== COMPUTED VALUES ====================
   // Use API data if available, otherwise fallback to props
@@ -175,6 +174,66 @@ export function EventDetail({
     }
   };
 
+  const handleSubtaskStatusChange = async (taskId: string, subtaskId: string, currentStatus: string) => {
+    if (updatingSubtaskId === subtaskId) return;
+    
+    // 1. Find the parent task to calculate the current list of subtasks
+    const task = tasks.find(t => t.taskId === taskId);
+    if (!task || !task.subtasks) return;
+
+    // Toggle Logic: If Done, go back to To Do, if not Done, go to Done.
+    const newSubtaskStatus = currentStatus === 'Done' ? 'To Do' : 'Done';
+    
+    setUpdatingSubtaskId(subtaskId);
+
+    try {
+      // 2. Update the ticked subtask first.
+      await updateSubtaskMutation.mutateAsync({ 
+        subtaskId, 
+        status: newSubtaskStatus 
+      });
+
+      // 3. Simulate new Subtasks to calculate the Parent state (Client-side Calculation)
+      const updatedSubtasks = task.subtasks.map(sub => 
+        sub.subtaskId === subtaskId ? { ...sub, subtaskStatus: newSubtaskStatus } : sub
+      );
+
+      // 4. Parent Task Conditions
+      const totalSubtasks = updatedSubtasks.length;
+      const doneCount = updatedSubtasks.filter(s => s.subtaskStatus === 'Done').length;
+      const inProgressCount = updatedSubtasks.filter(s => s.subtaskStatus === 'In Progress').length;
+      
+      let newParentStatus: TaskStatus = 'To Do';
+
+      if (totalSubtasks > 0) {
+        if (doneCount === totalSubtasks) {
+          // If all Subtasks == Done
+          newParentStatus = 'Done';
+        } else if (doneCount > 0 || inProgressCount > 0) {
+          // If some are Done or In Progress
+          newParentStatus = 'In Progress';
+        } else {
+          // If none of them are Done or In Progress
+          newParentStatus = 'To Do';
+        }
+      }
+
+      // 5. If the Parent status changes from the original, fire the API to update the Parent Task.
+      if (newParentStatus !== task.taskStatus) {
+        await editTaskMutation.mutateAsync({
+          taskId,
+          patch: { taskStatus: newParentStatus }
+        });
+        toast.success(`Task updated to ${newParentStatus}`);
+      }
+
+    } catch { 
+      toast.error('Failed to update subtask')
+    } finally {
+      setUpdatingSubtaskId(null) 
+    }
+  };
+
   const handleDeleteEvent = async () => {
     try {
       await deleteEventMutation.mutateAsync(event.eventId);
@@ -185,6 +244,45 @@ export function EventDetail({
       toast.error("Failed to delete event");
       console.error(error);
     }
+  };
+
+  const downloadIcsFile = (content: string, fileName: string) => {
+    const blob = new Blob([content], { type: 'text/calendar;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+  };
+
+  const handleDownloadIcs = () => {
+    if (!event.startAt || !event.endAt) {
+      toast.error("Event start or end time is missing.");
+      return;
+    }
+
+    const startTime = new Date(event.startAt);
+    const endTime = new Date(event.endAt);
+
+    const icsEvent: EventAttributes = {
+        title: event.title,
+        description: event.description || undefined,
+        start: [startTime.getFullYear(), startTime.getMonth() + 1, startTime.getDate(), startTime.getHours(), startTime.getMinutes()],
+        end: [endTime.getFullYear(), endTime.getMonth() + 1, endTime.getDate(), endTime.getHours(), endTime.getMinutes()],
+        location: event.location || undefined,
+        organizer: { name: currentUser.username, email: currentUser.email },
+    };
+
+    createEvent(icsEvent, (error, value) => {
+        if (error) {
+            console.error('Error creating ICS file:', error);
+            toast.error("Failed to create ICS file.");
+            return;
+        }
+        downloadIcsFile(value, `${event.title}.ics`);
+    });
   };
 
   // ==================== HELPER FUNCTIONS ====================
@@ -266,11 +364,11 @@ export function EventDetail({
               <Button variant="outline" size="sm" onClick={() => onEditEvent?.(event.eventId)}>
                 <Edit className="w-4 h-4 mr-2" /> Edit Event
               </Button>
-              <Button variant="outline" size="sm" onClick={openSaveTemplateModal}>
-                <Save className="w-4 h-4 mr-2" /> Save as Template
-              </Button>
               <Button variant="outline" size="sm">
                 <Share className="w-4 h-4 mr-2" /> Share
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleDownloadIcs}>
+                <Download className="w-4 h-4 mr-2" /> Download ICS
               </Button>
               {onDeleteEvent && (
                 <Button
@@ -384,6 +482,7 @@ export function EventDetail({
                 {event.description && (
                   <div className="pt-4 border-t border-border">
                     <p className="text-sm leading-relaxed">{event.description}</p>
+
                   </div>
                 )}
               </CardContent>
@@ -656,8 +755,22 @@ export function EventDetail({
                                     <div className="mt-3 pt-3 border-t space-y-2">
                                       {task.subtasks.map((sub: Subtask) => (
                                         <div key={sub.subtaskId} className="flex items-center space-x-2 pl-4">
-                                          <Checkbox checked={sub.subtaskStatus === "Done"} className="h-4 w-4" />
-                                          <span className={`text-sm ${sub.subtaskStatus === "Done" ? "line-through opacity-60" : ""}`}>
+                                          {updatingSubtaskId === sub.subtaskId ? (
+                                             <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                          ) : (
+                                            <Checkbox
+                                              checked={sub.subtaskStatus === "Done"}
+                                              onCheckedChange={() =>
+                                                handleSubtaskStatusChange(task.taskId, sub.subtaskId, sub.subtaskStatus)
+                                              }
+                                              className="h-4 w-4"
+                                              disabled={updatingSubtaskId !== null}
+                                            />
+                                          )}
+                                          <span 
+                                            className={`text-sm cursor-pointer select-none ${sub.subtaskStatus === "Done" ? "line-through opacity-60" : ""}`}
+                                            onClick={() => !updatingSubtaskId && handleSubtaskStatusChange(task.taskId, sub.subtaskId, sub.subtaskStatus)}
+                                          >
                                             {sub.title}
                                           </span>
                                         </div>
@@ -695,16 +808,6 @@ export function EventDetail({
         currentUser={currentUser}
         isPersonal={false}
         eventId={event.eventId}
-      />
-
-      <SaveTemplateModal
-        isOpen={isSaveTemplateModalOpen}
-        onClose={closeSaveTemplateModal}
-        eventId={event.eventId}
-        templateData={event}
-        onSave={() => {
-          closeSaveTemplateModal();
-        }}
       />
 
       {/* Delete Dialog */}

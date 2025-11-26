@@ -2,13 +2,11 @@
 
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
-import type { TemplateData } from "@/schemas/template";
 import { useUiStore } from "@/stores/ui-store";
 import { Dashboard } from "@/components/dashboard/dashboard";
 import { AddEventModal } from "@/components/events/AddEventModal";
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { CustomizeDashboardModal } from "@/components/dashboard/CustomizeDashboardModal";
-import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
 
 import { useFetchEvents, useCreateEvent } from "@/stores/useEventStore";
 import { useFetchAllTasks } from "@/lib/client/features/tasks/hooks";
@@ -30,17 +28,13 @@ export default function DashboardPage() {
     isAddEventModalOpen,
     isAddTaskModalOpen,
     isCustomizeModalOpen,
-    isCreateFromTemplateModalOpen,
     openAddEventModal,
     closeAddEventModal,
     openAddTaskModal,
     closeAddTaskModal,
     openCustomizeModal,
     closeCustomizeModal,
-    openCreateFromTemplateModal,
-    closeCreateFromTemplateModal,
     visibleWidgets,
-    setEventPrefillData,
   } = useUiStore();
 
   // ==================== DATA FETCHING ====================
@@ -84,26 +78,6 @@ export default function DashboardPage() {
       },
     });
   };
-
-  // ==================== TEMPLATE HANDLER ====================
-  const handleUseTemplate = (template: TemplateData) => {
-    setEventPrefillData({
-      title: template.title,
-      location: template.location ?? "",
-      description: template.description ?? "",
-      coverImageUri: template.coverImageUri ?? "",
-      color: template.color,
-      startAt: template.startAt ?? undefined,
-      endAt: template.endAt ?? undefined,
-      members: template.members ?? [],
-    });
-
-    closeCreateFromTemplateModal();
-    openAddEventModal();
-    toast.success("Template loaded! Fill in the remaining details.");
-  };
-
-
 
   const handleEventClick = (eventId: string) => {
     router.push(`/events/${eventId}`);
@@ -174,7 +148,6 @@ export default function DashboardPage() {
         onCreatePersonalTask={openAddTaskModal}
         onCustomize={openCustomizeModal}
         visibleWidgets={visibleWidgets}
-        onCreateFromTemplate={openCreateFromTemplateModal}
       />
 
       <AddEventModal
@@ -194,12 +167,6 @@ export default function DashboardPage() {
       <CustomizeDashboardModal
         isOpen={isCustomizeModalOpen}
         onClose={closeCustomizeModal}
-      />
-
-      <CreateFromTemplateModal
-        isOpen={isCreateFromTemplateModalOpen}
-        onClose={closeCreateFromTemplateModal}
-        onUseTemplate={handleUseTemplate}
       />
     </>
   );

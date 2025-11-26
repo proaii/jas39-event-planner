@@ -192,6 +192,7 @@ export function useCreateSubtask(taskId: string) {
   });
 }
 
+
 export function useUpdateSubtask() {
   const qc = useQueryClient();
   return useMutation({
@@ -227,15 +228,54 @@ export function useUpdateSubtask() {
   });
 }
 
+export function useUpdateSubtaskStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ subtaskId, status }: { subtaskId: string; status: string }) => {
+      const r = await fetch(`/api/subtasks/${subtaskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subtaskStatus: status }), 
+      });
+      if (!r.ok) throw await r.json();
+      return (await r.json()) as Subtask;
+    },
+    onSuccess: (updatedSubtask) => {
+      if (updatedSubtask.taskId) {
+        qc.setQueryData<Task>(queryKeys.task(updatedSubtask.taskId), (old) => {
+          if (!old || !old.subtasks) return old;
+          return {
+            ...old,
+            subtasks: old.subtasks.map((s) =>
+              s.subtaskId === updatedSubtask.subtaskId ? updatedSubtask : s
+            ),
+          };
+        });
+        
+        qc.invalidateQueries({ queryKey: ['tasks'] });
+      }
+    },
+  });
+}
+
 export function useDeleteSubtask() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ subtaskId }: { subtaskId: string }) => {
+    mutationFn: async ({ subtaskId, parentTaskId }: { subtaskId: string; parentTaskId?: string }) => {
       const r = await fetch(`/api/subtasks/${subtaskId}`, { method: 'DELETE' });
       if (!r.ok) throw await r.json();
-      return subtaskId;
+      return { subtaskId, parentTaskId };
     },
-    onSuccess: () => {
+    onSuccess: ({ subtaskId, parentTaskId }) => {
+      if (parentTaskId) {
+        qc.setQueryData<Task>(queryKeys.task(parentTaskId), (old) => {
+          if (!old || !old.subtasks) return old;
+          return {
+            ...old,
+            subtasks: old.subtasks.filter((s) => s.subtaskId !== subtaskId),
+          };
+        });
+      }
       qc.invalidateQueries({ queryKey: ['tasks'] }); 
     },
   });

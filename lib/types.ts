@@ -33,63 +33,6 @@ export interface EventMember {
   joinedAt: string;
 }
 
-// ----- Event Templates -----
-export interface RawEventData {
-  title?: string; 
-  location?: string | null; 
-  eventDescription?: string | null;
-  description?: string | null; 
-  coverImageUri?: string | null; 
-  cover_image_uri?: string | null; 
-  color?: number; 
-  members?: Array<string | { userId: string }>; 
-  startAt?: string | null; 
-  start_at?: string | null;
-  endAt?: string | null; 
-  end_at?: string | null; 
-  tasks?: Array<{
-    title: string;
-    description?: string | null;
-    taskStatus: TaskStatus; 
-    taskPriority: TaskPriority;
-    startAt?: string | null;
-    endAt?: string | null; 
-    assignees?: string[];
-  }>;
-}
-
-export interface EventTemplateData {
-  event: {
-    title: string;
-    description?: string | null;
-    location?: string | null;
-    cover_image_uri?: string | null;
-    color: number;
-    start_at?: string | null;
-    end_at?: string | null;
-    members: string[]; // array of user_id
-  };
-
-  tasks: Array<{
-    title: string;
-    description?: string | null;
-    task_status: TaskStatus;
-    task_priority: TaskPriority;
-    start_at?: string | null;
-    end_at?: string | null;
-    assignees?: string[]; // user_id[]
-  }>;
-}
-
-export interface EventTemplate {
-  templateId: string;
-  ownerId: string;
-  name: string;
-  description?: string | null;
-  createdAt: string;
-  eventData: EventTemplateData;
-}
-
 // ----- Tasks -----
 export interface Attachment {
   attachmentId: string;

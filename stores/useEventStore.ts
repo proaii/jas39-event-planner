@@ -12,7 +12,7 @@ import { TemplateData } from "@/schemas/template";
 
 export type CreateEventInput = Omit<
   Event,
-  "eventId" | "ownerId" | "createdAt" | "members"
+  "eventId" | "ownerId" | "createdAt"
 >;
 
 export type UpdateEventInput = Partial<z.infer<typeof editEventSchema>>;

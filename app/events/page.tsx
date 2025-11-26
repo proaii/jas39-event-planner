@@ -22,9 +22,13 @@ import {
   Calendar,
   ArrowUpDown,
 } from "lucide-react";
-import { Event } from "@/lib/types";
 import { useUiStore } from "@/stores/ui-store";
-import { useFetchEvents, useCreateEvent, useDeleteEvent } from "@/stores/useEventStore";
+import {
+  useFetchEvents,
+  useCreateEvent,
+  useDeleteEvent,
+  type CreateEventInput,
+} from "@/stores/useEventStore";
 import { AddEventModal } from "@/components/events/AddEventModal";
 import { EditEventModal } from "@/components/events/EditEventModal";
 import { filterEvents, sortEvents } from "@/lib/utils";
@@ -71,9 +75,7 @@ export default function AllEventsPage() {
   }, [isFilterOpen, progressFilters, dateFilters]);
 
   // ------------------- HANDLERS -------------------
-  const handleCreateEvent = (
-    eventData: Omit<Event, "eventId" | "ownerId" | "createdAt" | "members">
-  ) => {
+  const handleCreateEvent = (eventData: CreateEventInput) => {
     createEventMutation.mutate(eventData, {
       onSuccess: () => {
         closeAddEventModal();
@@ -106,7 +108,7 @@ export default function AllEventsPage() {
   const filteredAndSortedEvents = useMemo(() => {
     // Filter events
     const filtered = filterEvents(events, searchQuery, progressFilters, dateFilters);
-    
+
     // Sort events
     return sortEvents(filtered, sortBy);
   }, [events, searchQuery, progressFilters, dateFilters, sortBy]);
@@ -323,7 +325,7 @@ export default function AllEventsPage() {
               key={event.eventId}
               event={event}
               onClick={() => router.push(`/events/${event.eventId}`)}
-              onEdit={() => handleEditEvent(event.eventId)} 
+              onEdit={() => handleEditEvent(event.eventId)}
               onDelete={handleDeleteEvent}
               onAddTask={() => { }}
             />

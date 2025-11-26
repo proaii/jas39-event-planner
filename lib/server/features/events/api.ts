@@ -88,7 +88,7 @@ export async function getEvent(eventId: string): Promise<Event> {
   }
 }
 
-export async function createEvent(input: Omit<Event, 'eventId' | 'members'>): Promise<Event> {
+export async function createEvent(input: Omit<Event, 'eventId' | 'ownerId' | 'createdAt'>): Promise<Event> {
   const root = await createClient();
   const db = await createDb();
   try {
@@ -118,18 +118,23 @@ export async function createEvent(input: Omit<Event, 'eventId' | 'members'>): Pr
 
     const eventData = map(data as RawEventRow);
 
-    // Add owner as a member
-    const { error: memberErr } = await db
-      .from('event_members')
-      .insert({
-        event_id: eventData.eventId,
-        user_id: user.id,
-        joined_at: new Date().toISOString()
-      });
+    // Add owner and other members to the event
+    const memberIds = new Set(input.members ? [...input.members, user.id] : [user.id]);
+    const membersToInsert = Array.from(memberIds).map((userId) => ({
+      event_id: eventData.eventId,
+      user_id: userId,
+      joined_at: new Date().toISOString(),
+    }));
 
-    if (memberErr) {
-      console.error('Failed to insert owner as event member', memberErr);
-      throw memberErr;
+    if (membersToInsert.length > 0) {
+      const { error: memberErr } = await db
+        .from("event_members")
+        .insert(membersToInsert);
+
+      if (memberErr) {
+        console.error("Failed to insert event members", memberErr);
+        throw memberErr;
+      }
     }
 
     // Log Activity

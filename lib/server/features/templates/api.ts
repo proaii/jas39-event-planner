@@ -1,6 +1,6 @@
 import { createClient, createDb } from '@/lib/server/supabase/server';
 import { toApiError } from '@/lib/errors';
-import type { EventTemplate, EventTemplateData } from '@/lib/types';
+import type { EventTemplate, EventTemplateData, TaskStatus, TaskPriority } from '@/lib/types';
 import type { TemplateData } from '@/schemas/template';
 
 // ---------- Event Templates ----------
@@ -90,16 +90,7 @@ const { data: event, error: eventError } = await db
 }
 
 // ---------- Template Types & Mapper ----------
-type EventData = {
-  title?: string;
-  location?: string | null;
-  eventDescription?: string | null;
-  coverImageUri?: string | null;
-  color?: number;
-  members?: { userId: string }[];
-  startAt?: string | null;
-  endAt?: string | null;
-};
+type RawEventData = Omit<TemplateData, 'name' | 'description'>;
 
 type RawTemplateRow = {
   template_id: string;
@@ -107,22 +98,39 @@ type RawTemplateRow = {
   name: string;
   description?: string | null;
   created_at: string;
-  event_data: any; //
+  event_data: EventTemplateData | RawEventData;
+};
+
+type OldTask = {
+  title: string;
+  description?: string | null;
+  taskStatus: TaskStatus;
+  taskPriority: TaskPriority;
+  startAt?: string | null;
+  endAt?: string | null;
+  assignees?: string[];
 };
 
 function mapTemplate(r: RawTemplateRow): EventTemplate {
-  const rawData = r.event_data || {};
+  const rawDataFromDb = r.event_data || {};
 
-  if (rawData.event && Array.isArray(rawData.tasks)) {
+  if (
+      typeof rawDataFromDb === 'object' && rawDataFromDb !== null && 
+      'event' in rawDataFromDb && Array.isArray(rawDataFromDb.tasks)
+  ) {
+    // Case 1: Normalized data
     return { 
       templateId: String(r.template_id),
       ownerId: String(r.owner_id),
       name: String(r.name),
       description: r.description ?? '',
       createdAt: String(r.created_at),
-      eventData: rawData as EventTemplateData,
+      eventData: rawDataFromDb as EventTemplateData,
     };
   }
+  
+  // Case 2: Data is in the old, un-normalized format (RawEventData).
+  const oldRawData = rawDataFromDb as RawEventData;
   
   return {
     templateId: String(r.template_id),
@@ -130,20 +138,30 @@ function mapTemplate(r: RawTemplateRow): EventTemplate {
     name: String(r.name),
     description: r.description ?? '',
     createdAt: String(r.created_at),
-    eventData: {
+    eventData: { 
       event: {
-        title: rawData.title ?? '',
-        description: rawData.eventDescription ?? rawData.description ?? null, 
-        location: rawData.location ?? null,
-        cover_image_uri: rawData.coverImageUri ?? rawData.cover_image_uri ?? null, 
-        color: Number(rawData.color ?? 0),
-        start_at: rawData.startAt ?? rawData.start_at ?? null,
-        end_at: rawData.endAt ?? rawData.end_at ?? null,
-        members: Array.isArray(rawData.members)
-          ? rawData.members.map((m: any) => (typeof m === 'string' ? m : m.userId))
+        title: oldRawData.title ?? '',
+        description: oldRawData.eventDescription ?? null, 
+        location: oldRawData.location ?? null,
+        cover_image_uri: oldRawData.coverImageUri ?? null, 
+        color: Number(oldRawData.color ?? 0),
+        start_at: oldRawData.startAt ?? null,
+        end_at: oldRawData.endAt ?? null,
+        members: Array.isArray(oldRawData.members)
+          ? oldRawData.members.map((m: string | { userId: string }) => (typeof m === 'string' ? m : m.userId))
           : [],
       },
-      tasks: Array.isArray(rawData.tasks) ? rawData.tasks : [],
+      tasks: Array.isArray(oldRawData.tasks) 
+        ? oldRawData.tasks.map((t: OldTask) => ({ 
+            title: t.title,
+            description: t.description ?? null,
+            task_status: t.taskStatus, 
+            task_priority: t.taskPriority, 
+            start_at: t.startAt ?? null, 
+            end_at: t.endAt ?? null, 
+            assignees: t.assignees,
+          })) 
+        : [],
     },
   };
 }

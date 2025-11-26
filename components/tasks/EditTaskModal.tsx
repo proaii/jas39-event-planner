@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,7 +15,6 @@ import { useTasksStore } from "@/stores/task-store"
 import { useUiStore } from "@/stores/ui-store"
 import { useFetchTask, useEditTask } from '@/lib/client/features/tasks/hooks'
 import { toast } from 'sonner'
-import { ImageWithFallback } from "@/components/ui/ImageWithFallback";
 
 interface EditTaskModalProps {
   isOpen: boolean;

@@ -34,6 +34,30 @@ export interface EventMember {
 }
 
 // ----- Event Templates -----
+export interface RawEventData {
+  title?: string; 
+  location?: string | null; 
+  eventDescription?: string | null;
+  description?: string | null; 
+  coverImageUri?: string | null; 
+  cover_image_uri?: string | null; 
+  color?: number; 
+  members?: Array<string | { userId: string }>; 
+  startAt?: string | null; 
+  start_at?: string | null;
+  endAt?: string | null; 
+  end_at?: string | null; 
+  tasks?: Array<{
+    title: string;
+    description?: string | null;
+    taskStatus: TaskStatus; 
+    taskPriority: TaskPriority;
+    startAt?: string | null;
+    endAt?: string | null; 
+    assignees?: string[];
+  }>;
+}
+
 export interface EventTemplateData {
   event: {
     title: string;
@@ -65,7 +89,6 @@ export interface EventTemplate {
   createdAt: string;
   eventData: EventTemplateData;
 }
-
 
 // ----- Tasks -----
 export interface Attachment {

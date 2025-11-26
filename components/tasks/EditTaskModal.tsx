@@ -65,7 +65,6 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
     setEditHasTimePeriod,
     setEditIsPending,
     setEditError,
-    isEditFormValid,
     openEditModal,
   } = useTasksStore()
 

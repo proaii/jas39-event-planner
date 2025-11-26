@@ -26,7 +26,6 @@ import {
 import {
   ArrowLeft,
   Edit,
-  Save,
   Share,
   Trash2,
   Plus,
@@ -51,10 +50,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
-import { SaveTemplateModal } from "@/components/events/SaveTemplateModal";
 import { ViewSwitcher } from "@/components/events/ViewSwitcher";
 import { KanbanBoard } from "@/components/events/KanbanBoard";
-import type { Event, Task, TaskStatus, TaskPriority, UserLite , EventTemplateData, Subtask } from "@/lib/types";
+import type { Event, Task, TaskStatus, TaskPriority, UserLite, Subtask } from "@/lib/types";
 import { useUiStore } from "@/stores/ui-store";
 import { useEventViewStore } from "@/stores/eventViewStore";
 import { useEventDetailStore } from "@/stores/Eventdetailstore";
@@ -74,7 +72,6 @@ interface EventDetailProps {
   onTaskAction?: (taskId: string, action: "edit" | "reassign" | "setDueDate" | "delete") => void;
   onDeleteEvent?: (eventId: string) => void;
   onEditEvent?: (eventId: string) => void;
-  onSaveTemplate?: (eventId: string, templateData: EventTemplateData) => void;
   onTaskClick?: (taskId: string) => void; 
 }
 
@@ -111,9 +108,6 @@ export function EventDetail({
     isAddTaskModalOpen,
     openAddTaskModal,
     closeAddTaskModal,
-    isSaveTemplateModalOpen,
-    openSaveTemplateModal,
-    closeSaveTemplateModal,
   } = useUiStore();
   
   const { currentView } = useEventViewStore();
@@ -265,9 +259,6 @@ export function EventDetail({
             <div className="flex items-center space-x-2">
               <Button variant="outline" size="sm" onClick={() => onEditEvent?.(event.eventId)}>
                 <Edit className="w-4 h-4 mr-2" /> Edit Event
-              </Button>
-              <Button variant="outline" size="sm" onClick={openSaveTemplateModal}>
-                <Save className="w-4 h-4 mr-2" /> Save as Template
               </Button>
               <Button variant="outline" size="sm">
                 <Share className="w-4 h-4 mr-2" /> Share
@@ -695,16 +686,6 @@ export function EventDetail({
         currentUser={currentUser}
         isPersonal={false}
         eventId={event.eventId}
-      />
-
-      <SaveTemplateModal
-        isOpen={isSaveTemplateModalOpen}
-        onClose={closeSaveTemplateModal}
-        eventId={event.eventId}
-        templateData={event}
-        onSave={() => {
-          closeSaveTemplateModal();
-        }}
       />
 
       {/* Delete Dialog */}

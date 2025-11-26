@@ -8,7 +8,6 @@ import { TaskDetailModal } from "@/components/tasks/TaskDetail";
 import { EditTaskModal } from "@/components/tasks/EditTaskModal";
 import { useUiStore } from "@/stores/ui-store";
 import { 
-  useSaveTemplate, 
   useEventById, 
   useDeleteEvent,
 } from "@/stores/useEventStore";
@@ -17,7 +16,7 @@ import {
   useCreateEventTask,
   useEditTask,
 } from "@/lib/client/features/tasks/hooks";
-import type { Task, TaskStatus, EventTemplateData } from "@/lib/types";
+import type { Task, TaskStatus } from "@/lib/types";
 import { toast } from "react-hot-toast";
 import { useFetchUsers, useFetchCurrentUser } from "@/lib/client/features/users/hooks";
 import { useEffect } from "react";
@@ -105,7 +104,6 @@ export default function EventDetailPage() {
   const createTaskMutation = useCreateEventTask(eventId || "");
   const editTaskMutation = useEditTask();
   const deleteEventMutation = useDeleteEvent();
-  const { mutate: saveTemplateMutate } = useSaveTemplate();
 
   // --- Loading & Error States ---
   if (!eventId) {
@@ -239,36 +237,6 @@ export default function EventDetailPage() {
     });
   };
 
-  const handleSaveTemplate = (eventId: string, templateData: EventTemplateData) => {
-
-    // Convert EventTemplateData to the expected format
-    const payload = {
-      name: event.title, // Use event title as template name
-      title: templateData.event.title || event.title,
-      description: templateData.event.description || event.description,
-      location: templateData.event.location || event.location,
-      eventDescription: templateData.event.description || event.description,
-      coverImageUri: templateData.event.cover_image_uri || event.coverImageUri,
-      color: templateData.event.color ?? event.color,
-      startAt: templateData.event.start_at || event.startAt,
-      endAt: templateData.event.end_at || event.endAt,
-      members: templateData.event.members || event.members || [],
-    };
-
-    saveTemplateMutate(
-      { eventId, data: payload },
-      {
-        onSuccess: () => {
-          toast.success("Template saved successfully");
-        },
-        onError: (error) => {
-          console.error("Failed to save template:", error);
-          toast.error("Failed to save template");
-        },
-      }
-    );
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <EventDetail
@@ -280,7 +248,6 @@ export default function EventDetailPage() {
         onTaskStatusChange={handleTaskStatusChange}
         onAddTask={handleAddTask}
         onDeleteEvent={handleDeleteEvent}
-        onSaveTemplate={handleSaveTemplate}
         onEditEvent={handleEditEvent}
         onTaskClick={handleTaskClick} 
       />

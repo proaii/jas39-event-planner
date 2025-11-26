@@ -21,17 +21,12 @@ import {
   Plus,
   Calendar,
   ArrowUpDown,
-  ChevronDown,
-  FileText,
 } from "lucide-react";
 import { Event } from "@/lib/types";
 import { useUiStore } from "@/stores/ui-store";
 import { useFetchEvents, useCreateEvent, useDeleteEvent } from "@/stores/useEventStore";
 import { AddEventModal } from "@/components/events/AddEventModal";
 import { EditEventModal } from "@/components/events/EditEventModal";
-import { CreateFromTemplateModal } from "@/components/events/CreateFromTemplateModal";
-import { TemplateData } from "@/schemas/template";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { filterEvents, sortEvents } from "@/lib/utils";
 
 export default function AllEventsPage() {
@@ -42,11 +37,7 @@ export default function AllEventsPage() {
     isAddEventModalOpen,
     openAddEventModal,
     closeAddEventModal,
-    isTemplateModalOpen,
-    openTemplateModal,
-    closeTemplateModal,
     openEditEventModal,
-    setEventPrefillData,
     searchQuery,
     setSearchQuery,
     sortBy,
@@ -99,19 +90,6 @@ export default function AllEventsPage() {
     openEditEventModal(eventId);
   };
 
-  const handleUseTemplate = (data: TemplateData) => {
-    setEventPrefillData({
-      title: data.title,
-      location: data.location || "",
-      description: data.eventDescription || "",
-      coverImageUri: data.coverImageUri ?? undefined,
-      color: 0,
-      startAt: data.startAt,
-      endAt: data.endAt,
-    });
-    closeTemplateModal();
-    openAddEventModal();
-  };
 
   const applyTempFilters = () => {
     setProgressFilters(tempProgressFilters);
@@ -194,22 +172,6 @@ export default function AllEventsPage() {
             <Plus className="w-4 h-4 mr-2" />
             Create Event
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                className="bg-primary hover:bg-primary/90 rounded-l-none px-2"
-                aria-label="More options"
-              >
-                <ChevronDown className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={openTemplateModal} className="cursor-pointer">
-                <FileText className="w-4 h-4 mr-2" />
-                Create from Template...
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
 
@@ -386,12 +348,6 @@ export default function AllEventsPage() {
 
       {/* Add EditEventModal */}
       <EditEventModal events={events} />
-
-      <CreateFromTemplateModal
-        isOpen={isTemplateModalOpen}
-        onClose={closeTemplateModal}
-        onUseTemplate={handleUseTemplate}
-      />
 
     </main>
   );

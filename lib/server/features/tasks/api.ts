@@ -449,14 +449,13 @@ export async function updateTask(
 
     // 2. Bulk Update: Assignees
     if (patch.assignees) {
-      // Delete all old ones and replace them (Strategy: Replace All)
       const { error: dErr } = await db.from('task_assignees').delete().eq('task_id', taskId);
       if (dErr) throw dErr;
 
       if (patch.assignees.length > 0) {
         const rows = patch.assignees.map((u) => ({
           task_id: taskId,
-          user_id: u.userId, 
+          user_id: typeof u === 'string' ? u : u.userId, 
           assigned_at: new Date().toISOString(),
         }));
         const { error: iErr } = await db.from('task_assignees').insert(rows);
@@ -466,12 +465,10 @@ export async function updateTask(
 
     // 3. Bulk Update: Subtasks
     if (patch.subtasks) {
-      // 3.1 Find the ID of the submitted (existing) Subtask.
       const incomingIds = patch.subtasks
         .map(s => s.subtaskId)
         .filter(id => id && id.length > 10);
 
-      // 3.2 Delete Subtasks in the DB that are not in the new list (Delete missing)
       if (incomingIds.length > 0) {
         await db.from('subtasks').delete().eq('task_id', taskId).not('subtask_id', 'in', `(${incomingIds.join(',')})`);
       } else {
@@ -480,16 +477,13 @@ export async function updateTask(
          }
       }
 
-      // 3.3 Upsert (Update existing + Insert new)
       for (const s of patch.subtasks) {
         if (s.subtaskId && s.subtaskId.length > 10) {
-          // Update Existing
           await db.from('subtasks').update({
             title: s.title,
             subtask_status: s.subtaskStatus
           }).eq('subtask_id', s.subtaskId);
         } else {
-          // Insert New
           await db.from('subtasks').insert({
             task_id: taskId,
             title: s.title,
@@ -505,14 +499,12 @@ export async function updateTask(
         .map(a => a.attachmentId)
         .filter(id => id && id.length > 10);
 
-      // 4.1 Delete missing
       if (incomingIds.length > 0) {
         await db.from('attachments').delete().eq('task_id', taskId).not('attachment_id', 'in', `(${incomingIds.join(',')})`);
       } else if (patch.attachments.length === 0) {
         await db.from('attachments').delete().eq('task_id', taskId);
       }
 
-      // 4.2 Insert New only (Attachments usually don't update URL)
       const newAttachments = patch.attachments.filter(a => !a.attachmentId || a.attachmentId.length < 10);
       if (newAttachments.length > 0) {
         const rows = newAttachments.map(a => ({
@@ -544,7 +536,6 @@ export async function updateTask(
 
     const fetchedRow = data as unknown as RawTaskRow;
 
-    // Log Activity 
     if (user) {
       await logActivity(
         user.id, 
@@ -562,7 +553,7 @@ export async function updateTask(
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
-const root = await createClient();
+  const root = await createClient();
   const { data: { user }, error: authError } = await root.auth.getUser();
   if (authError || !user) throw new Error('UNAUTHORIZED');
 
@@ -589,7 +580,11 @@ const root = await createClient();
         task_id, 
         event_id,
         title,
-        event:events!tasks_event_id_fkey(owner_id),
+        creator_id,
+        event:events!tasks_event_id_fkey(
+          owner_id,
+          members:event_members(user_id)
+        ),
         assignees:task_assignees(user_id)
       `)
       .eq('task_id', taskId)
@@ -598,24 +593,36 @@ const root = await createClient();
     if (findError) throw findError;
     if (!task) throw new Error('TASK_NOT_FOUND');
 
-    type TaskWithOwnership = {
+    type TaskWithPermissions = {
       event_id: string | null;
       title: string;
-      event: { owner_id: string } | { owner_id: string }[] | null;
+      creator_id: string | null;
+      event: { 
+        owner_id: string,
+        members: { user_id: string }[]
+      } | { 
+        owner_id: string,
+        members: { user_id: string }[]
+      }[] | null;
       assignees: { user_id: string }[];
     }
 
-    const taskData = task as unknown as TaskWithOwnership;
+    const taskData = task as unknown as TaskWithPermissions;
     
     const eventData = Array.isArray(taskData.event) ? taskData.event[0] : taskData.event;
 
-    const isEventOwner = eventData?.owner_id === user.id;
-    
+    const isCreator = taskData.creator_id === user.id;
     const isAssignee = Array.isArray(taskData.assignees)
       ? taskData.assignees.some((a) => a.user_id === user.id)
       : false;
+    
+    const isEventOwner = eventData?.owner_id === user.id;
+    
+    const isEventMember = eventData?.members 
+      ? eventData.members.some((m) => m.user_id === user.id) 
+      : false;
 
-    if (!isEventOwner && !isAssignee) {
+    if (!isCreator && !isAssignee && !isEventOwner && !isEventMember) {
       throw new Error('FORBIDDEN_DELETE');
     }
 

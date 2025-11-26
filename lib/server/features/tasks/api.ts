@@ -832,8 +832,10 @@ function map(r: RawTaskRow): Task {
     })
     .filter((v): v is UserLite => v !== null);
 
+  const currentTaskId = String(r.task_id); // เก็บ ID ไว้ก่อน
+
   return {
-    taskId: String(r.task_id),
+    taskId: currentTaskId,
     eventId: r.event_id ?? null,
     eventTitle: r.event?.title ?? undefined,
     title: r.title,
@@ -843,25 +845,25 @@ function map(r: RawTaskRow): Task {
     startAt: r.start_at ?? null,
     endAt: r.end_at ?? null,
     createdAt: r.created_at,
-    attachments: (r.attachments ?? []).map(mapAttachment),
-    subtasks: (r.subtasks ?? []).map(mapSubtask),
+    attachments: (r.attachments ?? []).map(a => mapAttachment(a, currentTaskId)),
+    subtasks: (r.subtasks ?? []).map(s => mapSubtask(s, currentTaskId)), 
     assignees,
     creatorId: r.creator_id ?? null, 
   };
 }
 
-function mapAttachment(a: RawAttachmentRow): Attachment {
+function mapAttachment(a: RawAttachmentRow, parentTaskId: string): Attachment {
   return {
     attachmentId: String(a.attachment_id),
-    taskId: '',
+    taskId: parentTaskId, 
     attachmentUrl: String(a.attachment_url),
   };
 }
 
-function mapSubtask(s: RawSubtaskRow): Subtask {
+function mapSubtask(s: RawSubtaskRow, parentTaskId: string): Subtask {
   return {
     subtaskId: String(s.subtask_id),
-    taskId: '',
+    taskId: parentTaskId,
     title: s.title,
     subtaskStatus: s.subtask_status,
   };

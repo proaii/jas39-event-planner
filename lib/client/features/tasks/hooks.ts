@@ -142,10 +142,8 @@ export function useEditTask() {
     },
     onSuccess: (task) => {
       qc.setQueryData(queryKeys.task(task.taskId), task);
-      
-      qc.invalidateQueries({ queryKey: queryKeys.tasks({}) }); // All Tasks
+      qc.invalidateQueries({ queryKey: ['tasks'] }); 
       if (task.eventId) {
-        qc.invalidateQueries({ queryKey: queryKeys.tasks({ eventId: task.eventId }) });
         qc.invalidateQueries({ queryKey: ['event-activity', task.eventId] });
       }
     },

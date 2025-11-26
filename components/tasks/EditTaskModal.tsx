@@ -90,6 +90,14 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
 
     try {
       setEditError(null)
+
+      const originalSubtaskIds = new Set(editingTask.subtasks?.map(s => s.subtaskId) || []);
+      const sanitizedSubtasks = editFormData.subtasks.map(s => {
+        if (originalSubtaskIds.has(s.subtaskId)) {
+          return s;
+        }
+        return { ...s, subtaskId: "" };
+      });
       
       await editTaskMutation.mutateAsync({
         taskId: editingTask.taskId,
@@ -101,7 +109,7 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
           taskStatus: editFormData.taskStatus,
           taskPriority: editFormData.taskPriority,
           assignees: editFormData.assignees,
-          subtasks: editFormData.subtasks,
+          subtasks: sanitizedSubtasks,
           attachments: editFormData.attachments,
         },
       })

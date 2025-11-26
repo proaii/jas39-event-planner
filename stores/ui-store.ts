@@ -92,6 +92,12 @@ interface UiStore {
   openEditTaskModal: (taskId: string) => void;
   closeEditTaskModal: () => void;
 
+  // Task Detail Modal
+  isTaskDetailModalOpen: boolean;
+  selectedTaskIdForDetail: string | null;
+  openTaskDetailModal: (taskId: string) => void;
+  closeTaskDetailModal: () => void;
+
   // Customize Dashboard Modal
   isCustomizeModalOpen: boolean;
   openCustomizeModal: () => void;
@@ -266,6 +272,17 @@ export const useUiStore = create<UiStore>()(
         selectedTaskIdForEdit: null,
       }),
 
+      isTaskDetailModalOpen: false,
+      selectedTaskIdForDetail: null,
+      openTaskDetailModal: (taskId) => set({ 
+        isTaskDetailModalOpen: true,
+        selectedTaskIdForDetail: taskId,
+      }),
+      closeTaskDetailModal: () => set({ 
+        isTaskDetailModalOpen: false,
+        selectedTaskIdForDetail: null,
+      }),
+
       isCustomizeModalOpen: false,
       openCustomizeModal: () => {
         set((state) => ({
@@ -411,12 +428,14 @@ export const useUiStore = create<UiStore>()(
           isEditEventModalOpen: false,
           isAddTaskModalOpen: false,
           isEditTaskModalOpen: false,
+          isTaskDetailModalOpen: false,
           isCustomizeModalOpen: false,
           isSaveTemplateModalOpen: false,
           isCreateFromTemplateModalOpen: false,
           isEditProfileModalOpen: false,
           selectedEventIdForEdit: null,
           selectedTaskIdForEdit: null,
+          selectedTaskIdForDetail: null,
           eventPrefillData: null,
         }),
     }),

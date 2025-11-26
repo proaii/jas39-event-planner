@@ -43,11 +43,13 @@ import {
   ArrowUpDown,
   Image,
   Loader2,
+  Download,
 } from "lucide-react";
 
 import NextImage from "next/image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { createEvent, EventAttributes } from 'ics';
 
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { ViewSwitcher } from "@/components/events/ViewSwitcher";
@@ -244,6 +246,45 @@ export function EventDetail({
     }
   };
 
+  const downloadIcsFile = (content: string, fileName: string) => {
+    const blob = new Blob([content], { type: 'text/calendar;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+  };
+
+  const handleDownloadIcs = () => {
+    if (!event.startAt || !event.endAt) {
+      toast.error("Event start or end time is missing.");
+      return;
+    }
+
+    const startTime = new Date(event.startAt);
+    const endTime = new Date(event.endAt);
+
+    const icsEvent: EventAttributes = {
+        title: event.title,
+        description: event.description || undefined,
+        start: [startTime.getFullYear(), startTime.getMonth() + 1, startTime.getDate(), startTime.getHours(), startTime.getMinutes()],
+        end: [endTime.getFullYear(), endTime.getMonth() + 1, endTime.getDate(), endTime.getHours(), endTime.getMinutes()],
+        location: event.location || undefined,
+        organizer: { name: currentUser.username, email: currentUser.email },
+    };
+
+    createEvent(icsEvent, (error, value) => {
+        if (error) {
+            console.error('Error creating ICS file:', error);
+            toast.error("Failed to create ICS file.");
+            return;
+        }
+        downloadIcsFile(value, `${event.title}.ics`);
+    });
+  };
+
   // ==================== HELPER FUNCTIONS ====================
   const getInitials = (name: string) =>
     name?.split(" ").map(p => p[0]).join("").toUpperCase() || "";
@@ -325,6 +366,9 @@ export function EventDetail({
               </Button>
               <Button variant="outline" size="sm">
                 <Share className="w-4 h-4 mr-2" /> Share
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleDownloadIcs}>
+                <Download className="w-4 h-4 mr-2" /> Download ICS
               </Button>
               {onDeleteEvent && (
                 <Button
@@ -438,6 +482,7 @@ export function EventDetail({
                 {event.description && (
                   <div className="pt-4 border-t border-border">
                     <p className="text-sm leading-relaxed">{event.description}</p>
+
                   </div>
                 )}
               </CardContent>

@@ -18,7 +18,7 @@ import { Task } from "@/lib/types";
 import { useUiStore } from "@/stores/ui-store";
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { TaskCard } from "@/components/task-card";
-import { TaskDetailModal } from "@/components/tasks/TaskDetail"; 
+import { TaskDetailModal } from "@/components/tasks/TaskDetail";
 import { EditTaskModal } from "@/components/tasks/EditTaskModal";
 import { useFetchUsers, useFetchUser } from "@/lib/client/features/users/hooks";
 import { useUser } from "@/lib/client/features/auth/hooks";
@@ -41,16 +41,16 @@ async function fetchTasks(): Promise<Task[]> {
 
 // ------------------- Main Component -------------------
 export default function AllTasksPage() {
-  // ⭐ เพิ่ม state สำหรับ Task Detail Modal
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-
   const {
     isAddTaskModalOpen,
     openAddTaskModal,
     closeAddTaskModal,
     isEditTaskModalOpen,
     closeEditTaskModal,
+    isTaskDetailModalOpen,
+    openTaskDetailModal,
+    closeTaskDetailModal,
+    selectedTaskIdForDetail,
     searchQuery,
     setSearchQuery,
     sortBy,
@@ -77,10 +77,10 @@ export default function AllTasksPage() {
   });
 
   // ------------------- TASKS -------------------
-  const { 
-    data: allTasks = [], 
-    isLoading: tasksLoading, 
-    isError: tasksError 
+  const {
+    data: allTasks = [],
+    isLoading: tasksLoading,
+    isError: tasksError,
   } = useQuery<Task[]>({
     queryKey: ["tasks"],
     queryFn: fetchTasks,
@@ -88,13 +88,7 @@ export default function AllTasksPage() {
 
   // ------------------- HANDLERS -------------------
   const handleTaskClick = (taskId: string) => {
-    setSelectedTaskId(taskId);
-    setIsDetailModalOpen(true);
-  };
-
-  const handleCloseDetailModal = () => {
-    setIsDetailModalOpen(false);
-    setSelectedTaskId(null);
+    openTaskDetailModal(taskId);
   };
 
   const applyTempFilters = () => {
@@ -276,16 +270,16 @@ export default function AllTasksPage() {
       />
 
       <TaskDetailModal
-        isOpen={isDetailModalOpen}
-        onClose={handleCloseDetailModal}
-        taskId={selectedTaskId}
+        isOpen={isTaskDetailModalOpen}
+        onClose={closeTaskDetailModal}
+        taskId={selectedTaskIdForDetail}
       />
 
       <EditTaskModal
         isOpen={isEditTaskModalOpen}
         onClose={closeEditTaskModal}
         availableAssignees={allUsers}
-        taskId={null} 
+        taskId={null}
       />
     </main>
   );

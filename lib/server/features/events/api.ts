@@ -13,8 +13,8 @@ export async function listAllEvents(params: {
   page?: number;
   pageSize?: number;
 }): Promise<{ items: Event[]; nextPage: number | null }> {
-  const root = await createClient(); 
-  const db = await createDb();        
+  const root = await createClient();
+  const db = await createDb();
 
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? 10;
@@ -49,7 +49,7 @@ export async function listAllEvents(params: {
       .from(TABLE)
       .select(`
         event_id, owner_id, title, location, description, cover_image_uri, color, created_at, start_at, end_at,
-        event_members!left ( user_id )
+        event_members ( user_id )
       `, { count: 'exact' })
       .in('event_id', ids)
       .order('created_at', { ascending: false });
@@ -74,12 +74,14 @@ export async function getEvent(eventId: string): Promise<Event> {
     const { data, error } = await db
       .from(TABLE)
       .select(`
-        event_id, owner_id, title, location, description, cover_image_uri, color, created_at, start_at, end_at,
-        event_members!left ( user_id )
+        event_id, owner_id, title, location, description, cover_image_uri,
+        color, created_at, start_at, end_at,
+        event_members ( user_id )
       `)
       .eq('event_id', eventId)
       .single();
     if (error) throw error;
+    console.log(data);
     return map(data as RawEventRow);
   } catch (e) {
     throw toApiError(e, 'EVENT_GET_FAILED');
@@ -116,17 +118,32 @@ export async function createEvent(input: Omit<Event, 'eventId' | 'members'>): Pr
 
     const eventData = map(data as RawEventRow);
 
+    // Add owner as a member
+    const { error: memberErr } = await db
+      .from('event_members')
+      .insert({
+        event_id: eventData.eventId,
+        user_id: user.id,
+        joined_at: new Date().toISOString()
+      });
+
+    if (memberErr) {
+      console.error('Failed to insert owner as event member', memberErr);
+      throw memberErr;
+    }
+
     // Log Activity
     await logActivity(
-      user.id, 
-      eventData.eventId, 
-      'CREATE_EVENT', 
-      'EVENT', 
+      user.id,
+      eventData.eventId,
+      'CREATE_EVENT',
+      'EVENT',
       eventData.title
     );
 
     return eventData;
   } catch (e) {
+    console.log(e);
     throw toApiError(e, 'EVENT_CREATE_FAILED');
   }
 }
@@ -163,11 +180,11 @@ export async function updateEvent(eventId: string, patch: Partial<Event>): Promi
 
     // Log Activity
     await logActivity(
-        user.id, 
-        eventId, 
-        'UPDATE_EVENT', 
-        'EVENT', 
-        eventData.title
+      user.id,
+      eventId,
+      'UPDATE_EVENT',
+      'EVENT',
+      eventData.title
     );
 
     return eventData;

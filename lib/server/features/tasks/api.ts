@@ -17,7 +17,7 @@ export async function getTaskById(taskId: string): Promise<Task> {
       .from(TABLE)
       .select(
         `
-        task_id, event_id, title, description, task_status, task_priority, start_at, end_at, created_at,
+        task_id, creator_id, event_id, title, description, task_status, task_priority, start_at, end_at, created_at,
         attachments:attachments ( attachment_id, attachment_url ),
         subtasks:subtasks ( subtask_id, title, subtask_status ),
         assignees:task_assignees (
@@ -59,7 +59,7 @@ export async function listEventTasks(params: {
       .from(TABLE)
       .select(
         `
-        task_id, event_id, title, description, task_status, task_priority, start_at, end_at, created_at,
+        task_id, creator_id, event_id, title, description, task_status, task_priority, start_at, end_at, created_at,
         subtasks:subtasks ( subtask_id, title, subtask_status ),
         attachments:attachments ( attachment_id, attachment_url ),
         assignees:task_assignees (
@@ -239,11 +239,11 @@ export async function createEventTask(eventId: string, input: Task): Promise<Tas
 
     const taskId = String(trow.task_id);
 
-    // 2) assignees (pivot)
-    if (input.assignees?.length) {
-      const rows = input.assignees.map((uid) => ({
+    // 2) assignees
+    if (input.assignees && input.assignees.length > 0) {
+      const rows = input.assignees.map((a: string | UserLite) => ({
         task_id: taskId,
-        user_id: uid,
+        user_id: typeof a === 'string' ? a : a.userId, 
         assigned_at: new Date().toISOString(),
       }));
       const { error } = await db.from('task_assignees').insert(rows);
@@ -276,7 +276,7 @@ export async function createEventTask(eventId: string, input: Task): Promise<Tas
       .from(TABLE)
       .select(
         `
-        task_id, event_id, title, description, task_status, task_priority, start_at, end_at, created_at,
+        task_id, creator_id, event_id, title, description, task_status, task_priority, start_at, end_at, created_at,
         attachments:attachments ( attachment_id, attachment_url ),
         subtasks:subtasks ( subtask_id, title, subtask_status ),
         assignees:task_assignees (
@@ -413,16 +413,17 @@ export async function createPersonalTask(
   }
 }
 
-// Update Task (+ optional replace assignees)
+// Update Task (Bulk Update: Assignees, Subtasks, Attachments)
 export async function updateTask(
   taskId: string,
-  patch: Partial<Task> & { assigneesReplace?: string[] }
+  patch: Partial<Task>
 ): Promise<Task> {
   const root = await createClient();
   const { data: { user } } = await root.auth.getUser();
   const db = await createDb();
 
   try {
+    // 1. Update Main Task Fields
     const updateRow: Record<string, unknown> = {};
     if (patch.title !== undefined) updateRow.title = patch.title;
     if (patch.description !== undefined) updateRow.description = patch.description;
@@ -432,18 +433,30 @@ export async function updateTask(
     if (patch.endAt !== undefined) updateRow.end_at = patch.endAt;
 
     if (Object.keys(updateRow).length) {
-      const { error } = await db.from(TABLE).update(updateRow).eq('task_id', taskId);
+      const { data: updatedRows, error } = await db
+        .from(TABLE)
+        .update(updateRow)
+        .eq('task_id', taskId)
+        .select('task_id'); 
+
       if (error) throw error;
+
+      if (!updatedRows || updatedRows.length === 0) {
+        console.error(`Update failed for task ${taskId}. Reason: Task not found OR RLS permission denied.`);
+        throw new Error('PERMISSION_DENIED_OR_NOT_FOUND');
+      }
     }
 
-    if (patch.assigneesReplace) {
+    // 2. Bulk Update: Assignees
+    if (patch.assignees) {
+      // Delete all old ones and replace them (Strategy: Replace All)
       const { error: dErr } = await db.from('task_assignees').delete().eq('task_id', taskId);
       if (dErr) throw dErr;
 
-      if (patch.assigneesReplace.length) {
-        const rows = patch.assigneesReplace.map((uid) => ({
+      if (patch.assignees.length > 0) {
+        const rows = patch.assignees.map((u) => ({
           task_id: taskId,
-          user_id: uid,
+          user_id: u.userId, 
           assigned_at: new Date().toISOString(),
         }));
         const { error: iErr } = await db.from('task_assignees').insert(rows);
@@ -451,11 +464,71 @@ export async function updateTask(
       }
     }
 
+    // 3. Bulk Update: Subtasks
+    if (patch.subtasks) {
+      // 3.1 Find the ID of the submitted (existing) Subtask.
+      const incomingIds = patch.subtasks
+        .map(s => s.subtaskId)
+        .filter(id => id && id.length > 10);
+
+      // 3.2 Delete Subtasks in the DB that are not in the new list (Delete missing)
+      if (incomingIds.length > 0) {
+        await db.from('subtasks').delete().eq('task_id', taskId).not('subtask_id', 'in', `(${incomingIds.join(',')})`);
+      } else {
+         if (patch.subtasks.length === 0) {
+             await db.from('subtasks').delete().eq('task_id', taskId);
+         }
+      }
+
+      // 3.3 Upsert (Update existing + Insert new)
+      for (const s of patch.subtasks) {
+        if (s.subtaskId && s.subtaskId.length > 10) {
+          // Update Existing
+          await db.from('subtasks').update({
+            title: s.title,
+            subtask_status: s.subtaskStatus
+          }).eq('subtask_id', s.subtaskId);
+        } else {
+          // Insert New
+          await db.from('subtasks').insert({
+            task_id: taskId,
+            title: s.title,
+            subtask_status: s.subtaskStatus
+          });
+        }
+      }
+    }
+
+    // 4. Bulk Update: Attachments
+    if (patch.attachments) {
+      const incomingIds = patch.attachments
+        .map(a => a.attachmentId)
+        .filter(id => id && id.length > 10);
+
+      // 4.1 Delete missing
+      if (incomingIds.length > 0) {
+        await db.from('attachments').delete().eq('task_id', taskId).not('attachment_id', 'in', `(${incomingIds.join(',')})`);
+      } else if (patch.attachments.length === 0) {
+        await db.from('attachments').delete().eq('task_id', taskId);
+      }
+
+      // 4.2 Insert New only (Attachments usually don't update URL)
+      const newAttachments = patch.attachments.filter(a => !a.attachmentId || a.attachmentId.length < 10);
+      if (newAttachments.length > 0) {
+        const rows = newAttachments.map(a => ({
+          task_id: taskId,
+          attachment_url: a.attachmentUrl
+        }));
+        await db.from('attachments').insert(rows);
+      }
+    }
+
+    // 5. Fetch Final Result
     const { data, error } = await db
       .from(TABLE)
       .select(
         `
-        task_id, event_id, title, description, task_status, task_priority, start_at, end_at, created_at,
+        task_id, creator_id, event_id, title, description, task_status, task_priority, start_at, end_at, created_at,
         attachments:attachments ( attachment_id, attachment_url ),
         subtasks:subtasks ( subtask_id, title, subtask_status ),
         assignees:task_assignees (
@@ -489,7 +562,7 @@ export async function updateTask(
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
-  const root = await createClient();
+const root = await createClient();
   const { data: { user }, error: authError } = await root.auth.getUser();
   if (authError || !user) throw new Error('UNAUTHORIZED');
 
@@ -546,7 +619,6 @@ export async function deleteTask(taskId: string): Promise<void> {
       throw new Error('FORBIDDEN_DELETE');
     }
 
-    // Keep the value before deleting for Log Activity
     const taskTitle = taskData.title;
     const eventId = taskData.event_id;
 
@@ -554,7 +626,6 @@ export async function deleteTask(taskId: string): Promise<void> {
 
     if (deleteError) throw deleteError;
 
-    // Log Activity
     await logActivity(
         user.id, 
         eventId ?? null, 
@@ -775,7 +846,7 @@ function map(r: RawTaskRow): Task {
     attachments: (r.attachments ?? []).map(mapAttachment),
     subtasks: (r.subtasks ?? []).map(mapSubtask),
     assignees,
-    creatorId: r.event_id ?? null,
+    creatorId: r.creator_id ?? null, 
   };
 }
 

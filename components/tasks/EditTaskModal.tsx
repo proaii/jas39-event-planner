@@ -95,14 +95,14 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
         taskId: editingTask.taskId,
         patch: {
           title: editFormData.title.trim(),
-          description: editFormData.description?.trim() || undefined,
-          assignees: editFormData.assignees,
+          description: editFormData.description?.trim() || "",
           startAt: editHasTimePeriod ? editFormData.startAt : null,
           endAt: editFormData.endAt,
           taskStatus: editFormData.taskStatus,
           taskPriority: editFormData.taskPriority,
-          subtasks: editFormData.subtasks.length ? editFormData.subtasks : undefined,
-          attachments: editFormData.attachments.length ? editFormData.attachments : undefined,
+          assignees: editFormData.assignees,
+          subtasks: editFormData.subtasks,
+          attachments: editFormData.attachments,
         },
       })
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +58,7 @@ import { useEventViewStore } from "@/stores/eventViewStore";
 import { useEventDetailStore } from "@/stores/Eventdetailstore";
 
 // React Query Hooks
-import { useFetchEventTasks, useEditTask, useCreateEventTask } from "@/lib/client/features/tasks/hooks";
+import { useFetchEventTasks, useEditTask, useCreateEventTask, useUpdateSubtaskStatus } from "@/lib/client/features/tasks/hooks";
 import { useDeleteEvent } from "@/lib/client/features/events/hooks";
 
 interface EventDetailProps {
@@ -123,6 +123,8 @@ export function EventDetail({
     setShowCoverImage,
   } = useEventDetailStore();
 
+  const [updatingSubtaskId, setUpdatingSubtaskId] = useState<string | null>(null);
+
   const userMap = useMemo(() => {
     const map = new Map<string, UserLite>();
     allUsers.forEach((u) => map.set(u.userId, u));
@@ -140,6 +142,7 @@ export function EventDetail({
   const editTaskMutation = useEditTask();
   const createTaskMutation = useCreateEventTask(event.eventId);
   const deleteEventMutation = useDeleteEvent();
+  const updateSubtaskMutation = useUpdateSubtaskStatus();
 
   // ==================== COMPUTED VALUES ====================
   // Use API data if available, otherwise fallback to props
@@ -169,23 +172,22 @@ export function EventDetail({
     }
   };
 
-  const handleSubtaskStatusChange = async (taskId: string, subtaskId: string, newStatus: 'To Do' | 'Done') => {
-    const task = tasks.find(t => t.taskId === taskId);
-    if (!task || !task.subtasks) return;
-
-    const updatedSubtasks = task.subtasks.map(sub => 
-      sub.subtaskId === subtaskId ? { ...sub, subtaskStatus: newStatus } : sub
-    );
+  const handleSubtaskStatusChange = async (subtaskId: string, currentStatus: string) => {
+    if (updatingSubtaskId === subtaskId) return;
+    
+    const newStatus = currentStatus === 'Done' ? 'In Progress' : 'Done';
+    
+    setUpdatingSubtaskId(subtaskId);
 
     try {
-      await editTaskMutation.mutateAsync({
-        taskId,
-        patch: { subtasks: updatedSubtasks }
-      });
-      toast.success("Subtask status updated");
-    } catch (error) {
-      toast.error("Failed to update subtask status");
-      console.error(error);
+      await updateSubtaskMutation.mutateAsync({ 
+        subtaskId, 
+        status: newStatus 
+      })
+    } catch { 
+      toast.error('Failed to update subtask')
+    } finally {
+      setUpdatingSubtaskId(null) 
     }
   };
 
@@ -667,15 +669,22 @@ export function EventDetail({
                                     <div className="mt-3 pt-3 border-t space-y-2">
                                       {task.subtasks.map((sub: Subtask) => (
                                         <div key={sub.subtaskId} className="flex items-center space-x-2 pl-4">
-                                          <Checkbox
-                                            checked={sub.subtaskStatus === "Done"}
-                                            onCheckedChange={(checked) =>
-                                              handleSubtaskStatusChange(task.taskId, sub.subtaskId, checked ? 'Done' : 'To Do')
-                                            }
-                                            className="h-4 w-4"
-                                            disabled={editTaskMutation.isPending}
-                                          />
-                                          <span className={`text-sm ${sub.subtaskStatus === "Done" ? "line-through opacity-60" : ""}`}>
+                                          {updatingSubtaskId === sub.subtaskId ? (
+                                             <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                          ) : (
+                                            <Checkbox
+                                              checked={sub.subtaskStatus === "Done"}
+                                              onCheckedChange={() =>
+                                                handleSubtaskStatusChange(sub.subtaskId, sub.subtaskStatus)
+                                              }
+                                              className="h-4 w-4"
+                                              disabled={updatingSubtaskId !== null}
+                                            />
+                                          )}
+                                          <span 
+                                            className={`text-sm cursor-pointer select-none ${sub.subtaskStatus === "Done" ? "line-through opacity-60" : ""}`}
+                                            onClick={() => !updatingSubtaskId && handleSubtaskStatusChange(sub.subtaskId, sub.subtaskStatus)}
+                                          >
                                             {sub.title}
                                           </span>
                                         </div>

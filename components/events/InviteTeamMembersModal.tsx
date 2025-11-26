@@ -33,7 +33,7 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
-// ✅ Validate UUID format
+// Validate UUID format
 function isValidUUID(str: string): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   return uuidRegex.test(str);
@@ -56,7 +56,7 @@ export function InviteTeamMembersModal({
   const [selectedUsers, setSelectedUsers] = useState<UserLite[]>([]);
   const [isInviting, setIsInviting] = useState(false);
 
-  // ✅ Check if eventId is valid
+  // Check if eventId is valid
   const isValidEventId = isValidUUID(eventId);
 
   const { data: allUsers = [], isLoading: isLoadingUsers } = useFetchUsers({ 
@@ -70,7 +70,7 @@ export function InviteTeamMembersModal({
     (u) => !currentMembers.some((m) => m.userId === u.userId)
   );
 
-  // ✅ Reset state when modal opens/closes
+  // Reset state when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
       setSelectedUsers([]);
@@ -120,7 +120,7 @@ export function InviteTeamMembersModal({
         `Successfully invited ${selectedUsers.length} member${selectedUsers.length > 1 ? 's' : ''}!`
       );
       
-      // ✅ Only call onMembersUpdated if callback exists
+      // Only call onMembersUpdated if callback exists
       if (onMembersUpdated) {
         const newMembers: EventMember[] = [
           ...currentMembers,
@@ -176,7 +176,7 @@ export function InviteTeamMembersModal({
     }
   };
 
-  // ✅ Show error if eventId is invalid
+  // Show error if eventId is invalid
   if (!isValidEventId && isOpen) {
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -243,25 +243,29 @@ export function InviteTeamMembersModal({
               return (
                 <div
                   key={user.userId}
-                  className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
+                  className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
                     isSelected
-                      ? "border-primary/50 bg-primary/5"
-                      : "border-border hover:border-primary/30 hover:bg-muted/50"
+                      ? "bg-primary/15 dark:bg-primary/25"
+                      : "bg-muted/50 dark:bg-background/60 hover:bg-muted dark:hover:bg-background/80"
                   } ${isInviting ? "opacity-50 cursor-not-allowed" : ""}`}
                   onClick={() => handleToggleUser(user)}
                 >
+
+
                   <div className="flex items-center space-x-3">
                     <Avatar className="w-10 h-10">
-                      <AvatarFallback>{getInitials(user.username)}</AvatarFallback>
+                      <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                        {getInitials(user.username)}
+                      </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium">{user.username}</p>
+                      <p className="font-medium text-foreground">{user.username}</p>
                       <p className="text-sm text-muted-foreground">{user.email}</p>
                     </div>
                   </div>
                   {isSelected && (
-                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                      <Check className="w-4 h-4 text-white" />
+                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center shrink-0">
+                      <Check className="w-4 h-4 text-primary-foreground" />
                     </div>
                   )}
                 </div>

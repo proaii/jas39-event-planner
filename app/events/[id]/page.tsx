@@ -1,8 +1,11 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
 import { EventDetail } from "@/components/events/EventDetail";
 import { EditEventModal } from "@/components/events/EditEventModal";
+import { TaskDetailModal } from "@/components/tasks/TaskDetail";
+import { EditTaskModal } from "@/components/tasks/EditTaskModal";
 import { useUiStore } from "@/stores/ui-store";
 import { 
   useSaveTemplate, 
@@ -19,7 +22,6 @@ import { toast } from "react-hot-toast";
 import { useFetchUsers, useFetchCurrentUser } from "@/lib/client/features/users/hooks";
 import { useEffect } from "react";
 import { getRealtimeChannel } from "@/lib/realtime";
-// import { listAllUserTasks } from "@/lib/server/features/tasks/api";
 
 import { useQueryClient } from "@tanstack/react-query";  
 import { queryKeys } from "@/lib/queryKeys";
@@ -27,6 +29,10 @@ import { queryKeys } from "@/lib/queryKeys";
 export default function EventDetailPage() {
   const router = useRouter();
   const { id } = useParams();
+
+  // --- State for Task Detail Modal ---
+  const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   // --- Convert id to string safely ---
   const eventId = typeof id === "string" ? id : Array.isArray(id) ? id[0] : null;
@@ -52,40 +58,35 @@ export default function EventDetailPage() {
   // Flatten all pages safely
   const tasks: Task[] = tasksData ? tasksData.items : [];
 
-const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
 
-// หลังจากรู้ eventId แล้ว ค่อย subscribe
-useEffect(() => {
-  if (!eventId) return;
+  useEffect(() => {
+    if (!eventId) return;
 
-  // คำนวณ key เดียวกันกับตอนใช้ useFetchEventTasks
-  const tasksKey = queryKeys.tasks({
-    eventId,
-    status: undefined,
-    pageSize: 20,   // ให้ตรงกับ default ใน hook
-    q: undefined,
-  });
+    const tasksKey = queryKeys.tasks({
+      eventId,
+      status: undefined,
+      pageSize: 20, 
+      q: undefined,
+    });
 
-  const unsubscribe = getRealtimeChannel("tasks", {
-    eventId,
-    onChange: ({ eventType, new: newRow, old }) => {
-      console.log("TASKS realtime:", eventType, { newRow, old });
+    const unsubscribe = getRealtimeChannel("tasks", {
+      eventId,
+      onChange: ({ eventType, new: newRow, old }) => {
+        console.log("TASKS realtime:", eventType, { newRow, old });
 
-      // วิธีง่ายสุด: invalidate query → React Query refetch เอง
-      queryClient.invalidateQueries({ queryKey: tasksKey });
+        queryClient.invalidateQueries({ queryKey: tasksKey });
 
-      // ถ้ามีหน้า All Tasks ด้วยก็ invalidate รวมไปด้วย
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.tasks({}), // All Tasks page
-      });
-    },
-  });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.tasks({}), // All Tasks page
+        });
+      },
+    });
 
-  return () => {
-    unsubscribe();
-  };
-}, [eventId, queryClient]);
-
+    return () => {
+      unsubscribe();
+    };
+  }, [eventId, queryClient]);
 
   // --- React Query: Auth & Users ---
   const { 
@@ -207,6 +208,16 @@ useEffect(() => {
     );
   };
 
+  const handleTaskClick = (taskId: string) => {
+    setSelectedTaskId(taskId);
+    setIsTaskDetailModalOpen(true);
+  };
+
+  const handleCloseTaskDetailModal = () => {
+    setIsTaskDetailModalOpen(false);
+    setSelectedTaskId(null);
+  };
+
   const handleEditEvent = (eventId: string) => {
     openEditEventModal(eventId);
   };
@@ -271,9 +282,23 @@ useEffect(() => {
         onDeleteEvent={handleDeleteEvent}
         onSaveTemplate={handleSaveTemplate}
         onEditEvent={handleEditEvent}
+        onTaskClick={handleTaskClick} 
       />
 
       <EditEventModal events={[event]} />
+
+      <TaskDetailModal
+        isOpen={isTaskDetailModalOpen}
+        onClose={handleCloseTaskDetailModal}
+        taskId={selectedTaskId}
+      />
+
+      <EditTaskModal
+        isOpen={false} 
+        onClose={() => {}}
+        availableAssignees={allUsers}
+        taskId={null}
+      />
     </div>
   );
 }

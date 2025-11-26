@@ -484,8 +484,8 @@ export function AddTaskModal({
                         disabled={isPending || isCurrentUserInPersonal}
                         className={`text-left p-2 rounded-md border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                           isAssigned || isCurrentUserInPersonal
-                            ? "bg-primary/10 border-primary text-primary"
-                            : "bg-white border-border hover:bg-muted/50"
+                            ? "bg-primary/15 border-primary text-primary dark:bg-primary/25"
+                            : "bg-muted/40 dark:bg-card border-border hover:bg-muted/60 dark:hover:bg-muted/30"
                         }`}
                       >
                         {m.username}

@@ -581,8 +581,8 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
                     className={`text-left p-2 rounded-md border transition-colors ${
                       editFormData.assignees.some(a => a.userId === member.userId)
                         ? 'bg-primary/10 border-primary text-primary'
-                        : 'bg-white border-border hover:bg-muted/50'
-                    } ${isEditPending ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        : 'bg-muted border-border hover:bg-muted/70'
+                    }`}
                   >
                     {member.username}
                   </button>

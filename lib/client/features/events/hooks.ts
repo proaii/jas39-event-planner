@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import type { ApiError } from '@/lib/errors';
 import type { Event } from '@/lib/types';
@@ -13,7 +13,7 @@ type EventsPage = { items: Event[]; nextPage: number | null };
 export function useFetchEvents(f: { q?: string; pageSize?: number }) {
   const pageSize = f.pageSize ?? 10;
 
-  return useInfiniteQuery<EventsPage, ApiError, EventsPage, ReturnType<typeof queryKeys.events>, number>({
+  return useInfiniteQuery<EventsPage, ApiError, InfiniteData<EventsPage>, ReturnType<typeof queryKeys.events>, number>({
     queryKey: queryKeys.events({ ...f, pageSize }),
     initialPageParam: 1,
     queryFn: async ({ pageParam }): Promise<EventsPage> => {

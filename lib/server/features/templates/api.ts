@@ -1,6 +1,6 @@
 import { createClient, createDb } from '@/lib/server/supabase/server';
 import { toApiError } from '@/lib/errors';
-import type { EventTemplate } from '@/lib/types';
+import type { EventTemplate, EventTemplateData } from '@/lib/types';
 import type { TemplateData } from '@/schemas/template';
 
 // ---------- Event Templates ----------
@@ -107,10 +107,23 @@ type RawTemplateRow = {
   name: string;
   description?: string | null;
   created_at: string;
-  event_data: EventData; 
+  event_data: any; //
 };
 
 function mapTemplate(r: RawTemplateRow): EventTemplate {
+  const rawData = r.event_data || {};
+
+  if (rawData.event && Array.isArray(rawData.tasks)) {
+    return { 
+      templateId: String(r.template_id),
+      ownerId: String(r.owner_id),
+      name: String(r.name),
+      description: r.description ?? '',
+      createdAt: String(r.created_at),
+      eventData: rawData as EventTemplateData,
+    };
+  }
+  
   return {
     templateId: String(r.template_id),
     ownerId: String(r.owner_id),
@@ -118,14 +131,19 @@ function mapTemplate(r: RawTemplateRow): EventTemplate {
     description: r.description ?? '',
     createdAt: String(r.created_at),
     eventData: {
-      title: r.event_data.title ?? '',
-      location: r.event_data.location,
-      eventDescription: r.event_data.eventDescription,
-      coverImageUri: r.event_data.coverImageUri,
-      color: Number(r.event_data.color ?? 0),
-      members: Array.isArray(r.event_data.members) ? r.event_data.members.map(m => m.userId) : [],
-      startAt: r.event_data.startAt,
-      endAt: r.event_data.endAt,
+      event: {
+        title: rawData.title ?? '',
+        description: rawData.eventDescription ?? rawData.description ?? null, 
+        location: rawData.location ?? null,
+        cover_image_uri: rawData.coverImageUri ?? rawData.cover_image_uri ?? null, 
+        color: Number(rawData.color ?? 0),
+        start_at: rawData.startAt ?? rawData.start_at ?? null,
+        end_at: rawData.endAt ?? rawData.end_at ?? null,
+        members: Array.isArray(rawData.members)
+          ? rawData.members.map((m: any) => (typeof m === 'string' ? m : m.userId))
+          : [],
+      },
+      tasks: Array.isArray(rawData.tasks) ? rawData.tasks : [],
     },
   };
 }

@@ -152,9 +152,9 @@ export default function SettingsPage() {
                 <p className="text-foreground mt-1">{profileData.bio || "No bio yet"}</p>
               </div>
 
-              <Separator />
+              {/* <Separator /> */}
 
-              {/* Stats */}
+              {/* Stats
               <div className="grid grid-cols-3 text-center">
                 <div>
                   <p className="text-primary text-lg font-semibold">12</p>
@@ -170,7 +170,7 @@ export default function SettingsPage() {
                     Active Collaborations
                   </p>
                 </div>
-              </div>
+              </div> */}
             </CardContent>
           </Card>
 

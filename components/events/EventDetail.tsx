@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -128,6 +129,12 @@ export function EventDetail({
     showCoverImage,
     setShowCoverImage,
   } = useEventDetailStore();
+
+  const userMap = useMemo(() => {
+    const map = new Map<string, UserLite>();
+    allUsers.forEach((u) => map.set(u.userId, u));
+    return map;
+  }, [allUsers]);
 
   // ==================== REACT QUERY ====================
   const tasksQuery = useFetchEventTasks({ 
@@ -445,14 +452,24 @@ export function EventDetail({
                 <CardTitle className="text-base">Team Members</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {members.map((member: string) => (
-                  <div key={member} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50">
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback>{getInitials(member)}</AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm">{member}</span>
-                  </div>
-                ))}
+                {members.map((memberId: string) => {
+                  const user = userMap.get(memberId);
+                  const displayName = user ? user.username : memberId;
+                  
+                  return (
+                    <div key={memberId} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50">
+                      <Avatar className="w-8 h-8">
+                        <AvatarFallback className="text-xs">
+                            {getInitials(displayName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{displayName}</span>
+                        {user && <span className="text-[10px] text-muted-foreground">{user.email}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
               </CardContent>
             </Card>
 

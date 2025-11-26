@@ -8,7 +8,7 @@ export function useFetchRecentActivity(eventId: string) {
     queryKey: ['event-activity', eventId],
     queryFn: async () => {
       if (!eventId) return [];
-      const res = await fetch(`/api/events/${eventId}/activity`); 
+      const res = await fetch(`/api/events/${eventId}/activities`); 
       if (!res.ok) throw new Error('Failed to fetch activities');
       return res.json();
     },

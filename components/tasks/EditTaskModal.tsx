@@ -86,7 +86,7 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isEditFormValid() || isEditPending || !editingTask) return
+    if (!editFormData.title.trim() || isEditPending || !editingTask) return
 
     try {
       setEditError(null)
@@ -611,7 +611,7 @@ export function EditTaskModal({ availableAssignees }: EditTaskModalProps) {
             <Button
               type="submit"
               className="bg-primary hover:bg-primary/90"
-              disabled={!isEditFormValid() || isEditPending}
+              disabled={!editFormData.title.trim() || isEditPending}
             >
               {isEditPending ? (
                 <>

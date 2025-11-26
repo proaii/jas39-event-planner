@@ -17,10 +17,11 @@ import {
   Loader2 
 } from 'lucide-react'
 import { priorityColorMap, statusColorMap } from '@/lib/constants'
-import { useFetchTask, useDeleteTask } from '@/lib/client/features/tasks/hooks'
+import { useFetchTask, useDeleteTask, useUpdateSubtaskStatus } from '@/lib/client/features/tasks/hooks'
 import { useUiStore } from '@/stores/ui-store'
 import { toast } from 'sonner'
 import type { UserLite } from '@/lib/types'
+import { useState } from 'react'
 
 interface TaskDetailModalProps {
   isOpen: boolean
@@ -30,6 +31,8 @@ interface TaskDetailModalProps {
 
 export function TaskDetailModal({ isOpen, onClose, taskId }: TaskDetailModalProps) {
   const { openEditTaskModal } = useUiStore()
+
+  const [updatingSubtaskId, setUpdatingSubtaskId] = useState<string | null>(null)
   
   // Fetch task data
   const shouldFetch = taskId && taskId.trim().length > 0
@@ -40,8 +43,9 @@ export function TaskDetailModal({ isOpen, onClose, taskId }: TaskDetailModalProp
     error 
   } = useFetchTask(shouldFetch ? taskId : 'skip-fetch')
 
-  // Delete mutation
+  // Mutation
   const deleteTaskMutation = useDeleteTask()
+  const updateSubtaskMutation = useUpdateSubtaskStatus()
 
   // Handle edit
   const handleEdit = () => {
@@ -69,6 +73,23 @@ export function TaskDetailModal({ isOpen, onClose, taskId }: TaskDetailModalProp
     } catch (error) {
       console.error('Failed to delete task:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to delete task')
+    }
+  }
+
+  // Handle Subtask Status Toggle 
+  const handleToggleSubtask = async (subtaskId: string, currentStatus: string) => {
+    if (updatingSubtaskId === subtaskId) return
+    const newStatus = currentStatus === 'Done' ? 'In Progress' : 'Done'
+    setUpdatingSubtaskId(subtaskId) 
+    try {
+      await updateSubtaskMutation.mutateAsync({ 
+        subtaskId, 
+        status: newStatus 
+      })
+    } catch { 
+      toast.error('Failed to update subtask')
+    } finally {
+      setUpdatingSubtaskId(null) 
     }
   }
 
@@ -240,20 +261,34 @@ export function TaskDetailModal({ isOpen, onClose, taskId }: TaskDetailModalProp
                 <span>Sub-tasks ({task.subtasks.filter(s => s.subtaskStatus === 'Done').length}/{task.subtasks.length})</span>
               </div>
               <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
-                {task.subtasks.map((subtask) => (
-                  <div key={subtask.subtaskId} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={subtask.subtaskStatus === 'Done'}
-                      readOnly
-                      disabled
-                      className="w-4 h-4 rounded border-gray-300"
-                    />
-                    <span className={`text-sm ${subtask.subtaskStatus === 'Done' ? 'line-through text-muted-foreground' : ''}`}>
-                      {subtask.title}
-                    </span>
-                  </div>
-                ))}
+                {task.subtasks.map((subtask) => {
+                    const isDone = subtask.subtaskStatus === 'Done';
+                    const isUpdating = updatingSubtaskId === subtask.subtaskId;
+
+                    return (
+                        <div key={subtask.subtaskId} className="flex items-center space-x-2 group">
+                            {isUpdating ? (
+                                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                            ) : (
+                                <input
+                                type="checkbox"
+                                checked={isDone}
+                                onChange={() => handleToggleSubtask(subtask.subtaskId, subtask.subtaskStatus)}
+                                className="w-4 h-4 rounded border-gray-300 cursor-pointer accent-primary"
+                                />
+                            )}
+                            
+                            <span 
+                                className={`text-sm transition-colors cursor-pointer select-none ${
+                                    isDone ? 'line-through text-muted-foreground' : ''
+                                }`}
+                                onClick={() => !isUpdating && handleToggleSubtask(subtask.subtaskId, subtask.subtaskStatus)}
+                            >
+                                {subtask.title}
+                            </span>
+                        </div>
+                    )
+                })}
               </div>
             </div>
           )}

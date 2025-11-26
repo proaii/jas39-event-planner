@@ -72,7 +72,7 @@ export function TopNavigation() {
           ) : (
             <div className="flex items-center space-x-2">
               <Button asChild variant="outline">
-                <Link href="/auth/login">Log In</Link>
+                <Link href="/auth/login">Sign In</Link>
               </Button>
               <Button asChild>
                 <Link href="/auth/sign-up">Sign Up</Link>

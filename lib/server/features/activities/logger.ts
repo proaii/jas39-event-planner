@@ -1,35 +1,33 @@
-import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { createDb } from '@/lib/server/supabase/server'; 
 
-// Helper function: Record activities to the database.
+// Helper function: Record activities to the database via RPC.
 export async function logActivity(
   userId: string,
-  eventId: string | null, // null for Personal Task
+  eventId: string | null,
   actionType: 'CREATE_TASK' | 'UPDATE_TASK' | 'DELETE_TASK' | 
-              'CREATE_SUBTASK' | 'UPDATE_SUBTASK' | 'DELETE_SUBTASK' |
-              'CREATE_EVENT' | 'JOIN_EVENT' | 'UPDATE_EVENT',
+    'CREATE_SUBTASK' | 'UPDATE_SUBTASK' | 'DELETE_SUBTASK' |
+    'CREATE_EVENT' | 'JOIN_EVENT' | 'UPDATE_EVENT',
   entityType: 'TASK' | 'EVENT' | 'MEMBER' | 'SUBTASK',
   entityTitle: string,
   metadata?: Record<string, unknown>
 ) {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return;
   
-  const adminDb = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
-  );
-
+  const db = await createDb(); 
+  
   try {
-    await adminDb.from('activity_logs').insert({
-      user_id: userId,
-      event_id: eventId,
-      action_type: actionType,
-      entity_type: entityType,
-      entity_title: entityTitle,
-      metadata: metadata || null 
+    const { error } = await db.rpc('log_activity_rpc', {
+      user_id_in: userId,
+      event_id_in: eventId,
+      action_type_in: actionType,
+      entity_type_in: entityType,
+      entity_title_in: entityTitle,
+      metadata_in: metadata || null,
     });
+    
+    if (error) throw error;
+    
   } catch (error) {
-    console.error('Failed to log activity:', error);
+    console.error('Failed to log activity via RPC:', error);
     // Do not throw errors to avoid affecting the main flow.
   }
 }

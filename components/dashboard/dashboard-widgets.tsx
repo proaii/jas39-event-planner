@@ -45,7 +45,7 @@ export function DashboardWidgets({
   const { 
     data: tasksData, 
     isLoading: loadingTasks,
-  } = useFetchAllTasks({ pageSize: 20 });
+  } = useFetchAllTasks({ pageSize: 50 });
 
   // ---- FLATTEN DATA ----
   const events: Event[] = useMemo(() => flattenInfiniteData<Event>(eventsData), [eventsData]);

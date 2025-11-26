@@ -705,7 +705,8 @@ export function EventDetail({
         onClose={closeAddTaskModal}
         eventMembers={allUsers}
         currentUser={currentUser}
-        isPersonal={true}
+        isPersonal={false}
+        eventId={event.eventId}
       />
 
       <SaveTemplateModal

@@ -33,17 +33,46 @@ export async function getUserById(targetUserId: string): Promise<UserLite> {
 
   try {
     const { data: { user }, error: uerr } = await supabase.auth.getUser();
-    if (uerr) throw uerr;
-    if (!user) throw new Error('UNAUTHORIZED');
+    if (uerr) {
+      throw uerr;
+    }
+    if (!user) {
+      throw new Error('UNAUTHORIZED');
+    }
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from(TABLE)
       .select('userId:user_id, username, email, avatarUrl:avatar_url')
       .eq('user_id', targetUserId)
       .single();
 
-    if (error) throw error;
-    if (!data) throw new Error('USER_NOT_FOUND');
+    // If user profile doesn't exist, create it.
+    if (error && error.code === 'PGRST116') { // PGRST116: "exact one row not found"
+      const adminDb = getAdminDb();
+      const profileToInsert = {
+        user_id: user.id,
+        email: user.email,
+        username: user.user_metadata?.full_name ?? user.email?.split(' @')[0],
+        avatar_url: user.user_metadata?.avatar_url ?? null,
+      };
+
+      const { data: newUser, error: createError } = await adminDb
+        .from(TABLE)
+        .insert(profileToInsert)
+        .select('userId:user_id, username, email, avatarUrl:avatar_url')
+        .single();
+      
+      if (createError) {
+        throw createError;
+      }
+      data = newUser;
+    } else if (error) {
+      throw error;
+    }
+    
+    if (!data) {
+      throw new Error('USER_NOT_FOUND');
+    }
 
     const r = data as DbUserRow;
 
@@ -187,4 +216,3 @@ export async function listAllUsers(params: {
     throw toApiError(e, 'USERS_LIST_FAILED');
   }
 }
-

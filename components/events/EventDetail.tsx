@@ -12,7 +12,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -34,7 +33,6 @@ import {
   TrendingUp,
   CheckSquare,
   MoreVertical,
-  Edit3,
   Flag,
   Clock,
   Calendar,
@@ -62,7 +60,7 @@ import { useEventViewStore } from "@/stores/eventViewStore";
 import { useEventDetailStore } from "@/stores/Eventdetailstore";
 
 // React Query Hooks
-import { useFetchEventTasks, useEditTask, useDeleteTask, useCreateEventTask } from "@/lib/client/features/tasks/hooks";
+import { useFetchEventTasks, useEditTask, useCreateEventTask } from "@/lib/client/features/tasks/hooks";
 import { useDeleteEvent } from "@/lib/client/features/events/hooks";
 
 interface EventDetailProps {
@@ -77,6 +75,7 @@ interface EventDetailProps {
   onDeleteEvent?: (eventId: string) => void;
   onEditEvent?: (eventId: string) => void;
   onSaveTemplate?: (eventId: string, templateData: EventTemplateData) => void;
+  onTaskClick?: (taskId: string) => void; 
 }
 
 interface TaskPage {
@@ -103,9 +102,9 @@ export function EventDetail({
   currentUser,
   allUsers,
   onBack,
-  onTaskAction,
   onDeleteEvent,
   onEditEvent,
+  onTaskClick, // ⭐ Receive the prop
 }: EventDetailProps) {
   // ==================== STORES ====================
   const { 
@@ -145,7 +144,6 @@ export function EventDetail({
   const isTasksLoading = tasksQuery.isLoading;
   
   const editTaskMutation = useEditTask();
-  const deleteTaskMutation = useDeleteTask();
   const createTaskMutation = useCreateEventTask(event.eventId);
   const deleteEventMutation = useDeleteEvent();
 
@@ -174,22 +172,6 @@ export function EventDetail({
     } catch (error) {
       toast.error("Failed to update task status");
       console.error(error);
-    }
-  };
-
-
-  const handleTaskAction = async (taskId: string, action: "edit" | "reassign" | "setDueDate" | "delete") => {
-    if (action === "delete") {
-      try {
-        await deleteTaskMutation.mutateAsync({ taskId });
-        toast.success("Task deleted successfully");
-      } catch (error) {
-        toast.error("Failed to delete task");
-        console.error(error);
-      }
-    } else {
-      // Fallback to prop handler for other actions
-      onTaskAction?.(taskId, action);
     }
   };
 
@@ -581,26 +563,15 @@ export function EventDetail({
                                     )}
                                   </div>
 
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                        <MoreVertical className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => handleTaskAction(task.taskId, "edit")}>
-                                        <Edit3 className="mr-2 h-4 w-4" /> Edit Task
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuItem
-                                        className="text-destructive"
-                                        onClick={() => handleTaskAction(task.taskId, "delete")}
-                                        disabled={deleteTaskMutation.isPending}
-                                      >
-                                        <Trash2 className="mr-2 h-4 w-4" /> Delete Task
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
+                                  {/* ⭐ Changed: Simple button that calls onTaskClick */}
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => onTaskClick?.(task.taskId)}
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
                                 </div>
 
                                 <div className="flex flex-wrap items-center gap-3">
@@ -705,7 +676,7 @@ export function EventDetail({
                 ) : (
                   <KanbanBoard
                     eventId={event.eventId}
-                    onTaskAction={handleTaskAction}
+                    onTaskAction={() => {}}
                   />
                 )}
               </CardContent>

@@ -24,7 +24,6 @@ import { InviteTeamMembersModal } from "./InviteTeamMembersModal";
 import { toast } from "react-hot-toast";
 import { useUpdateEvent } from "@/stores/useEventStore";
 import { useFetchUsers } from "@/lib/client/features/users/hooks";
-import { ImageWithFallback } from "@/components/ui/ImageWithFallback";
 
 export function EditEventModal({ events }: { events: Event[] }) {
   const { isEditEventModalOpen, selectedEventIdForEdit, closeEditEventModal } = useUiStore();

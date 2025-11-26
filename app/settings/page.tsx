@@ -10,14 +10,18 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { User, Bell, Palette, Shield, Edit } from "lucide-react";
 import { useTheme } from "next-themes";
+import { toast } from "react-hot-toast";
 import { EditProfileModal } from "@/components/settings/EditProfileModal";
 import { useUser } from "@/lib/client/features/auth/hooks";
-import { useFetchUser } from "@/lib/client/features/users/hooks";
+import { useFetchUser, useUpdateUser } from "@/lib/client/features/users/hooks";
 import { useUiStore } from "@/stores/ui-store";
 
 export default function SettingsPage() {
   const { data: authUser } = useUser();
-  const { data: currentUser } = useFetchUser(authUser?.id ?? "");
+  const { data: currentUser, refetch: refetchUser } = useFetchUser(
+    authUser?.id ?? ""
+  );
+  const updateUserMutation = useUpdateUser();
 
   // ==================== UI STORE ====================
   const {
@@ -25,7 +29,7 @@ export default function SettingsPage() {
     isEditProfileModalOpen,
     openEditProfileModal,
     closeEditProfileModal,
-    
+
     // Profile Data
     profileData,
     tempProfileData,
@@ -33,7 +37,7 @@ export default function SettingsPage() {
     saveProfileData,
     resetTempProfileData,
     initializeProfileData,
-    
+
     // Settings
     notificationSettings,
     setNotificationSettings,
@@ -53,9 +57,43 @@ export default function SettingsPage() {
     }
   }, [currentUser, initializeProfileData]);
 
+  // ==================== HANDLERS ====================
+  const handleSaveProfile = () => {
+    if (!authUser?.id) return toast.error("User not found");
+
+    const newUsername = [
+      tempProfileData.firstName,
+      tempProfileData.middleName,
+      tempProfileData.lastName,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    updateUserMutation.mutate(
+      {
+        userId: authUser.id,
+        patch: { username: newUsername },
+      },
+      {
+        onSuccess: () => {
+          saveProfileData();
+          refetchUser();
+          toast.success("Profile updated successfully!");
+        },
+        onError: (error) => {
+          console.error("Failed to update profile", error);
+          toast.error(error.message || "Failed to update profile.");
+        },
+      }
+    );
+  };
+
   // ==================== HELPER FUNCTIONS ====================
   const getInitials = (first: string, middle: string, last: string) =>
-    [first, middle, last].map((n) => n?.[0]).join("").toUpperCase();
+    [first, middle, last]
+      .map((n) => n?.[0])
+      .join("")
+      .toUpperCase();
 
   const getFullName = (first: string, middle: string, last: string) =>
     [first, middle, last].filter(Boolean).join(" ");
@@ -111,7 +149,9 @@ export default function SettingsPage() {
 
                 <div className="flex-1 grid md:grid-cols-2 gap-x-8 gap-y-4">
                   <div className="space-y-1">
-                    <Label className="text-sm text-muted-foreground">Name</Label>
+                    <Label className="text-sm text-muted-foreground">
+                      Name
+                    </Label>
                     <p className="text-foreground font-medium">
                       {getFullName(
                         profileData.firstName,
@@ -148,29 +188,13 @@ export default function SettingsPage() {
 
               {/* About */}
               <div>
-                <Label className="text-sm text-muted-foreground">About Me</Label>
-                <p className="text-foreground mt-1">{profileData.bio || "No bio yet"}</p>
+                <Label className="text-sm text-muted-foreground">
+                  About Me
+                </Label>
+                <p className="text-foreground mt-1">
+                  {profileData.bio || "No bio yet"}
+                </p>
               </div>
-
-              {/* <Separator /> */}
-
-              {/* Stats
-              <div className="grid grid-cols-3 text-center">
-                <div>
-                  <p className="text-primary text-lg font-semibold">12</p>
-                  <p className="text-sm text-muted-foreground">Events Organized</p>
-                </div>
-                <div>
-                  <p className="text-primary text-lg font-semibold">45</p>
-                  <p className="text-sm text-muted-foreground">Tasks Completed</p>
-                </div>
-                <div>
-                  <p className="text-primary text-lg font-semibold">8</p>
-                  <p className="text-sm text-muted-foreground">
-                    Active Collaborations
-                  </p>
-                </div>
-              </div> */}
             </CardContent>
           </Card>
 
@@ -182,7 +206,7 @@ export default function SettingsPage() {
             onChange={(key, value) =>
               setTempProfileData((prev) => ({ ...prev, [key]: value }))
             }
-            onSave={saveProfileData}
+            onSave={handleSaveProfile}
             onCancel={resetTempProfileData}
           />
         </TabsContent>

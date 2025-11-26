@@ -17,10 +17,10 @@ import {
   Loader2 
 } from 'lucide-react'
 import { priorityColorMap, statusColorMap } from '@/lib/constants'
-import { useFetchTask, useDeleteTask, useUpdateSubtaskStatus } from '@/lib/client/features/tasks/hooks'
+import { useFetchTask, useDeleteTask, useUpdateSubtaskStatus, useEditTask } from '@/lib/client/features/tasks/hooks'
 import { useUiStore } from '@/stores/ui-store'
 import { toast } from 'sonner'
-import type { UserLite } from '@/lib/types'
+import type { UserLite, TaskStatus } from '@/lib/types'
 import { useState } from 'react'
 
 interface TaskDetailModalProps {
@@ -46,6 +46,7 @@ export function TaskDetailModal({ isOpen, onClose, taskId }: TaskDetailModalProp
   // Mutation
   const deleteTaskMutation = useDeleteTask()
   const updateSubtaskMutation = useUpdateSubtaskStatus()
+  const editTaskMutation = useEditTask()
 
   // Handle edit
   const handleEdit = () => {
@@ -78,14 +79,46 @@ export function TaskDetailModal({ isOpen, onClose, taskId }: TaskDetailModalProp
 
   // Handle Subtask Status Toggle 
   const handleToggleSubtask = async (subtaskId: string, currentStatus: string) => {
-    if (updatingSubtaskId === subtaskId) return
-    const newStatus = currentStatus === 'Done' ? 'In Progress' : 'Done'
+    if (updatingSubtaskId === subtaskId || !task || !task.subtasks) return
+
+    const newSubtaskStatus = currentStatus === 'Done' ? 'To Do' : 'Done'
+    
     setUpdatingSubtaskId(subtaskId) 
+    
     try {
       await updateSubtaskMutation.mutateAsync({ 
         subtaskId, 
-        status: newStatus 
+        status: newSubtaskStatus 
       })
+
+      const updatedSubtasks = task.subtasks.map(sub => 
+        sub.subtaskId === subtaskId ? { ...sub, subtaskStatus: newSubtaskStatus } : sub
+      )
+
+      const totalSubtasks = updatedSubtasks.length
+      const doneCount = updatedSubtasks.filter(s => s.subtaskStatus === 'Done').length
+      const inProgressCount = updatedSubtasks.filter(s => s.subtaskStatus === 'In Progress').length
+
+      let newParentStatus: TaskStatus = 'To Do'
+
+      if (totalSubtasks > 0) {
+        if (doneCount === totalSubtasks) {
+          newParentStatus = 'Done'
+        } else if (doneCount > 0 || inProgressCount > 0) {
+          newParentStatus = 'In Progress'
+        } else {
+          newParentStatus = 'To Do'
+        }
+      }
+
+      if (newParentStatus !== task.taskStatus) {
+        await editTaskMutation.mutateAsync({
+          taskId: task.taskId,
+          patch: { taskStatus: newParentStatus }
+        })
+        toast.success(`Task updated to ${newParentStatus}`)
+      }
+
     } catch { 
       toast.error('Failed to update subtask')
     } finally {
@@ -93,7 +126,6 @@ export function TaskDetailModal({ isOpen, onClose, taskId }: TaskDetailModalProp
     }
   }
 
-  // Don't render if not open or no taskId
   if (!isOpen || !shouldFetch) {
     return null
   }

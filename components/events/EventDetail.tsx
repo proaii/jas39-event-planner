@@ -172,18 +172,59 @@ export function EventDetail({
     }
   };
 
-  const handleSubtaskStatusChange = async (subtaskId: string, currentStatus: string) => {
+  const handleSubtaskStatusChange = async (taskId: string, subtaskId: string, currentStatus: string) => {
     if (updatingSubtaskId === subtaskId) return;
     
-    const newStatus = currentStatus === 'Done' ? 'In Progress' : 'Done';
+    // 1. Find the parent task to calculate the current list of subtasks
+    const task = tasks.find(t => t.taskId === taskId);
+    if (!task || !task.subtasks) return;
+
+    // Toggle Logic: If Done, go back to To Do, if not Done, go to Done.
+    const newSubtaskStatus = currentStatus === 'Done' ? 'To Do' : 'Done';
     
     setUpdatingSubtaskId(subtaskId);
 
     try {
+      // 2. Update the ticked subtask first.
       await updateSubtaskMutation.mutateAsync({ 
         subtaskId, 
-        status: newStatus 
-      })
+        status: newSubtaskStatus 
+      });
+
+      // 3. Simulate new Subtasks to calculate the Parent state (Client-side Calculation)
+      const updatedSubtasks = task.subtasks.map(sub => 
+        sub.subtaskId === subtaskId ? { ...sub, subtaskStatus: newSubtaskStatus } : sub
+      );
+
+      // 4. Parent Task Conditions
+      const totalSubtasks = updatedSubtasks.length;
+      const doneCount = updatedSubtasks.filter(s => s.subtaskStatus === 'Done').length;
+      const inProgressCount = updatedSubtasks.filter(s => s.subtaskStatus === 'In Progress').length;
+      
+      let newParentStatus: TaskStatus = 'To Do';
+
+      if (totalSubtasks > 0) {
+        if (doneCount === totalSubtasks) {
+          // If all Subtasks == Done
+          newParentStatus = 'Done';
+        } else if (doneCount > 0 || inProgressCount > 0) {
+          // If some are Done or In Progress
+          newParentStatus = 'In Progress';
+        } else {
+          // If none of them are Done or In Progress
+          newParentStatus = 'To Do';
+        }
+      }
+
+      // 5. If the Parent status changes from the original, fire the API to update the Parent Task.
+      if (newParentStatus !== task.taskStatus) {
+        await editTaskMutation.mutateAsync({
+          taskId,
+          patch: { taskStatus: newParentStatus }
+        });
+        toast.success(`Task updated to ${newParentStatus}`);
+      }
+
     } catch { 
       toast.error('Failed to update subtask')
     } finally {
@@ -675,7 +716,7 @@ export function EventDetail({
                                             <Checkbox
                                               checked={sub.subtaskStatus === "Done"}
                                               onCheckedChange={() =>
-                                                handleSubtaskStatusChange(sub.subtaskId, sub.subtaskStatus)
+                                                handleSubtaskStatusChange(task.taskId, sub.subtaskId, sub.subtaskStatus)
                                               }
                                               className="h-4 w-4"
                                               disabled={updatingSubtaskId !== null}
@@ -683,7 +724,7 @@ export function EventDetail({
                                           )}
                                           <span 
                                             className={`text-sm cursor-pointer select-none ${sub.subtaskStatus === "Done" ? "line-through opacity-60" : ""}`}
-                                            onClick={() => !updatingSubtaskId && handleSubtaskStatusChange(sub.subtaskId, sub.subtaskStatus)}
+                                            onClick={() => !updatingSubtaskId && handleSubtaskStatusChange(task.taskId, sub.subtaskId, sub.subtaskStatus)}
                                           >
                                             {sub.title}
                                           </span>

@@ -30,6 +30,7 @@ import type { Event, UserLite } from "@/lib/types";
 import { InviteTeamMembersModal } from "./InviteTeamMembersModal";
 import { useEventColorStore } from "@/stores/eventColorStore";
 import { useUiStore } from "@/stores/ui-store";
+import { useFetchCurrentUser } from '@/lib/client/features/users/hooks';
 
 interface AddEventModalProps {
   isOpen: boolean;
@@ -72,6 +73,7 @@ export function AddEventModal({
   // ==================== STORES ====================
   const { selectedColor, setColor } = useEventColorStore();
   const { eventPrefillData, clearEventPrefillData } = useUiStore();
+  const { data: currentUser, isLoading: isLoadingCurrentUser } = useFetchCurrentUser(); // Fetch current user
 
   // ==================== FORM STATE ====================
   const [formData, setFormData] = useState({
@@ -92,44 +94,60 @@ export function AddEventModal({
 
   // ==================== PREFILL DATA FROM TEMPLATE ====================
   useEffect(() => {
-    if (isOpen && eventPrefillData) {
-      const isMulti =
-        !!eventPrefillData.endAt &&
-        eventPrefillData.startAt?.split("T")[0] !==
-        eventPrefillData.endAt?.split("T")[0];
+    if (isOpen) {
+      let initialMembers: UserLite[] = [];
 
-      setFormData({
-        title: eventPrefillData.title || "",
-        location: eventPrefillData.location || "",
-        isMultiDay: isMulti,
-        startDate: eventPrefillData.startAt?.split("T")[0] || "",
-        startTime:
-          eventPrefillData.startAt?.split("T")[1]?.substring(0, 5) || "",
-        endDate:
-          eventPrefillData.endAt?.split("T")[0] ||
-          eventPrefillData.startAt?.split("T")[0] ||
-          "",
-        endTime:
-          eventPrefillData.endAt?.split("T")[1]?.substring(0, 5) || "",
-        description: eventPrefillData.description || "",
-        coverImage: eventPrefillData.coverImageUri || "",
-        members: (eventPrefillData.members as unknown as UserLite[]) || [],
-      });
+      // If prefill data exists, use its members
+      if (eventPrefillData) {
+        const isMulti =
+          !!eventPrefillData.endAt &&
+          eventPrefillData.startAt?.split("T")[0] !==
+            eventPrefillData.endAt?.split("T")[0];
 
-      // Set color from prefill data
-      if (eventPrefillData.color) {
-        const colorHex = `#${eventPrefillData.color
-          .toString(16)
-          .padStart(6, "0")}`;
-        setColor(colorHex);
+        initialMembers =
+          (eventPrefillData.members as unknown as UserLite[]) || [];
+
+        setFormData({
+          title: eventPrefillData.title || "",
+          location: eventPrefillData.location || "",
+          isMultiDay: isMulti,
+          startDate: eventPrefillData.startAt?.split("T")[0] || "",
+          startTime:
+            eventPrefillData.startAt?.split("T")[1]?.substring(0, 5) || "",
+          endDate:
+            eventPrefillData.endAt?.split("T")[0] ||
+            eventPrefillData.startAt?.split("T")[0] ||
+            "",
+          endTime:
+            eventPrefillData.endAt?.split("T")[1]?.substring(0, 5) || "",
+          description: eventPrefillData.description || "",
+          coverImage: eventPrefillData.coverImageUri || "",
+          members: initialMembers,
+        });
+
+        // Set color from prefill data
+        if (eventPrefillData.color) {
+          const colorHex = `#${eventPrefillData.color
+            .toString(16)
+            .padStart(6, "0")}`;
+          setColor(colorHex);
+        } else {
+          setColor(DEFAULT_COLOR);
+        }
       } else {
+        // Reset to default when opening without prefill
         setColor(DEFAULT_COLOR);
+        // Only add current user if no prefill and members list is empty
+        if (!isLoadingCurrentUser && currentUser && initialMembers.length === 0) {
+            initialMembers = [currentUser];
+        }
+        setFormData(prev => ({
+          ...prev,
+          members: initialMembers,
+        }));
       }
-    } else if (isOpen && !eventPrefillData) {
-      // Reset to default when opening without prefill
-      setColor(DEFAULT_COLOR);
     }
-  }, [isOpen, eventPrefillData, setColor]);
+  }, [isOpen, eventPrefillData, setColor, currentUser, isLoadingCurrentUser]);
 
   // ==================== HANDLERS ====================
   const handleInviteMembers = () => setInviteModalOpen(true);

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from "react";
+import React, { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -34,7 +33,6 @@ import {
   TrendingUp,
   CheckSquare,
   MoreVertical,
-  Edit3,
   Flag,
   Clock,
   Calendar,
@@ -45,29 +43,47 @@ import {
   ChevronRight,
   ArrowUpDown,
   Image,
+  Loader2,
 } from "lucide-react";
 
 import NextImage from "next/image";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { SaveTemplateModal } from "@/components/events/SaveTemplateModal";
 import { ViewSwitcher } from "@/components/events/ViewSwitcher";
 import { KanbanBoard } from "@/components/events/KanbanBoard";
-import { TemplateData } from "@/schemas/template";
-import type { Event, Task, TaskStatus, TaskPriority, UserLite } from "@/lib/types";
+import type { Event, Task, TaskStatus, TaskPriority, UserLite , EventTemplateData, Subtask } from "@/lib/types";
 import { useUiStore } from "@/stores/ui-store";
+import { useEventViewStore } from "@/stores/eventViewStore";
+import { useEventDetailStore } from "@/stores/Eventdetailstore";
+
+// React Query Hooks
+import { useFetchEventTasks, useEditTask, useCreateEventTask } from "@/lib/client/features/tasks/hooks";
+import { useDeleteEvent } from "@/lib/client/features/events/hooks";
 
 interface EventDetailProps {
   event: Event;
   tasks: Task[];
   currentUser: UserLite;
+  allUsers: UserLite[];
   onBack: () => void;
   onTaskStatusChange: (taskId: string, newStatus: TaskStatus) => void;
   onAddTask: (task: Omit<Task, "taskId" | "createdAt">) => void;
   onTaskAction?: (taskId: string, action: "edit" | "reassign" | "setDueDate" | "delete") => void;
   onDeleteEvent?: (eventId: string) => void;
-  onSaveTemplate?: (eventId: string, templateData: TemplateData) => void;
   onEditEvent?: (eventId: string) => void;
+  onSaveTemplate?: (eventId: string, templateData: EventTemplateData) => void;
+  onTaskClick?: (taskId: string) => void; 
+}
+
+interface TaskPage {
+  items: Task[];
+}
+
+interface InfiniteTaskData {
+  pages?: TaskPage[];
 }
 
 const safeDate = (value: string | null | undefined): Date | null =>
@@ -84,33 +100,94 @@ export function EventDetail({
   event,
   tasks: allTasks,
   currentUser,
+  allUsers,
   onBack,
-  onTaskStatusChange,
-  onAddTask,
-  onTaskAction,
   onDeleteEvent,
-  onSaveTemplate,
   onEditEvent,
+  onTaskClick, // ⭐ Receive the prop
 }: EventDetailProps) {
-  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
-  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [sortBy, setSortBy] = useState<"dueDate" | "priority" | "status" | "name">("dueDate");
-  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
-  const [showCoverImage, setShowCoverImage] = useState(true);
-  const [currentView, setCurrentView] = useState<"list" | "board">("list");
+  // ==================== STORES ====================
+  const { 
+    isAddTaskModalOpen,
+    openAddTaskModal,
+    closeAddTaskModal,
+    isSaveTemplateModalOpen,
+    openSaveTemplateModal,
+    closeSaveTemplateModal,
+  } = useUiStore();
+  
+  const { currentView } = useEventViewStore();
 
-  useUiStore();
+  const {
+    showDeleteDialog,
+    setShowDeleteDialog,
+    sortBy,
+    setSortBy,
+    expandedTaskId,
+    toggleTaskExpansion,
+    showCoverImage,
+    setShowCoverImage,
+  } = useEventDetailStore();
 
-  const tasks = allTasks.filter(t => t.eventId === event.eventId);
+  const userMap = useMemo(() => {
+    const map = new Map<string, UserLite>();
+    allUsers.forEach((u) => map.set(u.userId, u));
+    return map;
+  }, [allUsers]);
+
+  // ==================== REACT QUERY ====================
+  const tasksQuery = useFetchEventTasks({ 
+    eventId: event.eventId, 
+    pageSize: 100 
+  });
+  
+  const isTasksLoading = tasksQuery.isLoading;
+  
+  const editTaskMutation = useEditTask();
+  const createTaskMutation = useCreateEventTask(event.eventId);
+  const deleteEventMutation = useDeleteEvent();
+
+  // ==================== COMPUTED VALUES ====================
+  // Use API data if available, otherwise fallback to props
+  const apiTasks = tasksQuery.data ? 
+    (tasksQuery.data as InfiniteTaskData).pages?.flatMap((page: TaskPage) => page.items) : 
+    undefined;
+  const tasks = apiTasks ?? (allTasks?.filter((t: Task) => t.eventId === event.eventId) || []);
   const members = event.members || [];
 
   const totalTasks = tasks.length;
-  const completedTasks = tasks.filter(t => t.taskStatus === "Done").length;
-  const inProgressTasks = tasks.filter(t => t.taskStatus === "In Progress").length;
-  const todoTasks = tasks.filter(t => t.taskStatus === "To Do").length;
+  const completedTasks = tasks.filter((t: Task) => t.taskStatus === "Done").length;
+  const inProgressTasks = tasks.filter((t: Task) => t.taskStatus === "In Progress").length;
+  const todoTasks = tasks.filter((t: Task) => t.taskStatus === "To Do").length;
   const progressPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
+  // ==================== HANDLERS ====================
+  const handleTaskStatusChange = async (taskId: string, newStatus: TaskStatus) => {
+    try {
+      await editTaskMutation.mutateAsync({
+        taskId,
+        patch: { taskStatus: newStatus }
+      });
+      toast.success("Task status updated");
+    } catch (error) {
+      toast.error("Failed to update task status");
+      console.error(error);
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    try {
+      await deleteEventMutation.mutateAsync(event.eventId);
+      toast.success("Event deleted successfully");
+      setShowDeleteDialog(false);
+      onBack();
+    } catch (error) {
+      toast.error("Failed to delete event");
+      console.error(error);
+    }
+  };
+
+  // ==================== HELPER FUNCTIONS ====================
   const getInitials = (name: string) =>
     name?.split(" ").map(p => p[0]).join("").toUpperCase() || "";
 
@@ -153,20 +230,22 @@ export function EventDetail({
         if (!a.endAt) return 1;
         if (!b.endAt) return -1;
         return new Date(a.endAt).getTime() - new Date(b.endAt).getTime();
-      case "priority":
-        const order = { Urgent: 0, High: 1, Normal: 2, Low: 3 };
-        return order[a.taskPriority] - order[b.taskPriority];
-      case "status":
-        const statusOrder = { "To Do": 0, "In Progress": 1, Done: 2 };
-        return statusOrder[a.taskStatus] - statusOrder[b.taskStatus];
+      case "priority": {
+        const order: Record<TaskPriority, number> = { Urgent: 0, High: 1, Normal: 2, Low: 3 };
+        const aPriority = a.taskPriority as TaskPriority;
+        const bPriority = b.taskPriority as TaskPriority;
+        return order[aPriority] - order[bPriority];
+      }
+      case "status": {
+        const statusOrder: Record<TaskStatus, number> = { "To Do": 0, "In Progress": 1, Done: 2 };
+        const aStatus = a.taskStatus as TaskStatus;
+        const bStatus = b.taskStatus as TaskStatus;
+        return statusOrder[aStatus] - statusOrder[bStatus];
+      }
       default:
         return a.title?.localeCompare(b.title) || 0;
     }
   });
-
-  const toggleTaskExpansion = (taskId: string) => {
-    setExpandedTaskId(expandedTaskId === taskId ? null : taskId);
-  };
 
   if (!event) return null;
 
@@ -187,7 +266,7 @@ export function EventDetail({
               <Button variant="outline" size="sm" onClick={() => onEditEvent?.(event.eventId)}>
                 <Edit className="w-4 h-4 mr-2" /> Edit Event
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setShowSaveTemplateModal(true)}>
+              <Button variant="outline" size="sm" onClick={openSaveTemplateModal}>
                 <Save className="w-4 h-4 mr-2" /> Save as Template
               </Button>
               <Button variant="outline" size="sm">
@@ -199,8 +278,14 @@ export function EventDetail({
                   size="sm"
                   className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
                   onClick={() => setShowDeleteDialog(true)}
+                  disabled={deleteEventMutation.isPending}
                 >
-                  <Trash2 className="w-4 h-4 mr-2" /> Delete
+                  {deleteEventMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4 mr-2" />
+                  )}
+                  Delete
                 </Button>
               )}
             </div>
@@ -251,7 +336,7 @@ export function EventDetail({
               <Card className="border-0 shadow-sm">
                 <CardContent className="p-6 text-center">
                   <div className="py-4">
-                    <Image className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
+                    <Image className="w-8 h-8 mx-auto mb-3 text-muted-foreground" aria-label="Image icon" />
                     <Button
                       variant="outline"
                       onClick={() => setShowCoverImage(true)}
@@ -268,7 +353,7 @@ export function EventDetail({
             <Card className="border-0 shadow-sm">
               <CardContent className="p-6 space-y-4">
                 
-                {/* ✅ Time */}
+                {/* Time */}
                 <div className="flex items-center space-x-3 text-muted-foreground">
                   <Clock className="w-5 h-5" />
                   <span className="text-sm">
@@ -277,7 +362,7 @@ export function EventDetail({
                   </span>
                 </div>
 
-                {/* ✅ Date */}
+                {/* Date */}
                 <div className="flex items-center space-x-3 text-muted-foreground">
                   <Calendar className="w-5 h-5" />
                   <span className="text-sm">
@@ -309,7 +394,13 @@ export function EventDetail({
               <Card className="border-0 shadow-sm">
                 <CardContent className="p-4 text-center">
                   <TrendingUp className="w-6 h-6 mx-auto mb-2 text-primary" />
-                  <div className="text-2xl font-bold">{progressPercentage}%</div>
+                  <div className="text-2xl font-bold">
+                    {isTasksLoading ? (
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                    ) : (
+                      `${progressPercentage}%`
+                    )}
+                  </div>
                   <div className="text-xs text-muted-foreground">Progress</div>
                 </CardContent>
               </Card>
@@ -325,7 +416,13 @@ export function EventDetail({
               <Card className="border-0 shadow-sm">
                 <CardContent className="p-4 text-center">
                   <ListTodo className="w-6 h-6 mx-auto mb-2 text-warning" />
-                  <div className="text-2xl font-bold">{todoTasks + inProgressTasks}</div>
+                  <div className="text-2xl font-bold">
+                    {isTasksLoading ? (
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                    ) : (
+                      todoTasks + inProgressTasks
+                    )}
+                  </div>
                   <div className="text-xs text-muted-foreground">Pending</div>
                 </CardContent>
               </Card>
@@ -337,14 +434,24 @@ export function EventDetail({
                 <CardTitle className="text-base">Team Members</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {members.map(member => (
-                  <div key={member} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50">
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback>{getInitials(member)}</AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm">{member}</span>
-                  </div>
-                ))}
+                {members.map((memberId: string) => {
+                  const user = userMap.get(memberId);
+                  const displayName = user ? user.username : memberId;
+                  
+                  return (
+                    <div key={memberId} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50">
+                      <Avatar className="w-8 h-8">
+                        <AvatarFallback className="text-xs">
+                            {getInitials(displayName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{displayName}</span>
+                        {user && <span className="text-[10px] text-muted-foreground">{user.email}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
               </CardContent>
             </Card>
 
@@ -359,7 +466,7 @@ export function EventDetail({
                   <CardTitle className="text-xl">Tasks</CardTitle>
                   <div className="flex items-center space-x-2">
 
-                    <ViewSwitcher currentView={currentView} onViewChange={setCurrentView} />
+                    <ViewSwitcher />
 
                     {currentView === "list" && (
                       <Select
@@ -381,9 +488,16 @@ export function EventDetail({
                       </Select>
                     )}
 
-
-                    <Button className="bg-primary" onClick={() => setShowAddTaskModal(true)}>
-                      <Plus className="w-4 h-4 mr-2" />
+                    <Button 
+                      className="bg-primary" 
+                      onClick={openAddTaskModal}
+                      disabled={createTaskMutation.isPending}
+                    >
+                      {createTaskMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Plus className="w-4 h-4 mr-2" />
+                      )}
                       Add Task
                     </Button>
 
@@ -392,18 +506,35 @@ export function EventDetail({
               </CardHeader>
 
               <CardContent>
-                {currentView === "list" ? (
+                {isTasksLoading ? (
+                  // Loading State
+                  <div className="space-y-2">
+                    {[1, 2, 3].map((i: number) => (
+                      <Card key={i} className="border">
+                        <CardContent className="p-4">
+                          <div className="flex items-start space-x-4">
+                            <Skeleton className="w-5 h-5 mt-1" />
+                            <div className="flex-1 space-y-2">
+                              <Skeleton className="h-5 w-3/4" />
+                              <Skeleton className="h-4 w-1/2" />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : currentView === "list" ? (
                   sortedTasks.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground">
                       <CheckSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
                       <p className="mb-4">No tasks yet. Create your first task!</p>
-                      <Button variant="outline" onClick={() => setShowAddTaskModal(true)}>
+                      <Button variant="outline" onClick={openAddTaskModal}>
                         <Plus className="w-4 h-4 mr-2" /> Add First Task
                       </Button>
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {sortedTasks.map(task => (
+                      {sortedTasks.map((task: Task) => (
                         <Card key={task.taskId} className="border hover:border-primary/50">
                           <CardContent className="p-4">
 
@@ -412,9 +543,10 @@ export function EventDetail({
                               <Checkbox
                                 checked={task.taskStatus === "Done"}
                                 onCheckedChange={(checked) =>
-                                  onTaskStatusChange(task.taskId, checked ? "Done" : "To Do")
+                                  handleTaskStatusChange(task.taskId, checked ? "Done" : "To Do")
                                 }
                                 className="mt-1"
+                                disabled={editTaskMutation.isPending}
                               />
 
                               <div className="flex-1 min-w-0">
@@ -431,25 +563,15 @@ export function EventDetail({
                                     )}
                                   </div>
 
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                        <MoreVertical className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => onTaskAction?.(task.taskId, "edit")}>
-                                        <Edit3 className="mr-2 h-4 w-4" /> Edit Task
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuItem
-                                        className="text-destructive"
-                                        onClick={() => onTaskAction?.(task.taskId, "delete")}
-                                      >
-                                        <Trash2 className="mr-2 h-4 w-4" /> Delete Task
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
+                                  {/* ⭐ Changed: Simple button that calls onTaskClick */}
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => onTaskClick?.(task.taskId)}
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
                                 </div>
 
                                 <div className="flex flex-wrap items-center gap-3">
@@ -459,19 +581,20 @@ export function EventDetail({
                                     <DropdownMenuTrigger asChild>
                                       <button
                                         className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer ${getStatusColor(task.taskStatus)}`}
+                                        disabled={editTaskMutation.isPending}
                                       >
                                         {task.taskStatus}
                                         <ChevronDown className="w-3 h-3 ml-1" />
                                       </button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="start">
-                                      <DropdownMenuItem onClick={() => onTaskStatusChange(task.taskId, "To Do")}>
+                                      <DropdownMenuItem onClick={() => handleTaskStatusChange(task.taskId, "To Do")}>
                                         To Do
                                       </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => onTaskStatusChange(task.taskId, "In Progress")}>
+                                      <DropdownMenuItem onClick={() => handleTaskStatusChange(task.taskId, "In Progress")}>
                                         In Progress
                                       </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => onTaskStatusChange(task.taskId, "Done")}>
+                                      <DropdownMenuItem onClick={() => handleTaskStatusChange(task.taskId, "Done")}>
                                         Done
                                       </DropdownMenuItem>
                                     </DropdownMenuContent>
@@ -494,7 +617,7 @@ export function EventDetail({
                                   {/* Assignees */}
                                   {task.assignees && task.assignees.length > 0 && (
                                     <div className="flex space-x-1">
-                                      {task.assignees.slice(0, 3).map((assignee, index) => (
+                                      {task.assignees.slice(0, 3).map((assignee: UserLite, index: number) => (
                                         <Avatar key={index} className="w-6 h-6">
                                           <AvatarFallback>
                                             {getInitials(assignee.username)}
@@ -520,7 +643,7 @@ export function EventDetail({
                                       ) : (
                                         <ChevronRight className="w-3 h-3 mr-1" />
                                       )}
-                                      {task.subtasks.filter(st => st.subtaskStatus === "Done").length}/{task.subtasks.length} subtasks
+                                      {task.subtasks.filter((st: Subtask) => st.subtaskStatus === "Done").length}/{task.subtasks.length} subtasks
                                     </button>
                                   )}
 
@@ -531,7 +654,7 @@ export function EventDetail({
                                   task.subtasks &&
                                   task.subtasks.length > 0 && (
                                     <div className="mt-3 pt-3 border-t space-y-2">
-                                      {task.subtasks.map((sub) => (
+                                      {task.subtasks.map((sub: Subtask) => (
                                         <div key={sub.subtaskId} className="flex items-center space-x-2 pl-4">
                                           <Checkbox checked={sub.subtaskStatus === "Done"} className="h-4 w-4" />
                                           <span className={`text-sm ${sub.subtaskStatus === "Done" ? "line-through opacity-60" : ""}`}>
@@ -552,9 +675,8 @@ export function EventDetail({
                   )
                 ) : (
                   <KanbanBoard
-                    tasks={tasks.map(t => ({ ...t, assignees: t.assignees || [] }))}
-                    onTaskStatusChange={onTaskStatusChange}
-                    onTaskAction={onTaskAction}
+                    eventId={event.eventId}
+                    onTaskAction={() => {}}
                   />
                 )}
               </CardContent>
@@ -567,24 +689,21 @@ export function EventDetail({
 
       {/* MODALS */}
       <AddTaskModal
-        isOpen={showAddTaskModal}
-        onClose={() => setShowAddTaskModal(false)}
-        onCreateTask={(t) => {
-          onAddTask(t);
-          setShowAddTaskModal(false);
-        }}
-        eventMembers={[]}
+        isOpen={isAddTaskModalOpen}
+        onClose={closeAddTaskModal}
+        eventMembers={allUsers}
         currentUser={currentUser}
-        isPersonal
+        isPersonal={false}
+        eventId={event.eventId}
       />
 
       <SaveTemplateModal
-        isOpen={showSaveTemplateModal}
-        onClose={() => setShowSaveTemplateModal(false)}
+        isOpen={isSaveTemplateModalOpen}
+        onClose={closeSaveTemplateModal}
+        eventId={event.eventId}
         templateData={event}
-        onSave={(templateData) => {
-          onSaveTemplate?.(event.eventId, templateData);
-          setShowSaveTemplateModal(false);
+        onSave={() => {
+          closeSaveTemplateModal();
         }}
       />
 
@@ -598,16 +717,22 @@ export function EventDetail({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteEventMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                onDeleteEvent?.(event.eventId);
-                setShowDeleteDialog(false);
-                onBack();
-              }}
+              onClick={handleDeleteEvent}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteEventMutation.isPending}
             >
-              Delete Event
+              {deleteEventMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Event"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

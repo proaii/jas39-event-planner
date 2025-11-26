@@ -1,5 +1,15 @@
-import { updateTask, deleteTask } from '@/lib/server/features/tasks/api';
+import { getTaskById, updateTask, deleteTask } from '@/lib/server/features/tasks/api';
 import { jsonError } from '@/lib/errors';
+
+export async function GET(req: Request, context: { params: Promise<{ eventId: string; taskId: string }> }) {
+  const { taskId } = await context.params;
+  try {
+    const task = await getTaskById(taskId);
+    return Response.json(task);
+  } catch (e) {
+    return jsonError(e);
+  }
+}
 
 export async function PATCH(req: Request, context: { params: Promise<{ eventId: string; taskId: string }> }) {
   const { taskId } = await context.params;

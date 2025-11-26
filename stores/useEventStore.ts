@@ -99,6 +99,12 @@ async function fetchEventsAPI(params: {
   return res.json();
 }
 
+async function fetchEventByIdAPI(eventId: string) {
+  const res = await fetch(`${API_BASE}/${eventId}`, { method: "GET" });
+  if (!res.ok) throw new Error("Failed to fetch event");
+  return res.json();
+}
+
 async function createEventAPI(data: CreateEventInput) {
   const res = await fetch(API_BASE, {
     method: "POST",
@@ -145,6 +151,17 @@ export function useFetchEvents() {
   });
 }
 
+// ✅ FIXED: Proper React Query hook
+export function useEventById(eventId: string | null) {
+  return useQuery({
+    queryKey: ["events", eventId],
+    queryFn: () => fetchEventByIdAPI(eventId!),
+    enabled: !!eventId, // Only fetch if eventId exists
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1,
+  });
+}
+
 export function useCreateEvent() {
   const queryClient = useQueryClient();
   const closeModal = useUiStore.getState().closeAddEventModal;
@@ -165,9 +182,10 @@ export function useUpdateEvent() {
   return useMutation({
     mutationFn: ({ eventId, data }: { eventId: string; data: UpdateEventInput }) =>
       updateEventAPI(eventId, data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast.success("Event updated");
       queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["events", variables.eventId] });
       closeModal();
     },
     onError: () => toast.error("Failed to update event"),
@@ -178,18 +196,13 @@ export function useDeleteEvent() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (eventId: string) => deleteEventAPI(eventId),
-    onSuccess: () => {
+    onSuccess: (_, eventId) => {
       toast.success("Event deleted");
       queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.removeQueries({ queryKey: ["events", eventId] });
     },
     onError: () => toast.error("Failed to delete event"),
   });
-}
-
-export function useEventById(eventId: string | null) {
-  const { data } = useFetchEvents();
-  if (!data || !eventId) return null;
-  return data.items?.find((e: Event) => e.eventId === eventId) || null;
 }
 
 export function useSaveTemplate() {

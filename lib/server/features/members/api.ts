@@ -1,64 +1,80 @@
-import { createClient } from '@/lib/server/supabase/server';
+import { createClient, createDb } from '@/lib/server/supabase/server';
 import { toApiError } from '@/lib/errors';
-import type { UserLite } from '@/lib/types';
+import type { EventMember } from '@/lib/types';
 
-const TABLE = 'users';
+// ---------- Event Members ----------
 
-type DbUserRow = {
-  userId: string;        
-  username: string | null;
-  email: string | null;
-  avatarUrl: string | null; 
-};
+export async function listEventMembers(eventId: string): Promise<EventMember[]> {
+  const db = await createDb();
+  const { data, error } = await db
+    .from('event_members')
+    .select('event_member_id, event_id, user_id, joined_at')
+    .eq('event_id', eventId)
+    .order('joined_at', { ascending: true });
 
-export async function listAllUsers(params: {
-  q?: string;
-  page?: number;
-  pageSize?: number;
-}): Promise<{ items: UserLite[]; nextPage: number | null }> {
-  const supabase = await createClient();
+  if (error) throw toApiError(error, 'EVENT_MEMBERS_LIST_FAILED');
 
-  const page = params.page ?? 1;
-  const pageSize = params.pageSize ?? 20;
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
+  return (data ?? []).map(r => ({
+    eventMemberId: String(r.event_member_id),
+    eventId: String(r.event_id),
+    userId: String(r.user_id),
+    joinedAt: String(r.joined_at),
+  }));
+}
 
+export async function addEventMember(eventId: string, userId: string): Promise<void> {
+  const root = await createClient();
+  const db = await createDb();
   try {
-    const { data: { user }, error: uerr } = await supabase.auth.getUser();
+    // Only the owner can add members
+    const { data: ev, error: e1 } = await db
+      .from('events')
+      .select('owner_id')
+      .eq('event_id', eventId)
+      .single();
+    if (e1) throw e1;
+
+    const { data: { user }, error: uerr } = await root.auth.getUser();
     if (uerr) throw uerr;
     if (!user) throw new Error('UNAUTHORIZED');
+    if (ev?.owner_id !== user.id) throw new Error('FORBIDDEN');
 
-    let q = supabase
-      .from(TABLE)
-      .select('userId:user_id, username, email, avatarUrl:avatar_url', { count: 'exact' })
-      .order('username', { ascending: true });
-
-    if (params.q && params.q.trim()) {
-      const kw = params.q.trim();
-      q = q.or(`username.ilike.%${kw}%,email.ilike.%${kw}%`);
-    }
-
-    const { data, error, count } = await q.range(from, to);
+    const { error } = await db
+      .from('event_members')
+      .upsert(
+        { event_id: eventId, user_id: userId, joined_at: new Date().toISOString() },
+        { onConflict: 'event_id,user_id', ignoreDuplicates: true }
+      );
     if (error) throw error;
-
-    const rows = (data ?? []) as DbUserRow[];
-
-    const items: UserLite[] = rows
-      .map((r): UserLite | null => {
-        const userId = r.userId?.toString() ?? '';
-        if (!userId) return null;
-        const username = (r.username ?? r.email ?? '').toString();
-        const email = (r.email ?? '').toString();
-        const avatarUrl = r.avatarUrl ?? null; 
-        return { userId, username, email, avatarUrl };
-      })
-      .filter((u): u is UserLite => u !== null);
-
-    const total = typeof count === 'number' ? count : items.length;
-    const maxPage = Math.max(1, Math.ceil(total / pageSize));
-
-    return { items, nextPage: page < maxPage ? page + 1 : null };
   } catch (e) {
-    throw toApiError(e, 'USERS_LIST_FAILED');
+    throw toApiError(e, 'EVENT_MEMBER_ADD_FAILED');
+  }
+}
+
+export async function removeEventMember(eventId: string, userId: string): Promise<void> {
+  const root = await createClient();
+  const db = await createDb();
+  try {
+    // Only the owner can remove members
+    const { data: ev, error: e1 } = await db
+      .from('events')
+      .select('owner_id')
+      .eq('event_id', eventId)
+      .single();
+    if (e1) throw e1;
+
+    const { data: { user }, error: uerr } = await root.auth.getUser();
+    if (uerr) throw uerr;
+    if (!user) throw new Error('UNAUTHORIZED');
+    if (ev?.owner_id !== user.id) throw new Error('FORBIDDEN');
+
+    const { error } = await db
+      .from('event_members')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('user_id', userId);
+    if (error) throw error;
+  } catch (e) {
+    throw toApiError(e, 'EVENT_MEMBER_REMOVE_FAILED');
   }
 }

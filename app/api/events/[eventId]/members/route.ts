@@ -1,4 +1,4 @@
-import { listEventMembers, addEventMember } from '@/lib/server/features/events/api';
+import { listEventMembers, addEventMember } from '@/lib/server/features/members/api';
 import { jsonError } from '@/lib/errors';
 import type { MembersRes } from '@/lib/types';
 

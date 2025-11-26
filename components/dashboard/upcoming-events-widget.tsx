@@ -15,10 +15,17 @@ interface UpcomingEventsWidgetProps {
 
 const COLOR_PALETTE = ["#6366F1", "#22C55E", "#F59E0B", "#EF4444", "#06B6D4", "#A855F7"];
 
-export function UpcomingEventsWidget({ events, onEventClick, onNavigateToAllEvents }: UpcomingEventsWidgetProps) {
+export function UpcomingEventsWidget({
+  events,
+  onEventClick,
+  onNavigateToAllEvents,
+}: UpcomingEventsWidgetProps) {
   const router = useRouter();
+
   const dateOf = (e: Event) => e.startAt ?? e.endAt ?? e.createdAt;
-  const sortedEvents = [...events].sort((a, b) => new Date(dateOf(a)).getTime() - new Date(dateOf(b)).getTime());
+  const sortedEvents = [...events].sort(
+    (a, b) => new Date(dateOf(a)).getTime() - new Date(dateOf(b)).getTime()
+  );
 
   return (
     <Card className="lg:col-span-1">
@@ -30,7 +37,7 @@ export function UpcomingEventsWidget({ events, onEventClick, onNavigateToAllEven
             size="sm"
             className="text-primary"
             onClick={() => {
-              if (onNavigateToAllEvents) onNavigateToAllEvents();
+              onNavigateToAllEvents?.();
               router.push("/events");
             }}
           >

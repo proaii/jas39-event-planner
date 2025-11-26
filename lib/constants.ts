@@ -10,3 +10,10 @@ export const statusColorMap: Record<string, string> = {
   "In Progress": "bg-blue-100 text-blue-800",
   Done: "bg-green-100 text-green-800",
 };
+
+export const MINUTES = {
+  ONE: 1000 * 60,
+  FIVE: 1000 * 60 * 5,
+  TEN: 1000 * 60 * 10,
+  THIRTY: 1000 * 60 * 30,
+};

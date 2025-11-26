@@ -9,30 +9,26 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useState } from "react";
+import { toast } from "react-hot-toast";
+import { useUiStore, type DashboardWidget } from "@/stores/ui-store";
 
 interface CustomizeDashboardModalProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedWidgets: string[];
-  onSave: (selected: string[]) => void;
-  onResetDefault?: () => void; 
 }
 
 export function CustomizeDashboardModal({
   isOpen,
   onClose,
-  selectedWidgets,
-  onSave,
 }: CustomizeDashboardModalProps) {
-  const defaultWidgets = [
-    "upcomingEvents",
-    "upcomingDeadlines",
-    "recentActivity",
-    "progressOverview",
-  ];
+  const {
+    tempWidgets,
+    setTempWidgets,
+    saveWidgetConfig,
+    resetWidgets,
+  } = useUiStore();
 
-  const widgetInfo: Record<string, { label: string; desc: string }> = {
+  const widgetInfo: Record<DashboardWidget, { label: string; desc: string }> = {
     upcomingEvents: {
       label: "Upcoming Events",
       desc: "Show your upcoming events overview",
@@ -51,21 +47,23 @@ export function CustomizeDashboardModal({
     },
   };
 
-  const [tempWidgets, setTempWidgets] = useState<string[]>(selectedWidgets);
+  const widgetKeys = Object.keys(widgetInfo) as DashboardWidget[];
 
-  const toggleWidget = (name: string) => {
+  const toggleWidget = (name: DashboardWidget) => {
     setTempWidgets((prev) =>
       prev.includes(name) ? prev.filter((w) => w !== name) : [...prev, name]
     );
   };
 
   const handleSave = () => {
-    onSave(tempWidgets);
+    saveWidgetConfig();
+    toast.success("Dashboard updated!");
     onClose();
   };
 
   const handleReset = () => {
-    setTempWidgets(defaultWidgets); 
+    resetWidgets();
+    toast.success("Dashboard reset to default!");
   };
 
   return (
@@ -79,15 +77,19 @@ export function CustomizeDashboardModal({
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
-          {defaultWidgets.map((widget) => (
+          {widgetKeys.map((widget) => (
             <div key={widget} className="flex items-start space-x-3">
               <Checkbox
                 checked={tempWidgets.includes(widget)}
                 onCheckedChange={() => toggleWidget(widget)}
               />
               <div>
-                <span className="font-medium text-sm">{widgetInfo[widget].label}</span>
-                <p className="text-xs text-muted-foreground">{widgetInfo[widget].desc}</p>
+                <span className="font-medium text-sm">
+                  {widgetInfo[widget].label}
+                </span>
+                <p className="text-xs text-muted-foreground">
+                  {widgetInfo[widget].desc}
+                </p>
               </div>
             </div>
           ))}

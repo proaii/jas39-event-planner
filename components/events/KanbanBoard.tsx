@@ -1,27 +1,52 @@
 'use client';
 
 import React from "react";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 import { Paperclip, CheckSquare, Clock, ChevronDown } from "lucide-react";
 
 import { Task, TaskStatus, TaskPriority, Subtask } from "@/lib/types";
 import { useKanbanStore } from "@/stores/kanban-store";
-import { AttachmentList } from "./AttachmentList";
 import { formatTaskDateRangeCompact, isCurrentlyActive, extractDateAndTime } from "@/lib/timeUtils";
+import { useFetchEventTasks, useEditTask } from "@/lib/client/features/tasks/hooks";
 
 interface KanbanBoardProps {
-  tasks: Task[];
-  onTaskStatusChange?: (taskId: string, newStatus: TaskStatus) => void;
+  eventId: string;
   onTaskAction?: (taskId: string, action: "edit" | "reassign" | "setDueDate" | "delete") => void;
 }
 
-export function KanbanBoard({ tasks, onTaskStatusChange, onTaskAction }: KanbanBoardProps) {
+interface TaskPage {
+  items?: Task[];
+}
+
+interface InfiniteQueryData {
+  pages?: TaskPage[];
+}
+
+export function KanbanBoard({ eventId, onTaskAction }: KanbanBoardProps) {
   const { customization: settings } = useKanbanStore();
+  
+  // Real hooks
+  const { data: tasksData, isLoading, error } = useFetchEventTasks({ eventId });
+  const editTaskMutation = useEditTask();
+
+  // Toast error
+  React.useEffect(() => {
+    if (error) {
+      toast.error(error.message || "Failed to load tasks");
+    }
+  }, [error]);
+
+  // Get tasks from infinite query
+  const tasks = React.useMemo(() => {
+    const pages = (tasksData as InfiniteQueryData)?.pages;
+    if (!pages) return [];
+    return pages.flatMap((page: TaskPage) => page?.items || []);
+  }, [tasksData]);
 
   const columns: { status: TaskStatus; title: string; color: string }[] = [
     { status: "To Do", title: "To Do", color: "bg-muted" },
@@ -53,10 +78,53 @@ export function KanbanBoard({ tasks, onTaskStatusChange, onTaskAction }: KanbanB
 
   const handleCardClick = (taskId: string) => onTaskAction?.(taskId, "edit");
 
+  const handleTaskStatusChange = async (taskId: string, newStatus: TaskStatus) => {
+    try {
+      await editTaskMutation.mutateAsync({
+        taskId,
+        patch: { taskStatus: newStatus },
+      });
+      toast.success("Task status updated");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update task status";
+      toast.error(errorMessage);
+    }
+  };
+
+  // Loading skeleton
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {columns.map(column => (
+          <div key={column.status} className="flex flex-col">
+            <div className={`${column.color} rounded-lg p-4 mb-4`}>
+              <Skeleton className="h-5 w-20 mb-2" />
+              <Skeleton className="h-4 w-16" />
+            </div>
+            <div className="flex-1 space-y-3">
+              {[1, 2, 3].map(i => (
+                <Card key={i}>
+                  <CardContent className="p-4">
+                    <Skeleton className="h-5 w-full mb-3" />
+                    <Skeleton className="h-4 w-20 mb-3" />
+                    <div className="flex items-center justify-between">
+                      <Skeleton className="h-4 w-16" />
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {columns.map(column => {
-        const columnTasks = tasks.filter(task => task.taskStatus === column.status);
+        const columnTasks = tasks.filter((task: Task) => task.taskStatus === column.status);
 
         return (
           <div key={column.status} className="flex flex-col">
@@ -68,7 +136,7 @@ export function KanbanBoard({ tasks, onTaskStatusChange, onTaskAction }: KanbanB
             </div>
 
             <div className="flex-1 space-y-3">
-              {columnTasks.map(task => (
+              {columnTasks.map((task: Task) => (
                 <Card key={task.taskId} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleCardClick(task.taskId)}>
                   <CardContent className="p-4">
                     <div className="mb-3">
@@ -84,7 +152,10 @@ export function KanbanBoard({ tasks, onTaskStatusChange, onTaskAction }: KanbanB
                           {["To Do","In Progress","Done"].map(s => (
                             <DropdownMenuItem
                               key={s}
-                              onClick={e => { e.stopPropagation(); onTaskStatusChange?.(task.taskId, s as TaskStatus); }}
+                              onClick={e => { 
+                                e.stopPropagation(); 
+                                handleTaskStatusChange(task.taskId, s as TaskStatus);
+                              }}
                               className={`cursor-pointer ${task.taskStatus === s ? "bg-muted" : ""}`}
                             >
                               {s}
@@ -143,19 +214,10 @@ export function KanbanBoard({ tasks, onTaskStatusChange, onTaskAction }: KanbanB
                         )}
 
                         {settings.showAttachments && task.attachments && task.attachments.length > 0 && (
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-auto w-auto p-1 hover:bg-muted/50 rounded" onClick={e => e.stopPropagation()}>
-                                <div className="flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
-                                  <Paperclip className="w-3 h-3 mr-1" />
-                                  {task.attachments.length}
-                                </div>
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-80" align="start">
-                              <AttachmentList attachments={task.attachments} compact />
-                            </PopoverContent>
-                          </Popover>
+                          <div className="flex items-center text-sm text-muted-foreground">
+                            <Paperclip className="w-3 h-3 mr-1" />
+                            {task.attachments.length}
+                          </div>
                         )}
                       </div>
                     )}
@@ -163,16 +225,16 @@ export function KanbanBoard({ tasks, onTaskStatusChange, onTaskAction }: KanbanB
                     {settings.showAssignees && task.assignees && task.assignees.length > 0 && (
                       <div className="flex items-center">
                         <div className="flex space-x-1">
-                          {task.assignees.slice(0,3).map((assignee,index) => (
+                          {(task.assignees || []).slice(0,3).map((assignee,index) => (
                             <Avatar key={index} className="w-6 h-6">
                               <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                                {assignee.username.split(" ").map(n => n[0]).join("")}
+                                {(assignee?.username || "").split(" ").map(n => n[0]).join("")}
                               </AvatarFallback>
                             </Avatar>
                           ))}
-                          {task.assignees.length > 3 && (
+                          {(task.assignees || []).length > 3 && (
                             <div className="w-6 h-6 bg-muted rounded-full flex items-center justify-center">
-                              <span className="text-xs text-muted-foreground">+{task.assignees.length-3}</span>
+                              <span className="text-xs text-muted-foreground">+{(task.assignees || []).length-3}</span>
                             </div>
                           )}
                         </div>

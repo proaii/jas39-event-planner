@@ -1,51 +1,347 @@
-import React from 'react';
-import { Task, UserLite } from "@/lib/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { priorityColorMap, statusColorMap } from "@/lib/constants";
+'use client'
 
-interface TaskDetailProps {
-  task: Task;
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { 
+  AlertCircle, 
+  Calendar, 
+  User, 
+  Flag, 
+  FileText, 
+  Paperclip, 
+  CheckSquare, 
+  Edit, 
+  Trash2,
+  Loader2 
+} from 'lucide-react'
+import { priorityColorMap, statusColorMap } from '@/lib/constants'
+import { useFetchTask, useDeleteTask } from '@/lib/client/features/tasks/hooks'
+import { useUiStore } from '@/stores/ui-store'
+import { toast } from 'sonner'
+import type { UserLite } from '@/lib/types'
+
+interface TaskDetailModalProps {
+  isOpen: boolean
+  onClose: () => void
+  taskId: string | null
 }
 
-export function TaskDetail({ task }: TaskDetailProps) {
+export function TaskDetailModal({ isOpen, onClose, taskId }: TaskDetailModalProps) {
+  const { openEditTaskModal } = useUiStore()
+  
+  // Fetch task data
+  const shouldFetch = taskId && taskId.trim().length > 0
+  const { 
+    data: task, 
+    isLoading, 
+    isError, 
+    error 
+  } = useFetchTask(shouldFetch ? taskId : 'skip-fetch')
+
+  // Delete mutation
+  const deleteTaskMutation = useDeleteTask()
+
+  // Handle edit
+  const handleEdit = () => {
+    if (!task) return
+    onClose() // Close detail modal first
+    setTimeout(() => {
+      openEditTaskModal(task.taskId) // Then open edit modal
+    }, 100)
+  }
+
+  // Handle delete
+  const handleDelete = async () => {
+    if (!task) return
+    
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${task.title}"? This action cannot be undone.`
+    )
+    
+    if (!confirmed) return
+
+    try {
+      await deleteTaskMutation.mutateAsync({ taskId: task.taskId })
+      toast.success('Task deleted successfully!')
+      onClose()
+    } catch (error) {
+      console.error('Failed to delete task:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to delete task')
+    }
+  }
+
+  // Don't render if not open or no taskId
+  if (!isOpen || !shouldFetch) {
+    return null
+  }
+
+  // Loading skeleton
+  if (isLoading) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center space-x-2">
+              <Loader2 className="w-5 h-5 text-primary animate-spin" />
+              <Skeleton className="h-8 w-3/4" />
+            </div>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-6 w-full" />
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  // Error state
+  if (isError || !task) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-[700px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2 text-destructive">
+              <AlertCircle className="w-5 h-5" />
+              <span>Error Loading Task</span>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-6">
+            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md">
+              <p className="text-sm text-destructive">
+                {error?.message || 'Failed to load task details'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-4 border-t">
+            <Button onClick={onClose} variant="outline">
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
   return (
-    <div className="p-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>{task.title}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h3 className="font-medium">Status</h3>
-            <Badge className={statusColorMap[task.taskStatus]}>{task.taskStatus}</Badge>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center space-x-2 text-xl">
+            <CheckSquare className="w-6 h-6 text-primary" />
+            <span>{task.title}</span>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6 py-4">
+          {/* Status & Priority Row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2 text-sm font-medium text-muted-foreground">
+                <Flag className="w-4 h-4" />
+                <span>Status</span>
+              </div>
+              <Badge className={statusColorMap[task.taskStatus]}>{task.taskStatus}</Badge>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2 text-sm font-medium text-muted-foreground">
+                <Flag className="w-4 h-4" />
+                <span>Priority</span>
+              </div>
+              <Badge className={priorityColorMap[task.taskPriority]}>{task.taskPriority}</Badge>
+            </div>
           </div>
-          <div>
-            <h3 className="font-medium">Priority</h3>
-            <Badge className={priorityColorMap[task.taskPriority]}>{task.taskPriority}</Badge>
-          </div>
-          {task.endAt && (
-            <div>
-              <h3 className="font-medium">Due Date</h3>
-              <p>{new Date(task.endAt).toLocaleDateString()}</p>
+
+          {/* Dates */}
+          {(task.startAt || task.endAt) && (
+            <div className="grid grid-cols-2 gap-4">
+              {task.startAt && (
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2 text-sm font-medium text-muted-foreground">
+                    <Calendar className="w-4 h-4" />
+                    <span>Start Date</span>
+                  </div>
+                  <p className="text-sm">
+                    {new Date(task.startAt).toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </p>
+                </div>
+              )}
+
+              {task.endAt && (
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2 text-sm font-medium text-muted-foreground">
+                    <Calendar className="w-4 h-4" />
+                    <span>Due Date</span>
+                  </div>
+                  <p className="text-sm">
+                    {new Date(task.endAt).toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </p>
+                </div>
+              )}
             </div>
           )}
+
+          {/* Description */}
           {task.description && (
-            <div>
-              <h3 className="font-medium">Description</h3>
-              <p>{task.description}</p>
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2 text-sm font-medium text-muted-foreground">
+                <FileText className="w-4 h-4" />
+                <span>Description</span>
+              </div>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap bg-muted/30 p-3 rounded-lg">
+                {task.description}
+              </p>
             </div>
           )}
-          <div>
-            <h3 className="font-medium">Assignees</h3>
-            <div className="flex space-x-2">
-              {task.assignees?.map((assignee: UserLite) => (
-                <Badge key={assignee.userId}>{assignee.username}</Badge>
-              ))}
+
+          {/* Assignees */}
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2 text-sm font-medium text-muted-foreground">
+              <User className="w-4 h-4" />
+              <span>Assignees</span>
             </div>
+            {task.assignees && task.assignees.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {task.assignees.map((assignee: UserLite) => (
+                  <Badge key={assignee.userId} variant="secondary">
+                    {assignee.username}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No assignees</p>
+            )}
           </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+
+          {/* Subtasks */}
+          {task.subtasks && task.subtasks.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2 text-sm font-medium text-muted-foreground">
+                <CheckSquare className="w-4 h-4" />
+                <span>Sub-tasks ({task.subtasks.filter(s => s.subtaskStatus === 'Done').length}/{task.subtasks.length})</span>
+              </div>
+              <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
+                {task.subtasks.map((subtask) => (
+                  <div key={subtask.subtaskId} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={subtask.subtaskStatus === 'Done'}
+                      readOnly
+                      disabled
+                      className="w-4 h-4 rounded border-gray-300"
+                    />
+                    <span className={`text-sm ${subtask.subtaskStatus === 'Done' ? 'line-through text-muted-foreground' : ''}`}>
+                      {subtask.title}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Attachments */}
+          {task.attachments && task.attachments.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2 text-sm font-medium text-muted-foreground">
+                <Paperclip className="w-4 h-4" />
+                <span>Attachments</span>
+              </div>
+              <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
+                {task.attachments.map((attachment) => (
+                  <a
+                    key={attachment.attachmentId}
+                    href={attachment.attachmentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted/50 transition-colors"
+                  >
+                    <Paperclip className="w-4 h-4 text-primary" />
+                    <span className="text-sm text-primary hover:underline truncate">
+                      {attachment.attachmentUrl}
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Event Info */}
+          {task.eventId && task.eventTitle && (
+            <div className="space-y-2 pt-4 border-t">
+              <div className="flex items-center space-x-2 text-sm font-medium text-muted-foreground">
+                <Calendar className="w-4 h-4" />
+                <span>Event</span>
+              </div>
+              <Badge variant="outline">{task.eventTitle}</Badge>
+            </div>
+          )}
+
+          {/* Created Date */}
+          {task.createdAt && (
+            <div className="pt-4 border-t">
+              <p className="text-xs text-muted-foreground">
+                Created on {new Date(task.createdAt).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-between items-center pt-4 border-t">
+          <Button
+            onClick={handleDelete}
+            variant="destructive"
+            disabled={deleteTaskMutation.isPending}
+          >
+            {deleteTaskMutation.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              <>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </>
+            )}
+          </Button>
+
+          <div className="flex space-x-2">
+            <Button onClick={onClose} variant="outline">
+              Close
+            </Button>
+            <Button onClick={handleEdit} className="bg-primary hover:bg-primary/90">
+              <Edit className="w-4 h-4 mr-2" />
+              Edit Task
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
 }

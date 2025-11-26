@@ -56,23 +56,29 @@ export function Sidebar() {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname.startsWith(item.href);
+
             return (
               <Button
                 key={item.label}
                 variant={isActive ? "secondary" : "ghost"}
-                className={`w-full ${
-                  isCollapsed ? "justify-center" : "justify-start"
-                }`}
+                className="w-full"
                 asChild
               >
-                <Link href={item.href}>
-                  <Icon className={`w-5 h-5 ${!isCollapsed && "mr-3"}`} />
+                <Link
+                  href={item.href}
+                  className={`flex items-center w-full h-full px-3 ${
+                    isCollapsed ? "justify-center" : "justify-start"
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 ${!isCollapsed ? "mr-3" : ""}`} />
                   {!isCollapsed && item.label}
                 </Link>
               </Button>
             );
           })}
         </nav>
+
+
       </div>
     </aside>
   );

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -9,6 +8,18 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Provider } from '@supabase/supabase-js';
 import { useSignUp, useSocialLogin } from "@/lib/client/features/auth/hooks";
+import { create } from 'zustand';
+import { useToast } from '@/components/ui/use-toast';
+
+interface SignUpUiState {
+  error: string | null;
+  setError: (err: string | null) => void;
+}
+
+const useSignUpUiStore = create<SignUpUiState>((set) => ({
+  error: null,
+  setError: (err) => set({ error: err }),
+}));
 
 export function SignUpForm() {
   const [formData, setFormData] = useState({
@@ -21,9 +32,13 @@ export function SignUpForm() {
 
   const { mutate: signUp, isPending } = useSignUp();
   const { mutate: socialLogin, isPending: isSocialPending } = useSocialLogin();
-  
+  const { error, setError } = useSignUpUiStore();
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const handleChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,8 +57,15 @@ export function SignUpForm() {
         lastName: formData.lastName,
       },
       {
-        onSuccess: () => router.push('/auth/sign-up-success'),
-        onError: (err) => setError(err.message),
+        onSuccess: () => {
+          toast({ title: 'Success', description: 'Account created!' });
+          router.push('/auth/sign-up-success');
+        },
+        onError: (err) => {
+          const msg = err.message || 'Sign-up failed';
+          setError(msg);
+          toast({ title: 'Error', description: msg, variant: 'destructive' });
+        },
       }
     );
   };
@@ -51,12 +73,12 @@ export function SignUpForm() {
   const handleSocialLogin = (provider: Provider) => {
     setError(null);
     socialLogin(provider, {
-      onError: (err) => setError(err.message)
+      onError: (err) => {
+        const msg = err.message || 'Social sign-up failed';
+        setError(msg);
+        toast({ title: 'Error', description: msg, variant: 'destructive' });
+      },
     });
-  };
-
-  const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   return (

@@ -11,17 +11,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, Check, UserPlus } from "lucide-react";
-import { toast } from "react-hot-toast";
+import { Search, Check, UserPlus, Loader2, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 import type { EventMember, UserLite } from "@/lib/types";
-import { mockUsers } from "@/lib/mock-data";
+import { useFetchUsers } from "@/lib/client/features/users/hooks";
+import { useAddMember } from "@/lib/client/features/members/hooks";
 
 interface InviteTeamMembersModalProps {
   isOpen: boolean;
   onClose: () => void;
   eventId: string;
   currentMembers: EventMember[];
-  onMembersUpdated?: (newMembers: EventMember[]) => void; 
+  onMembersUpdated?: (newMembers: EventMember[]) => void;
 }
 
 function getInitials(name: string): string {
@@ -32,6 +33,18 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
+// Validate UUID format
+function isValidUUID(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+}
+
+interface ErrorWithMessage {
+  message?: string;
+  error?: string;
+  code?: string;
+}
+
 export function InviteTeamMembersModal({
   isOpen,
   onClose,
@@ -40,22 +53,34 @@ export function InviteTeamMembersModal({
   onMembersUpdated,
 }: InviteTeamMembersModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [availableUsers, setAvailableUsers] = useState<UserLite[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<UserLite[]>([]);
+  const [isInviting, setIsInviting] = useState(false);
 
+  // Check if eventId is valid
+  const isValidEventId = isValidUUID(eventId);
+
+  const { data: allUsers = [], isLoading: isLoadingUsers } = useFetchUsers({ 
+    q: searchQuery, 
+    enabled: isOpen && isValidEventId // Only fetch if eventId is valid
+  });
+
+  const addMemberMutation = useAddMember(eventId);
+
+  const availableUsers: UserLite[] = allUsers.filter(
+    (u) => !currentMembers.some((m) => m.userId === u.userId)
+  );
+
+  // Reset state when modal opens/closes
   useEffect(() => {
-    if (!isOpen) return;
-
-    const allUsers = Object.values(mockUsers);
-    const currentIds = currentMembers.map((m) => m.userId);
-    const filtered = allUsers.filter((u) => !currentIds.includes(u.userId));
-
-    setAvailableUsers(filtered);
-    setSelectedUsers([]);
-    setSearchQuery("");
-  }, [isOpen, currentMembers]);
+    if (!isOpen) {
+      setSelectedUsers([]);
+      setSearchQuery("");
+    }
+  }, [isOpen]);
 
   const handleToggleUser = (user: UserLite) => {
+    if (isInviting) return;
+    
     setSelectedUsers((prev) =>
       prev.some((u) => u.userId === user.userId)
         ? prev.filter((u) => u.userId !== user.userId)
@@ -63,39 +88,130 @@ export function InviteTeamMembersModal({
     );
   };
 
-  const handleInvite = () => {
-    if (!selectedUsers.length) return;
+  const handleInvite = async () => {
+    if (!selectedUsers.length || isInviting || !isValidEventId) return;
+
+    setIsInviting(true);
 
     try {
-      const newMembers: EventMember[] = [
-        ...currentMembers,
-        ...selectedUsers.map(u => ({
-          eventMemberId: `demo-${u.userId}-${Date.now()}`,
-          userId: u.userId,
-          eventId,
-          joinedAt: new Date().toISOString(),
-        })),
-      ];
+      console.log('Starting invitation:', {
+        eventId,
+        userIds: selectedUsers.map(u => u.userId),
+        isValidEventId,
+      });
+      
+      // Invite all selected users sequentially
+      for (const user of selectedUsers) {
+        try {
+          console.log(`Inviting user ${user.userId} to event ${eventId}`);
+          const result = await addMemberMutation.mutateAsync({ 
+            memberId: user.userId 
+          });
+          console.log(`Successfully invited ${user.userId}:`, result);
+        } catch (error) {
+          console.error(`Failed to invite ${user.userId}:`, error);
+          throw error;
+        }
+      }
 
-      toast.success("Members invited successfully!");
-      onMembersUpdated?.(newMembers);
+      console.log('All invitations completed successfully');
+
+      toast.success(
+        `Successfully invited ${selectedUsers.length} member${selectedUsers.length > 1 ? 's' : ''}!`
+      );
+      
+      // Only call onMembersUpdated if callback exists
+      if (onMembersUpdated) {
+        const newMembers: EventMember[] = [
+          ...currentMembers,
+          ...selectedUsers.map((u) => ({
+            eventMemberId: `temp-${u.userId}-${Date.now()}`,
+            userId: u.userId,
+            eventId,
+            joinedAt: new Date().toISOString(),
+          })),
+        ];
+        onMembersUpdated(newMembers);
+      }
+      
       setSelectedUsers([]);
       setSearchQuery("");
       onClose();
     } catch (err) {
-      console.error(err);
-      toast.error("Failed to invite members.");
+      console.error('Failed to invite members:', err);
+      
+      // Extract error message
+      let errorMessage = "Failed to invite members. Please try again.";
+      
+      if (err) {
+        if (typeof err === 'string') {
+          errorMessage = err;
+        } else if (err instanceof Error) {
+          errorMessage = err.message;
+        } else if (typeof err === 'object') {
+          const errorObj = err as ErrorWithMessage;
+          if (errorObj.message) {
+            errorMessage = errorObj.message;
+          } else if (errorObj.error) {
+            errorMessage = errorObj.error;
+          } else if (errorObj.code === '22P02') {
+            errorMessage = "Invalid event ID. Please refresh and try again.";
+          }
+        }
+        
+        console.error('Full error object:', JSON.stringify(err, null, 2));
+      }
+      
+      toast.error(errorMessage);
+    } finally {
+      setIsInviting(false);
     }
   };
 
-  const filteredUsers = availableUsers.filter(
-    (u) =>
-      u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const handleClose = () => {
+    if (!isInviting) {
+      setSelectedUsers([]);
+      setSearchQuery("");
+      onClose();
+    }
+  };
+
+  // Show error if eventId is invalid
+  if (!isValidEventId && isOpen) {
+    return (
+      <Dialog open={isOpen} onOpenChange={handleClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="w-5 h-5" />
+              Invalid Event
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-muted-foreground">
+              Cannot invite members to this event. The event ID is invalid or the event hasn&apos;t been created yet.
+            </p>
+            <div className="p-3 bg-muted rounded-md">
+              <p className="text-xs font-mono text-muted-foreground break-all">
+                Event ID: {eventId}
+              </p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Please save the event first, then try inviting members.
+            </p>
+          </div>
+          <div className="flex justify-end pt-4 border-t">
+            <Button onClick={handleClose}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
       <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Invite Team Members</DialogTitle>
@@ -111,35 +227,45 @@ export function InviteTeamMembersModal({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
+            disabled={isInviting}
           />
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-2">
-          {filteredUsers.length > 0 ? (
-            filteredUsers.map((user) => {
+          {isLoadingUsers ? (
+            <div className="text-center py-8">
+              <Loader2 className="w-8 h-8 mx-auto mb-3 animate-spin text-muted-foreground" />
+              <p className="text-muted-foreground">Loading users...</p>
+            </div>
+          ) : availableUsers.length > 0 ? (
+            availableUsers.map((user) => {
               const isSelected = selectedUsers.some((u) => u.userId === user.userId);
               return (
                 <div
                   key={user.userId}
-                  className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
+                  className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
                     isSelected
-                      ? "border-primary/50 bg-primary/5"
-                      : "border-border hover:border-primary/30 hover:bg-muted/50"
-                  }`}
+                      ? "bg-primary/15 dark:bg-primary/25"
+                      : "bg-muted/50 dark:bg-background/60 hover:bg-muted dark:hover:bg-background/80"
+                  } ${isInviting ? "opacity-50 cursor-not-allowed" : ""}`}
                   onClick={() => handleToggleUser(user)}
                 >
+
+
                   <div className="flex items-center space-x-3">
                     <Avatar className="w-10 h-10">
-                      <AvatarFallback>{getInitials(user.username)}</AvatarFallback>
+                      <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                        {getInitials(user.username)}
+                      </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium">{user.username}</p>
+                      <p className="font-medium text-foreground">{user.username}</p>
                       <p className="text-sm text-muted-foreground">{user.email}</p>
                     </div>
                   </div>
                   {isSelected && (
-                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                      <Check className="w-4 h-4 text-white" />
+                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center shrink-0">
+                      <Check className="w-4 h-4 text-primary-foreground" />
                     </div>
                   )}
                 </div>
@@ -148,21 +274,36 @@ export function InviteTeamMembersModal({
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <UserPlus className="w-8 h-8 mx-auto mb-3 opacity-50" />
-              <p>No users found.</p>
+              <p>
+                {searchQuery 
+                  ? "No users found matching your search." 
+                  : "No available users to invite."}
+              </p>
             </div>
           )}
         </div>
 
         <div className="flex justify-end space-x-3 pt-4 border-t border-border">
-          <Button variant="outline" onClick={onClose}>
+          <Button 
+            variant="outline" 
+            onClick={handleClose} 
+            disabled={isInviting}
+          >
             Cancel
           </Button>
           <Button
             onClick={handleInvite}
-            disabled={selectedUsers.length === 0}
+            disabled={selectedUsers.length === 0 || isInviting}
             className="min-w-[100px]"
           >
-            Invite {selectedUsers.length > 0 ? `(${selectedUsers.length})` : ""}
+            {isInviting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Inviting...
+              </>
+            ) : (
+              `Invite${selectedUsers.length > 0 ? ` (${selectedUsers.length})` : ""}`
+            )}
           </Button>
         </div>
       </DialogContent>

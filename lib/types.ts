@@ -34,15 +34,51 @@ export interface EventMember {
 }
 
 // ----- Event Templates -----
-export interface EventTemplateData {
-  title: string;
-  location?: string | null;
+export interface RawEventData {
+  title?: string; 
+  location?: string | null; 
   eventDescription?: string | null;
-  coverImageUri?: string | null;
-  color: number;
-  startAt?: string | null;
-  endAt?: string | null;
-  members: string[];
+  description?: string | null; 
+  coverImageUri?: string | null; 
+  cover_image_uri?: string | null; 
+  color?: number; 
+  members?: Array<string | { userId: string }>; 
+  startAt?: string | null; 
+  start_at?: string | null;
+  endAt?: string | null; 
+  end_at?: string | null; 
+  tasks?: Array<{
+    title: string;
+    description?: string | null;
+    taskStatus: TaskStatus; 
+    taskPriority: TaskPriority;
+    startAt?: string | null;
+    endAt?: string | null; 
+    assignees?: string[];
+  }>;
+}
+
+export interface EventTemplateData {
+  event: {
+    title: string;
+    description?: string | null;
+    location?: string | null;
+    cover_image_uri?: string | null;
+    color: number;
+    start_at?: string | null;
+    end_at?: string | null;
+    members: string[]; // array of user_id
+  };
+
+  tasks: Array<{
+    title: string;
+    description?: string | null;
+    task_status: TaskStatus;
+    task_priority: TaskPriority;
+    start_at?: string | null;
+    end_at?: string | null;
+    assignees?: string[]; // user_id[]
+  }>;
 }
 
 export interface EventTemplate {
@@ -82,6 +118,7 @@ export interface Task {
   assignees?: UserLite[]; 
   subtasks?: Subtask[];
   attachments?: Attachment[];
+  creatorId: string | null;
 }
 
 export type UpdateEventInput = {
@@ -95,8 +132,6 @@ export type UpdateEventInput = {
   members: EventMember[];
 };
 
-
-
 // ----- User -----
 export interface UserLite {
   userId: string;
@@ -105,6 +140,7 @@ export interface UserLite {
   avatarUrl?: string | null;
 }
 
+// ----- Members -----
 export interface EventMember {
   eventMemberId: string;   
   eventId: string;     
@@ -115,4 +151,14 @@ export interface EventMember {
 
 export interface MembersRes {
   items: EventMember[];
+}
+
+// ----- Activity Logs -----
+export interface ActivityItem {
+  id: string;
+  user: string;           
+  userAvatar?: string | null;
+  action: string;         // action performed (created task, joined event, etc.)
+  item: string;           // related task or event title
+  time: string;           // ISO timestamp
 }

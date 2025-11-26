@@ -7,6 +7,7 @@ import { TrendingUp } from "lucide-react";
 interface ProgressOverviewWidgetProps {
   events: Event[];
   tasks: Task[];
+  onEventClick?: (eventId: string) => void;
 }
 
 function calcEventProgress(eventId: string, tasks: Task[]) {
@@ -17,12 +18,26 @@ function calcEventProgress(eventId: string, tasks: Task[]) {
   return { total, done, progress };
 }
 
-export function ProgressOverviewWidget({ events, tasks }: ProgressOverviewWidgetProps) {
-  
+export function ProgressOverviewWidget({
+  events,
+  tasks,
+  onEventClick,
+}: ProgressOverviewWidgetProps) {
+
   const top = events.slice(0, 3).map(ev => {
     const { total, done, progress } = calcEventProgress(ev.eventId, tasks);
     return { ev, total, done, progress };
   });
+
+  if (!events.length) {
+    return (
+      <Card className="lg:col-span-1">
+        <CardContent className="p-6 text-center text-muted-foreground text-sm">
+          No events to track
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="lg:col-span-1">
@@ -34,9 +49,15 @@ export function ProgressOverviewWidget({ events, tasks }: ProgressOverviewWidget
 
         <div className="space-y-4">
           {top.map(({ ev, progress, total, done }) => (
-            <div key={ev.eventId} className="space-y-2">
+            <div
+              key={ev.eventId}
+              className="space-y-2 cursor-pointer"
+              onClick={() => onEventClick?.(ev.eventId)}
+            >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-foreground truncate">{ev.title}</span>
+                <span className="text-sm font-medium text-foreground truncate">
+                  {ev.title}
+                </span>
                 <span className="text-sm text-muted-foreground">
                   {done}/{total} • {progress}%
                 </span>
@@ -49,12 +70,6 @@ export function ProgressOverviewWidget({ events, tasks }: ProgressOverviewWidget
               </div>
             </div>
           ))}
-
-          {events.length === 0 && (
-            <div className="text-center py-4 text-muted-foreground text-sm">
-              No events to track
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>

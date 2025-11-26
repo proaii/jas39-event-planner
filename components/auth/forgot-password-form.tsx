@@ -14,34 +14,68 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useState } from "react";
+import { useToast } from "@/components/ui/use-toast";
+import { create } from "zustand";
+
+interface ForgotPasswordUiState {
+  isLoading: boolean;
+  success: boolean;
+  setLoading: (loading: boolean) => void;
+  setSuccess: (success: boolean) => void;
+  resetState: () => void;
+}
+
+const useForgotPasswordUiStore = create<ForgotPasswordUiState>((set) => ({
+  isLoading: false,
+  success: false,
+  setLoading: (isLoading) => set({ isLoading }),
+  setSuccess: (success) => set({ success }),
+  resetState: () => set({ isLoading: false, success: false }),
+}));
 
 export function ForgotPasswordForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
   const [email, setEmail] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const { isLoading, success, setLoading, setSuccess, resetState } = useForgotPasswordUiStore();
+  const { toast } = useToast();
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     const supabase = createClient();
-    setIsLoading(true);
-    setError(null);
+
+    setLoading(true);
 
     try {
-      // The url which will be included in the email. This URL needs to be configured in your redirect URLs in the Supabase dashboard at https://supabase.com/dashboard/project/_/auth/url-configuration
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/update-password`,
       });
+      
       if (error) throw error;
+
       setSuccess(true);
+      setEmail("");
+      toast({
+        title: "Success",
+        description: "Password reset email sent!",
+        variant: "default",
+      });
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
+      const message = error instanceof Error ? error.message : "An error occurred";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
+  };
+
+  const handleResetForm = () => {
+    resetState();
+    setEmail("");
   };
 
   return (
@@ -57,6 +91,9 @@ export function ForgotPasswordForm({
               If you registered using your email and password, you will receive
               a password reset email.
             </p>
+            <Button className="mt-4" onClick={handleResetForm}>
+              Reset Another Password
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -80,13 +117,19 @@ export function ForgotPasswordForm({
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    disabled={isLoading}
                   />
                 </div>
-                {error && <p className="text-sm text-red-500">{error}</p>}
-                <Button type="submit" className="w-full" disabled={isLoading}>
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isLoading}
+                >
                   {isLoading ? "Sending..." : "Send reset email"}
                 </Button>
               </div>
+
               <div className="mt-4 text-center text-sm">
                 Already have an account?{" "}
                 <Link

@@ -12,24 +12,31 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Event } from "@/lib/types";
 import { TemplateData } from "@/schemas/template";
+import { useSaveTemplate } from "@/stores/useEventStore"; 
 
 interface SaveTemplateModalProps {
   isOpen: boolean;
   onClose: () => void;
+  eventId: string; 
   templateData?: Partial<Event>;
-  onSave: (data: TemplateData) => void;
+  onSave?: () => void; 
 }
 
 export function SaveTemplateModal({
   isOpen,
   onClose,
+  eventId,
   templateData = {},
   onSave,
-  }: SaveTemplateModalProps) {
-    const [name, setName] = useState(templateData.title || "");
-    const [description, setDescription] = useState(templateData.description || "");
+}: SaveTemplateModalProps) {
+  const [name, setName] = useState(templateData.title || "");
+  const [description, setDescription] = useState(templateData.description || "");
+
+  const { mutate: saveTemplate, isPending } = useSaveTemplate();
 
   useEffect(() => {
     if (isOpen) {
@@ -38,9 +45,9 @@ export function SaveTemplateModal({
     }
   }, [isOpen, templateData]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || isPending) return;
 
     const data: TemplateData = {
       name: name.trim(),
@@ -55,12 +62,41 @@ export function SaveTemplateModal({
       members: templateData.members || [],
     };
 
-    onSave(data);
-    onClose();
+    saveTemplate(
+      { eventId, data },
+      {
+        onSuccess: () => {
+          toast.success("Template saved successfully!");
+          
+          // Reset form
+          setName("");
+          setDescription("");
+          
+          onSave?.();
+          onClose();
+        },
+        onError: (err: unknown) => {
+          console.error('Failed to save template:', err);
+          const msg = err instanceof Error ? err.message : 'Failed to save template. Please try again.';
+          toast.error(msg);
+        }
+      }
+    );
+  };
+
+  const handleClose = () => {
+    if (!isPending) {
+      setName("");
+      setDescription("");
+      onClose();
+    }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog 
+      open={isOpen} 
+      onOpenChange={(open) => { if (!open) handleClose(); }}
+    >
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Save as Template</DialogTitle>
@@ -77,6 +113,7 @@ export function SaveTemplateModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Weekly Study Session Template"
+              disabled={isPending}
               required
             />
           </div>
@@ -88,16 +125,32 @@ export function SaveTemplateModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Brief description of when to use this template..."
+              disabled={isPending}
               rows={3}
             />
           </div>
 
           <div className="flex gap-2 justify-end">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={handleClose}
+              disabled={isPending}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={!name.trim()}>
-              Save Template
+            <Button 
+              type="submit" 
+              disabled={!name.trim() || isPending}
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Template"
+              )}
             </Button>
           </div>
         </form>

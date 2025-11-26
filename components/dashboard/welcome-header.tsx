@@ -1,5 +1,6 @@
 'use client';
 
+import { useFetchCurrentUser } from "@/lib/client/features/users/hooks";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,23 +11,26 @@ import {
 import { ChevronDown, FileText, Layout, Plus } from "lucide-react";
 
 interface WelcomeHeaderProps {
-  currentUser: string;
   onCreateEvent: () => void;
   onCreateFromTemplate?: () => void;
   onOpenCustomizeDashboard?: () => void;
 }
 
 export function WelcomeHeader({
-  currentUser,
   onCreateEvent,
   onCreateFromTemplate,
   onOpenCustomizeDashboard,
 }: WelcomeHeaderProps) {
+  const { data: currentUser, isLoading, isError } = useFetchCurrentUser();
+
+  if (isLoading) return <p>Loading user...</p>;
+  if (isError || !currentUser) return <p className="text-red-500">Failed to load user</p>;
+
   return (
     <div className="flex items-center justify-between mb-8">
       <div>
-        <h1 className="text-foreground mb-2">
-          Welcome back, {currentUser.split(" ")[0]}! 👋
+        <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+          Welcome back, {currentUser.username.split(" ")[0]}! 👋
         </h1>
       </div>
 

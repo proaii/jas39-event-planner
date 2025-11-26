@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Event, Task } from "@/lib/types";
@@ -9,13 +9,13 @@ import { getEffectiveDueDate } from "@/lib/server/supabase/utils";
 import { CheckSquare, Plus } from "lucide-react";
 import { SearchAndFilter, FilterOptions } from "@/components/search-and-filter";
 import { TaskCard } from "@/components/task-card";
+import { useFetchEvents } from "@/stores/useEventStore";
+import { useFetchAllTasks } from "@/lib/client/features/tasks/hooks";
+import { useFetchCurrentUser } from "@/lib/client/features/users/hooks"; 
 
 interface MyTasksSectionProps {
-  events: Event[];
-  tasks: Task[];
-  currentUser: string;
   onStatusChange?: (taskId: string, newStatus: Task["taskStatus"]) => void;
-  onSubTaskToggle?: (taskId:string, subTaskId: string) => void;
+  onSubTaskToggle?: (taskId: string, subTaskId: string) => void;
   onNavigateToAllTasks?: (filterContext?: "my" | "all") => void;
   onCreatePersonalTask: () => void;
 }
@@ -30,15 +30,29 @@ function effectiveDueDateOf(t: Task): string | undefined {
   return getEffectiveDueDate(dateish) ?? undefined;
 }
 
+interface PaginatedPage {
+  items?: Task[] | Event[];
+}
+
+interface PaginatedData {
+  pages?: PaginatedPage[];
+}
+
 export function MyTasksSection({
-  events,
-  tasks,
-  currentUser,
   onStatusChange,
   onSubTaskToggle,
   onNavigateToAllTasks,
   onCreatePersonalTask,
 }: MyTasksSectionProps) {
+  // Fetch current user
+  const { data: currentUser, isLoading: loadingUser } = useFetchCurrentUser();
+  
+  const { data: eventsData, isLoading: loadingEvents, error: errorEvents } = useFetchEvents();
+  const { data: tasksData, isLoading: loadingTasks, error: errorTasks } = useFetchAllTasks({ pageSize: 200 });
+
+  const [events, setEvents] = useState<Event[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<FilterOptions>({
     status: [],
@@ -51,13 +65,40 @@ export function MyTasksSection({
   });
   const [taskSortBy, setTaskSortBy] = useState<"dueDate" | "priority" | "recent">("dueDate");
 
+  const isLoading = loadingUser || loadingEvents || loadingTasks;
+  const error = errorEvents?.message || errorTasks?.message || null;
+
+  // Flatten paginated data safely
+  useEffect(() => {
+    const flatEvents: Event[] = eventsData
+      ? "pages" in eventsData && Array.isArray((eventsData as PaginatedData).pages)
+        ? (eventsData as PaginatedData).pages!.flatMap((p: PaginatedPage) => Array.isArray(p?.items) ? p.items as Event[] : [])
+        : Array.isArray((eventsData as { items?: Event[] }).items)
+          ? (eventsData as { items: Event[] }).items
+          : []
+      : [];
+
+    const flatTasks: Task[] = tasksData
+      ? "pages" in tasksData && Array.isArray((tasksData as PaginatedData).pages)
+        ? (tasksData as PaginatedData).pages!.flatMap((p: PaginatedPage) => Array.isArray(p?.items) ? p.items as Task[] : [])
+        : Array.isArray((tasksData as { items?: Task[] }).items)
+          ? (tasksData as { items: Task[] }).items
+          : []
+      : [];
+
+    setEvents(flatEvents);
+    setTasks(flatTasks);
+  }, [eventsData, tasksData]);
+
   const userTasks = useMemo(() => {
+    if (!currentUser) return [];
+    
     const isAssignedToCurrentUser = (t: Task) =>
       t.assignees?.some(
         (a) =>
-          a?.username === currentUser ||
-          a?.userId === currentUser ||
-          a?.email === currentUser
+          a?.username === currentUser.username ||
+          a?.userId === currentUser.userId ||
+          a?.email === currentUser.email
       ) ?? false;
 
     const eventMap = new Map(events.map((e) => [e.eventId, e.title]));
@@ -103,6 +144,30 @@ export function MyTasksSection({
     return dueDate < today && t.taskStatus !== "Done";
   }).length;
 
+  if (isLoading) {
+    return (
+      <Card className="p-8 text-center">
+        <CardContent>Loading tasks...</CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="p-8 text-center">
+        <CardContent className="text-red-500">{error}</CardContent>
+      </Card>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <Card className="p-8 text-center">
+        <CardContent>Please log in to view your tasks</CardContent>
+      </Card>
+    );
+  }
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
@@ -130,7 +195,7 @@ export function MyTasksSection({
         availableAssignees={availableAssignees}
         showTaskFilters
         placeholder="Search your tasks..."
-        currentUser={currentUser}
+        currentUser={currentUser.username}
         sortBy={taskSortBy}
         onSortChange={setTaskSortBy}
         showSort

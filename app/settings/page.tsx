@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,61 +9,56 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { User, Bell, Palette, Shield, Edit } from "lucide-react";
-import { useTheme } from "next-themes"; 
+import { useTheme } from "next-themes";
 import { EditProfileModal } from "@/components/settings/EditProfileModal";
+import { useUser } from "@/lib/client/features/auth/hooks";
+import { useFetchUser } from "@/lib/client/features/users/hooks";
+import { useUiStore } from "@/stores/ui-store";
 
 export default function SettingsPage() {
-  const currentUser = "Alex Johnson";
+  const { data: authUser } = useUser();
+  const { data: currentUser } = useFetchUser(authUser?.id ?? "");
 
-  // ---------- Notification Settings ----------
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [inAppNotifications, setInAppNotifications] = useState(true);
+  // ==================== UI STORE ====================
+  const {
+    // Profile Modal
+    isEditProfileModalOpen,
+    openEditProfileModal,
+    closeEditProfileModal,
+    
+    // Profile Data
+    profileData,
+    tempProfileData,
+    setTempProfileData,
+    saveProfileData,
+    resetTempProfileData,
+    initializeProfileData,
+    
+    // Settings
+    notificationSettings,
+    setNotificationSettings,
+    appearanceSettings,
+    setAppearanceSettings,
+    privacySettings,
+    setPrivacySettings,
+  } = useUiStore();
 
-  // ---------- Theme & Appearance ----------
-  const { theme, setTheme } = useTheme(); 
-  const [compactView, setCompactView] = useState(false);
+  // ==================== THEME (from next-themes) ====================
+  const { theme, setTheme } = useTheme();
 
-  // ---------- Privacy Settings ----------
-  const [profileVisibility, setProfileVisibility] = useState(true);
-  const [activityTracking, setActivityTracking] = useState(true);
+  // ==================== INITIALIZE PROFILE DATA ====================
+  useEffect(() => {
+    if (currentUser?.username && currentUser?.email) {
+      initializeProfileData(currentUser.username, currentUser.email);
+    }
+  }, [currentUser, initializeProfileData]);
 
-  // ---------- Profile Settings ----------
-  const [openEditModal, setOpenEditModal] = useState(false);
-
-  const parseFullName = (fullName: string) => {
-    const parts = fullName.trim().split(" ");
-    return {
-      firstName: parts[0] || "",
-      middleName: parts.length === 3 ? parts[1] : "",
-      lastName: parts.length > 1 ? parts[parts.length - 1] : "",
-    };
-  };
-
-  const [profileData, setProfileData] = useState({
-    ...parseFullName(currentUser),
-    email: "alex.johnson@university.edu",
-    phone: "+1 (555) 123-4567",
-    location: "San Francisco, CA",
-    bio: "Computer Science student passionate about technology and events.",
-  });
-
-  const [editProfileData, setEditProfileData] = useState(profileData);
-
+  // ==================== HELPER FUNCTIONS ====================
   const getInitials = (first: string, middle: string, last: string) =>
     [first, middle, last].map((n) => n?.[0]).join("").toUpperCase();
 
   const getFullName = (first: string, middle: string, last: string) =>
     [first, middle, last].filter(Boolean).join(" ");
-
-  const handleSaveProfile = () => {
-    setProfileData(editProfileData);
-    setOpenEditModal(false);
-  };
-
-  const handleCancelProfile = () => {
-    setEditProfileData(profileData);
-    setOpenEditModal(false);
-  };
 
   return (
     <main className="flex-1 p-8 space-y-6 max-w-5xl mx-auto">
@@ -96,7 +91,7 @@ export default function SettingsPage() {
                 <User className="w-5 h-5" /> Profile Information
               </CardTitle>
 
-              <Button variant="outline" onClick={() => setOpenEditModal(true)}>
+              <Button variant="outline" onClick={openEditProfileModal}>
                 <Edit className="w-4 h-4 mr-1" /> Edit Profile
               </Button>
             </CardHeader>
@@ -137,14 +132,14 @@ export default function SettingsPage() {
                     <Label className="text-sm text-muted-foreground">
                       Phone Number
                     </Label>
-                    <p>{profileData.phone}</p>
+                    <p>{profileData.phone || "Not set"}</p>
                   </div>
 
                   <div className="space-y-1">
                     <Label className="text-sm text-muted-foreground">
                       Location
                     </Label>
-                    <p>{profileData.location}</p>
+                    <p>{profileData.location || "Not set"}</p>
                   </div>
                 </div>
               </div>
@@ -154,7 +149,7 @@ export default function SettingsPage() {
               {/* About */}
               <div>
                 <Label className="text-sm text-muted-foreground">About Me</Label>
-                <p className="text-foreground mt-1">{profileData.bio}</p>
+                <p className="text-foreground mt-1">{profileData.bio || "No bio yet"}</p>
               </div>
 
               <Separator />
@@ -179,16 +174,16 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Modal Component */}
+          {/* Edit Profile Modal */}
           <EditProfileModal
-            open={openEditModal}
-            onOpenChange={setOpenEditModal}
-            data={editProfileData}
+            open={isEditProfileModalOpen}
+            onOpenChange={closeEditProfileModal}
+            data={tempProfileData}
             onChange={(key, value) =>
-              setEditProfileData({ ...editProfileData, [key]: value })
+              setTempProfileData((prev) => ({ ...prev, [key]: value }))
             }
-            onSave={handleSaveProfile}
-            onCancel={handleCancelProfile}
+            onSave={saveProfileData}
+            onCancel={resetTempProfileData}
           />
         </TabsContent>
 
@@ -204,15 +199,19 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between">
                 <Label>Email Notifications</Label>
                 <Switch
-                  checked={emailNotifications}
-                  onCheckedChange={setEmailNotifications}
+                  checked={notificationSettings.email}
+                  onCheckedChange={(checked) =>
+                    setNotificationSettings({ email: checked })
+                  }
                 />
               </div>
               <div className="flex items-center justify-between">
                 <Label>In-App Notifications</Label>
                 <Switch
-                  checked={inAppNotifications}
-                  onCheckedChange={setInAppNotifications}
+                  checked={notificationSettings.inApp}
+                  onCheckedChange={(checked) =>
+                    setNotificationSettings({ inApp: checked })
+                  }
                 />
               </div>
             </CardContent>
@@ -240,8 +239,10 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between">
                 <Label>Compact View</Label>
                 <Switch
-                  checked={compactView}
-                  onCheckedChange={setCompactView}
+                  checked={appearanceSettings.compactView}
+                  onCheckedChange={(checked) =>
+                    setAppearanceSettings({ compactView: checked })
+                  }
                 />
               </div>
             </CardContent>
@@ -260,15 +261,19 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between">
                 <Label>Profile Visibility</Label>
                 <Switch
-                  checked={profileVisibility}
-                  onCheckedChange={setProfileVisibility}
+                  checked={privacySettings.profileVisibility}
+                  onCheckedChange={(checked) =>
+                    setPrivacySettings({ profileVisibility: checked })
+                  }
                 />
               </div>
               <div className="flex items-center justify-between">
                 <Label>Activity Tracking</Label>
                 <Switch
-                  checked={activityTracking}
-                  onCheckedChange={setActivityTracking}
+                  checked={privacySettings.activityTracking}
+                  onCheckedChange={(checked) =>
+                    setPrivacySettings({ activityTracking: checked })
+                  }
                 />
               </div>
             </CardContent>

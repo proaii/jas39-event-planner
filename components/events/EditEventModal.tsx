@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,19 +18,18 @@ import { Calendar, MapPin, Users, Image, X, UserPlus } from "lucide-react";
 import { unsplash_tool } from "@/lib/client/unsplash";
 import { useUiStore } from "@/stores/ui-store";
 import { editEventSchema } from "@/schemas/editEventSchema";
-import type { Event, EventMember, UpdateEventInput } from "@/lib/types";
+import type { Event, EventMember, UpdateEventInput, UserLite } from "@/lib/types";
 import NextImage from "next/image";
 import { InviteTeamMembersModal } from "./InviteTeamMembersModal";
 import { toast } from "react-hot-toast";
-import { mockUsers } from "@/lib/mock-data";
-import { useEventStore } from "@/stores/useEventStore";
+import { useUpdateEvent } from "@/stores/useEventStore";
+import { useFetchUsers } from "@/lib/client/features/users/hooks";
 
 export function EditEventModal({ events }: { events: Event[] }) {
-  const { isEditEventModalOpen, currentEventId, closeEditEventModal } = useUiStore();
-  const { updateEvent } = useEventStore();
+  const { isEditEventModalOpen, selectedEventIdForEdit, closeEditEventModal } = useUiStore();
+  const updateEventMutation = useUpdateEvent();
 
-  const event = events.find((e) => e.eventId === currentEventId) || null;
-  const currentUserId = "u1";
+  const event = events.find((e) => e.eventId === selectedEventIdForEdit) || null;
 
   const [formData, setFormData] = useState<UpdateEventInput>({
     title: "",
@@ -46,6 +45,28 @@ export function EditEventModal({ events }: { events: Event[] }) {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
 
+  // ------------------- USERS -------------------
+  // Fetch all users once, filtered only when typing
+  const { data: allUsers = [] } = useFetchUsers({ q: "", enabled: true });
+
+  const usersMap = useMemo(() => {
+    const map = new Map<string, UserLite>();
+    for (const u of allUsers) map.set(u.userId, u);
+    return map;
+  }, [allUsers]);
+
+  const getDisplayName = (userId: string) => usersMap.get(userId)?.username || userId;
+
+  const getInitials = (userId: string) => {
+    const name = getDisplayName(userId);
+    return name
+      .split(" ")
+      .map((p) => p[0])
+      .join("")
+      .toUpperCase();
+  };
+
+  // ------------------- Load event into form -------------------
   useEffect(() => {
     if (!event) return;
 
@@ -67,8 +88,33 @@ export function EditEventModal({ events }: { events: Event[] }) {
       members: membersData,
     });
 
-    if (parsed.success) setFormData(parsed.data);
+    if (parsed.success) {
+      setFormData(parsed.data);
+    }
   }, [event]);
+
+  const generateCoverImage = async () => {
+    if (!formData.title.trim()) return;
+
+    setIsGeneratingImage(true);
+    try {
+      const result = await unsplash_tool(formData.title);
+      if (result) setFormData((prev) => ({ ...prev, coverImageUri: result }));
+      else toast.error("No image found");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to generate cover image");
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  const removeMember = (memberId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      members: prev.members.filter((m) => m.eventMemberId !== memberId),
+    }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,42 +137,8 @@ export function EditEventModal({ events }: { events: Event[] }) {
       })),
     };
 
-    updateEvent(event.eventId, normalizedData);
-    toast.success("Event updated successfully!");
-    closeEditEventModal();
+    updateEventMutation.mutate({ eventId: event.eventId, data: normalizedData });
   };
-
-  const generateCoverImage = async () => {
-    if (!formData.title.trim()) return;
-    setIsGeneratingImage(true);
-    try {
-      const imageUrl = await unsplash_tool(formData.title);
-      if (imageUrl) setFormData((prev) => ({ ...prev, coverImageUri: imageUrl }));
-    } finally {
-      setIsGeneratingImage(false);
-    }
-  };
-
-  const removeMember = (eventMemberId: string) => {
-    const member = formData.members.find((m) => m.eventMemberId === eventMemberId);
-    if (!member) return;
-    if (member.userId === currentUserId) {
-      toast.error("You cannot remove yourself from the event.");
-      return;
-    }
-    setFormData((prev) => ({
-      ...prev,
-      members: prev.members.filter((m) => m.eventMemberId !== eventMemberId),
-    }));
-  };
-
-  const getDisplayName = (userId: string) => mockUsers[userId]?.username || userId;
-  const getInitials = (userId: string) =>
-    getDisplayName(userId)
-      .split(" ")
-      .map((p) => p[0])
-      .join("")
-      .toUpperCase();
 
   if (!event) return null;
 
@@ -148,18 +160,19 @@ export function EditEventModal({ events }: { events: Event[] }) {
             {/* Cover Image */}
             <div className="space-y-2">
               <Label className="flex items-center space-x-2">
-                <Image className="w-4 h-4" />
+                <Image className="w-4 h-4" aria-label="Cover image icon" />
                 <span>Cover Image</span>
               </Label>
               {formData.coverImageUri && (
                 <div className="relative">
                   <NextImage
                     src={formData.coverImageUri}
-                    alt={`Cover image for ${event.title}`}
+                    alt={`Cover image for ${event.title}`} 
                     className="w-full h-32 object-cover rounded-lg"
                     width={1080}
                     height={1080}
                   />
+
                   <Button
                     type="button"
                     variant="outline"
@@ -195,12 +208,10 @@ export function EditEventModal({ events }: { events: Event[] }) {
             {/* Event Color */}
             <EventColorSelector
               selectedColor={`bg-chart-${formData.color + 1}`}
-              onColorSelect={(color) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  color: parseInt(color.split("-")[2]) - 1,
-                }))
-              }
+              onColorSelect={(color) => {
+                const colorNumber = parseInt(color.split("-")[2]) - 1;
+                setFormData((prev) => ({ ...prev, color: colorNumber }));
+              }}
             />
 
             {/* Title */}
@@ -361,11 +372,11 @@ export function EditEventModal({ events }: { events: Event[] }) {
         isOpen={inviteModalOpen}
         onClose={() => setInviteModalOpen(false)}
         eventId={event.eventId}
-        currentMembers={formData.members} 
+        currentMembers={formData.members}
         onMembersUpdated={(newMembers: EventMember[]) =>
           setFormData((prev) => ({
             ...prev,
-            members: newMembers, 
+            members: newMembers,
           }))
         }
       />

@@ -1,26 +1,19 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
-import type { Event } from '@/lib/types';
 import type { ApiError } from '@/lib/errors';
+import type { Event } from '@/lib/types';
+import { MINUTES } from '@/lib/constants'
 
 type EventsPage = { items: Event[]; nextPage: number | null };
 
-// ---------- Queries ----------  
+// ---------- Events ----------
 
-/**
-* Fetch all events associated with the user (owner + member)
-* - Cache in memory
-* - No refresh if returned within 5 minutes
-* - No re-refetch when switching tabs
-* - Supports prefetch (can load in advance)
-*/
-
-export function useEventsInfinite(f: { q?: string; pageSize?: number }) {
+export function useFetchEvents(f: { q?: string; pageSize?: number }) {
   const pageSize = f.pageSize ?? 10;
 
-  return useInfiniteQuery<EventsPage, ApiError, EventsPage, ReturnType<typeof queryKeys.events>, number>({
+  return useInfiniteQuery<EventsPage, ApiError, InfiniteData<EventsPage>, ReturnType<typeof queryKeys.events>, number>({
     queryKey: queryKeys.events({ ...f, pageSize }),
     initialPageParam: 1,
     queryFn: async ({ pageParam }): Promise<EventsPage> => {
@@ -35,15 +28,15 @@ export function useEventsInfinite(f: { q?: string; pageSize?: number }) {
     },
     getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,
 
-    staleTime: 1000 * 60 * 5, // 5 mins
-    gcTime: 1000 * 60 * 10, // 10 mins
+    staleTime: MINUTES.FIVE,
+    gcTime: MINUTES.TEN,
     refetchOnWindowFocus: false, // No need to refetch when changing tabs.
     refetchOnReconnect: true, // But refetch if the internet is disconnected and comes back.
     retry: 1, // Reduce the number of retry to avoid spam API.
   });
 }
 
-export function useEvent(id: string) {
+export function useFetchEvent(id: string) {
   return useQuery<Event, ApiError>({
     queryKey: queryKeys.event(id),
     queryFn: async () => {
@@ -51,7 +44,7 @@ export function useEvent(id: string) {
       if (!r.ok) throw await r.json();
       return (await r.json()) as Event;
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: MINUTES.FIVE,
     refetchOnWindowFocus: false,
   });
 }
@@ -65,7 +58,7 @@ export async function prefetchEvent(qc: ReturnType<typeof useQueryClient>, id: s
       if (!r.ok) throw await r.json();
       return (await r.json()) as Event;
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: MINUTES.FIVE,
   });
 }
 
@@ -85,6 +78,7 @@ export function useCreateEvent() {
     onSuccess: (ev) => {
       qc.setQueryData(queryKeys.event(ev.eventId), ev);
       qc.invalidateQueries({ queryKey: ['events'] });
+      qc.invalidateQueries({ queryKey: ['event-activity', ev.eventId] });
     },
     retry: 0,
   });
@@ -105,6 +99,7 @@ export function useEditEvent() {
     onSuccess: (ev) => {
       qc.setQueryData(queryKeys.event(ev.eventId), ev);
       qc.invalidateQueries({ queryKey: ['events'] });
+      qc.invalidateQueries({ queryKey: ['event-activity', ev.eventId] });
     },
     retry: 0,
   });
@@ -130,7 +125,9 @@ export function useDeleteEvent() {
         },
       });
       qc.invalidateQueries({ queryKey: queryKeys.members(eventId) });
+      qc.removeQueries({ queryKey: ['event-activity', eventId] });
     },
     retry: 0,
   });
 }
+

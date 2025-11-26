@@ -26,7 +26,7 @@ export async function DELETE(
     
     await deleteSubtask(subtaskId);
 
-    return new Response(null, { status: 204 });
+    return Response.json({ success: true, deletedSubtaskId: subtaskId });
   } catch (e) {
     return jsonError(e);
   }

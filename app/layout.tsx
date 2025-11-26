@@ -12,8 +12,8 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Next.js + Supabase Starter",
-  description: "Modern setup with React Query, ThemeProvider, Supabase auth",
+  title: "JAS39 Event Planner",
+  description: "The ultimate student collaboration platform. Manage group projects, track individual tasks, visualize deadlines with Board View, and secure your account. Transform chaos into organized, traceable success.",
 };
 
 export default async function RootLayout({

@@ -47,7 +47,7 @@
     "ics": "^3.8.1",
     "input-otp": "1.4.2",
     "lucide-react": "^0.487.0",
-    "next": "latest",
+    "next": "15.5.7",
     "next-themes": "0.4.6",
     "radix-ui": "^1.4.3",
     "react": "^19.0.0",
